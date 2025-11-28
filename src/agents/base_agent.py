@@ -6,10 +6,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
-import anthropic
 from dotenv import load_dotenv
 
 from ..tools.tool_registry import Tool, ToolRegistry
+from ..llm import LLMProvider, LLMConfig, BaseLLMClient, create_llm_client
 
 load_dotenv()
 
@@ -30,9 +30,10 @@ class AgentConfig:
     system_prompt: str
     tools: List[str] = field(default_factory=list)
     mode: AgentMode = AgentMode.AUTOMATED
-    model: str = "claude-sonnet-4-20250514"
+    model: Optional[str] = None  # If None, uses provider default from env
     max_tokens: int = 4096
     max_iterations: int = 10
+    llm_provider: Optional[LLMProvider] = None  # If None, uses LLM_PROVIDER from env
 
 
 @dataclass
@@ -54,11 +55,22 @@ class BaseAgent(ABC):
         config: AgentConfig,
         tool_registry: ToolRegistry,
         approval_callback: Optional[Callable[[str, Dict[str, Any]], bool]] = None,
+        llm_client: Optional[BaseLLMClient] = None,
     ):
         self.config = config
         self.tool_registry = tool_registry
         self.approval_callback = approval_callback
-        self.client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+        # Initialize LLM client - use provided client, or create from config/env
+        if llm_client is not None:
+            self.llm_client = llm_client
+        else:
+            llm_config = LLMConfig.from_env(config.llm_provider)
+            # Override model if specified in agent config
+            if config.model:
+                llm_config.model = config.model
+            self.llm_client = create_llm_client(config=llm_config)
+
         self.messages: List[Dict[str, Any]] = []
         self.tool_call_history: List[Dict[str, Any]] = []
 
@@ -138,48 +150,50 @@ class BaseAgent(ABC):
         while iterations < self.config.max_iterations:
             iterations += 1
 
-            # Call Claude
-            response = self.client.messages.create(
-                model=self.config.model,
-                max_tokens=self.config.max_tokens,
-                system=self.config.system_prompt,
-                tools=tools if tools else None,
+            # Call LLM using provider-agnostic client
+            response = self.llm_client.chat(
                 messages=self.messages,
+                system_prompt=self.config.system_prompt,
+                tools=tools if tools else None,
+                max_tokens=self.config.max_tokens,
             )
 
+            stop_reason = response.get("stop_reason", "")
+            tool_calls = response.get("tool_calls", [])
+
             # Check for tool use
-            if response.stop_reason == "tool_use":
+            if stop_reason == "tool_use" or tool_calls:
                 # Add assistant response to messages
-                self.messages.append({"role": "assistant", "content": response.content})
+                # For Anthropic, use raw_content; for others, construct message
+                if "raw_content" in response:
+                    self.messages.append({"role": "assistant", "content": response["raw_content"]})
+                else:
+                    # Construct assistant message with tool calls for non-Anthropic providers
+                    assistant_content = response.get("content", "")
+                    self.messages.append({"role": "assistant", "content": assistant_content})
 
                 # Process tool calls
                 tool_results = []
-                for block in response.content:
-                    if block.type == "tool_use":
-                        result = self._execute_tool(block.name, block.input)
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": result,
-                        })
+                for tc in tool_calls:
+                    result = self._execute_tool(tc["name"], tc["input"])
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": tc["id"],
+                        "content": result,
+                    })
 
                 # Add tool results to messages
                 self.messages.append({"role": "user", "content": tool_results})
 
-            elif response.stop_reason == "end_turn":
+            elif stop_reason in ("end_turn", "stop"):
                 # Extract final response
-                output = ""
-                for block in response.content:
-                    if hasattr(block, "text"):
-                        output = block.text
-                        break
-
+                output = response.get("content", "")
                 return self._process_output(output)
 
             else:
                 return AgentResult(
                     success=False,
-                    output=f"Unexpected stop reason: {response.stop_reason}",
+                    output=f"Unexpected stop reason: {stop_reason}",
                 )
 
         return AgentResult(
