@@ -10,6 +10,7 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from ..agents.base_agent import AgentMode, AgentResult, BaseAgent
+from ..utils.output_formatter import OutputFormatter, get_formatter
 from ..agents.feasibility_agent import FeasibilityAgent
 from ..agents.business_study_agent import BusinessStudyAgent
 from ..agents.functional_model_agent import FunctionalModelAgent
@@ -110,6 +111,7 @@ class DSDMOrchestrator:
             include_devops=include_devops,
         )
         self.console = Console()
+        self.formatter = get_formatter(self.console)
         self.agents: Dict[DSDMPhase, BaseAgent] = {}
         self.design_build_agents: Dict[DesignBuildRole, BaseAgent] = {}
         self.results: Dict[DSDMPhase, AgentResult] = {}
@@ -294,18 +296,25 @@ class DSDMOrchestrator:
         """Run a specific phase."""
         agent = self.agents.get(phase)
         if not agent:
+            self.formatter.format_error(
+                f"Phase {phase.value} is not enabled",
+                "Enable this phase in the orchestrator configuration."
+            )
             return AgentResult(
                 success=False,
                 output=f"Phase {phase.value} is not enabled",
             )
 
         self.current_phase = phase
-        self.console.print(Panel(
-            f"[bold cyan]Starting {phase.value.replace('_', ' ').title()} Phase[/bold cyan]\n"
-            f"Agent: {agent.name}\n"
-            f"Mode: {agent.mode.value}",
-            title="DSDM Phase",
-        ))
+        phase_title = phase.value.replace('_', ' ').title()
+
+        # Display start banner
+        self.formatter.format_agent_start(
+            agent_name=agent.name,
+            phase_or_role=f"{phase_title} Phase",
+            mode=agent.mode.value,
+            description=agent.config.description if hasattr(agent, 'config') else None,
+        )
 
         # Combine previous phase output with context if available
         full_context = context or {}
@@ -319,12 +328,14 @@ class DSDMOrchestrator:
         self.results[phase] = result
         self.current_phase = None
 
-        # Display result
-        status = "[green]✓ Success[/green]" if result.success else "[red]✗ Failed[/red]"
-        self.console.print(Panel(
-            f"{status}\n\n{result.output[:500]}{'...' if len(result.output) > 500 else ''}",
-            title=f"{phase.value.replace('_', ' ').title()} Result",
-        ))
+        # Display formatted result
+        self.formatter.format_agent_result(
+            phase_or_role=phase_title,
+            success=result.success,
+            output=result.output,
+            artifacts=result.artifacts if result.artifacts else None,
+            tool_calls=agent.tool_call_history if hasattr(agent, 'tool_call_history') else None,
+        )
 
         return result
 
@@ -339,24 +350,29 @@ class DSDMOrchestrator:
         end_idx = len(self.PHASE_ORDER) if end_phase is None else self.PHASE_ORDER.index(end_phase) + 1
 
         phases_to_run = self.PHASE_ORDER[start_idx:end_idx]
+        phase_names = [p.value.replace('_', ' ').title() for p in phases_to_run]
 
-        self.console.print(Panel(
-            f"[bold]Starting DSDM Workflow[/bold]\n"
-            f"Phases: {' → '.join(p.value.replace('_', ' ').title() for p in phases_to_run)}",
-            title="DSDM Orchestrator",
-        ))
+        # Display workflow start banner
+        self.formatter.format_workflow_start(
+            phases=phase_names,
+            description=f"Processing: {user_input[:100]}..." if len(user_input) > 100 else f"Processing: {user_input}",
+        )
 
         current_input = user_input
 
-        for phase in phases_to_run:
+        for i, phase in enumerate(phases_to_run):
             if phase not in self.agents:
-                self.console.print(f"[yellow]Skipping disabled phase: {phase.value}[/yellow]")
+                self.formatter.format_warning(f"Skipping disabled phase: {phase.value}")
                 continue
 
+            self.formatter.format_progress(i + 1, len(phases_to_run), f"Running {phase.value.replace('_', ' ').title()}")
             result = self.run_phase(phase, current_input)
 
             if not result.success:
-                self.console.print(f"[red]Phase {phase.value} failed. Stopping workflow.[/red]")
+                self.formatter.format_error(
+                    f"Phase {phase.value} failed",
+                    "Workflow stopped due to phase failure."
+                )
                 break
 
             if not result.requires_next_phase and not self.config.auto_advance:
@@ -365,6 +381,11 @@ class DSDMOrchestrator:
                         break
                 else:
                     break
+
+        # Display workflow summary
+        self.formatter.format_workflow_summary(
+            {phase.value: result for phase, result in self.results.items()}
+        )
 
         return self.results
 
@@ -377,29 +398,38 @@ class DSDMOrchestrator:
         """Run a specialized Design & Build role."""
         agent = self.design_build_agents.get(role)
         if not agent:
+            self.formatter.format_error(
+                f"Role {role.value} is not enabled",
+                "Enable this role in the orchestrator configuration."
+            )
             return AgentResult(
                 success=False,
                 output=f"Role {role.value} is not enabled",
             )
 
         self.current_role = role
-        self.console.print(Panel(
-            f"[bold cyan]Starting {role.value.replace('_', ' ').title()}[/bold cyan]\n"
-            f"Agent: {agent.name}\n"
-            f"Mode: {agent.mode.value}",
-            title="Design & Build Role",
-        ))
+        role_title = role.value.replace('_', ' ').title()
+
+        # Display start banner
+        self.formatter.format_agent_start(
+            agent_name=agent.name,
+            phase_or_role=role_title,
+            mode=agent.mode.value,
+            description=agent.config.description if hasattr(agent, 'config') else None,
+        )
 
         result = agent.run(user_input, context)
         self.role_results[role] = result
         self.current_role = None
 
-        # Display result
-        status = "[green]✓ Success[/green]" if result.success else "[red]✗ Failed[/red]"
-        self.console.print(Panel(
-            f"{status}\n\n{result.output[:500]}{'...' if len(result.output) > 500 else ''}",
-            title=f"{role.value.replace('_', ' ').title()} Result",
-        ))
+        # Display formatted result
+        self.formatter.format_agent_result(
+            phase_or_role=role_title,
+            success=result.success,
+            output=result.output,
+            artifacts=result.artifacts if result.artifacts else None,
+            tool_calls=agent.tool_call_history if hasattr(agent, 'tool_call_history') else None,
+        )
 
         return result
 
@@ -411,20 +441,22 @@ class DSDMOrchestrator:
     ) -> Dict[DesignBuildRole, AgentResult]:
         """Run multiple Design & Build roles in sequence."""
         roles_to_run = roles or self.DESIGN_BUILD_ROLE_ORDER
+        role_names = [r.value.replace('_', ' ').title() for r in roles_to_run if r in self.design_build_agents]
 
-        self.console.print(Panel(
-            f"[bold]Starting Design & Build Team[/bold]\n"
-            f"Roles: {' → '.join(r.value.replace('_', ' ').title() for r in roles_to_run if r in self.design_build_agents)}",
-            title="Design & Build Team",
-        ))
+        # Display team start banner
+        self.formatter.format_team_start(
+            team_name="Design & Build Team",
+            roles=role_names,
+        )
 
         accumulated_context = context or {}
 
-        for role in roles_to_run:
+        for i, role in enumerate(roles_to_run):
             if role not in self.design_build_agents:
-                self.console.print(f"[yellow]Skipping disabled role: {role.value}[/yellow]")
+                self.formatter.format_warning(f"Skipping disabled role: {role.value}")
                 continue
 
+            self.formatter.format_progress(i + 1, len(roles_to_run), f"Running {role.value.replace('_', ' ').title()}")
             result = self.run_design_build_role(role, user_input, accumulated_context)
 
             # Accumulate results for next role
@@ -432,10 +464,15 @@ class DSDMOrchestrator:
                 accumulated_context[f"{role.value}_artifacts"] = result.artifacts
 
             if not result.success:
-                self.console.print(f"[red]Role {role.value} failed.[/red]")
+                self.formatter.format_error(f"Role {role.value} failed")
                 if self.config.interactive:
                     if not Confirm.ask("Continue with remaining roles?"):
                         break
+
+        # Display team summary
+        self.formatter.format_workflow_summary(
+            {role.value: result for role, result in self.role_results.items()}
+        )
 
         return self.role_results
 

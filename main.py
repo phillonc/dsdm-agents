@@ -31,11 +31,22 @@ def main():
     """Main entry point."""
     load_dotenv()
 
-    # Check for API key
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        console = Console()
-        console.print("[red]Error: ANTHROPIC_API_KEY not set[/red]")
-        console.print("Please set your API key in .env file or environment variable")
+    console = Console()
+
+    # Check for LLM provider configuration
+    provider = os.environ.get("LLM_PROVIDER", "anthropic").lower()
+    api_key_map = {
+        "anthropic": "ANTHROPIC_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+        "ollama": None,  # Ollama doesn't require API key
+    }
+
+    required_key = api_key_map.get(provider)
+    if required_key and not os.environ.get(required_key):
+        console.print(f"[red]Error: {required_key} not set[/red]")
+        console.print(f"Please set your API key in .env file for provider: {provider}")
+        console.print("\nAvailable providers: anthropic, openai, gemini, ollama")
         sys.exit(1)
 
     parser = argparse.ArgumentParser(
