@@ -3,6 +3,7 @@
 from typing import Any, Callable, Dict, Optional
 
 from .base_agent import AgentConfig, AgentMode, AgentResult, BaseAgent
+from ..llm import LLMProvider
 from ..tools.tool_registry import ToolRegistry
 
 
@@ -85,6 +86,8 @@ class FrontendDeveloperAgent(BaseAgent):
                 "create_prototype",
             ],
             mode=mode,
+            llm_provider=LLMProvider.GEMINI,
+            model="gemini-3.0-flash",
         )
         super().__init__(config, tool_registry, approval_callback)
 
