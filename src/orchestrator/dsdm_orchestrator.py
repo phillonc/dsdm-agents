@@ -227,22 +227,22 @@ class DSDMOrchestrator:
         table.add_column("Workflow", style="blue")
         table.add_column("Status", style="magenta")
 
-        workflow_icons = {
-            WorkflowMode.AGENT_WRITES_CODE: "🤖 Write",
-            WorkflowMode.AGENT_PROVIDES_TIPS: "💡 Tips",
-            WorkflowMode.MANUAL_WITH_TIPS: "✋ Manual",
+        workflow_labels = {
+            WorkflowMode.AGENT_WRITES_CODE: "Write",
+            WorkflowMode.AGENT_PROVIDES_TIPS: "Tips",
+            WorkflowMode.MANUAL_WITH_TIPS: "Manual",
         }
 
         for phase in self.PHASE_ORDER:
             agent = self.agents.get(phase)
             if agent:
-                status = "✓ Enabled"
+                status = "[+] Enabled"
                 if phase in self.results:
-                    status = "✓ Completed" if self.results[phase].success else "✗ Failed"
+                    status = "[+] Completed" if self.results[phase].success else "[x] Failed"
                 elif phase == self.current_phase:
-                    status = "► Running"
+                    status = "[>] Running"
 
-                workflow_display = workflow_icons.get(agent.workflow_mode, agent.workflow_mode.value)
+                workflow_display = workflow_labels.get(agent.workflow_mode, agent.workflow_mode.value)
 
                 table.add_row(
                     phase.value.replace("_", " ").title(),
@@ -257,7 +257,7 @@ class DSDMOrchestrator:
                     "-",
                     "-",
                     "-",
-                    "✗ Disabled",
+                    "[x] Disabled",
                 )
 
         self.console.print(table)
@@ -271,22 +271,22 @@ class DSDMOrchestrator:
         table.add_column("Workflow", style="blue")
         table.add_column("Status", style="magenta")
 
-        workflow_icons = {
-            WorkflowMode.AGENT_WRITES_CODE: "🤖 Write",
-            WorkflowMode.AGENT_PROVIDES_TIPS: "💡 Tips",
-            WorkflowMode.MANUAL_WITH_TIPS: "✋ Manual",
+        workflow_labels = {
+            WorkflowMode.AGENT_WRITES_CODE: "Write",
+            WorkflowMode.AGENT_PROVIDES_TIPS: "Tips",
+            WorkflowMode.MANUAL_WITH_TIPS: "Manual",
         }
 
         for role in self.DESIGN_BUILD_ROLE_ORDER:
             agent = self.design_build_agents.get(role)
             if agent:
-                status = "✓ Enabled"
+                status = "[+] Enabled"
                 if role in self.role_results:
-                    status = "✓ Completed" if self.role_results[role].success else "✗ Failed"
+                    status = "[+] Completed" if self.role_results[role].success else "[x] Failed"
                 elif role == self.current_role:
-                    status = "► Running"
+                    status = "[>] Running"
 
-                workflow_display = workflow_icons.get(agent.workflow_mode, agent.workflow_mode.value)
+                workflow_display = workflow_labels.get(agent.workflow_mode, agent.workflow_mode.value)
 
                 table.add_row(
                     role.value.replace("_", " ").title(),
@@ -301,7 +301,7 @@ class DSDMOrchestrator:
                     "-",
                     "-",
                     "-",
-                    "✗ Disabled",
+                    "[x] Disabled",
                 )
 
         self.console.print(table)
@@ -701,9 +701,9 @@ class DSDMOrchestrator:
         """Menu for configuring workflow modes."""
         self.console.print("\n[bold cyan]Configure Workflow Modes[/bold cyan]")
         self.console.print("\n[bold]Workflow Mode Options:[/bold]")
-        self.console.print("  🤖 [green]agent_writes_code[/green] - Agent autonomously writes code using tools")
-        self.console.print("  💡 [yellow]agent_provides_tips[/yellow] - Agent provides guidance/tips without writing code")
-        self.console.print("  ✋ [blue]manual_with_tips[/blue] - Developer writes code manually, agent advises")
+        self.console.print("  [green]agent_writes_code[/green] - Agent autonomously writes code using tools")
+        self.console.print("  [yellow]agent_provides_tips[/yellow] - Agent provides guidance/tips without writing code")
+        self.console.print("  [blue]manual_with_tips[/blue] - Developer writes code manually, agent advises")
 
         # Ask for scope
         self.console.print("\n[bold]Configure for:[/bold]")
@@ -722,7 +722,7 @@ class DSDMOrchestrator:
                 default="agent_writes_code",
             )
             self.set_all_workflow_modes(WorkflowMode(new_mode))
-            self.console.print(f"\n[green]✓ All agents set to: {new_mode}[/green]")
+            self.console.print(f"\n[green][+] All agents set to: {new_mode}[/green]")
 
         elif choice == "2":
             # Set for specific phase
@@ -741,7 +741,7 @@ class DSDMOrchestrator:
                 default=self.agents[phase].workflow_mode.value,
             )
             self.set_workflow_mode(phase, WorkflowMode(new_mode))
-            self.console.print(f"\n[green]✓ {phase.value} set to: {new_mode}[/green]")
+            self.console.print(f"\n[green][+] {phase.value} set to: {new_mode}[/green]")
 
         elif choice == "3":
             # Set for Design & Build roles
@@ -763,7 +763,7 @@ class DSDMOrchestrator:
             for role in self.DESIGN_BUILD_ROLE_ORDER:
                 if role in self.design_build_agents:
                     self.set_role_workflow_mode(role, WorkflowMode(new_mode))
-            self.console.print(f"\n[green]✓ All Design & Build roles set to: {new_mode}[/green]")
+            self.console.print(f"\n[green][+] All Design & Build roles set to: {new_mode}[/green]")
         else:
             for role in self.DESIGN_BUILD_ROLE_ORDER:
                 if role in self.design_build_agents:
@@ -783,6 +783,6 @@ class DSDMOrchestrator:
             self.console.print("\n")
             self.console.print(Panel(
                 Markdown(result.tips),
-                title="💡 Coding Tips & Best Practices",
+                title="Coding Tips & Best Practices",
                 border_style="yellow",
             ))

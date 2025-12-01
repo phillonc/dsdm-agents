@@ -250,7 +250,7 @@ class OutputFormatter:
 
         for phase_name, result in results.items():
             if hasattr(result, 'success'):
-                status = "[green]✓ Success[/green]" if result.success else "[red]✗ Failed[/red]"
+                status = "[green][+] Success[/green]" if result.success else "[red][x] Failed[/red]"
                 summary = result.output[:80] + "..." if len(result.output) > 80 else result.output
                 # Clean up summary for table display
                 summary = summary.replace('\n', ' ').strip()

@@ -163,11 +163,11 @@ DSDM Agent Orchestrator
 ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━┓
 ┃ Phase               ┃ Agent               ┃ Mode      ┃ Status     ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━┩
-│ Feasibility         │ Feasibility Agent   │ automated │ ✓ Enabled  │
-│ Business Study      │ Business Study Agent│ automated │ ✓ Enabled  │
-│ Functional Model    │ Functional Model    │ automated │ ✓ Enabled  │
-│ Design Build        │ Design & Build Agent│ hybrid    │ ✓ Enabled  │
-│ Implementation      │ Implementation Agent│ manual    │ ✓ Enabled  │
+│ Feasibility         │ Feasibility Agent   │ automated │ [+] Enabled │
+│ Business Study      │ Business Study Agent│ automated │ [+] Enabled │
+│ Functional Model    │ Functional Model    │ automated │ [+] Enabled │
+│ Design Build        │ Design & Build Agent│ hybrid    │ [+] Enabled │
+│ Implementation      │ Implementation Agent│ manual    │ [+] Enabled │
 └─────────────────────┴─────────────────────┴───────────┴────────────┘
 
 Options:
@@ -316,7 +316,7 @@ def main():
     print("="*50)
 
     for phase, result in results.items():
-        status = "✓" if result.success else "✗"
+        status = "[+]" if result.success else "[x]"
         print(f"{status} {phase.value}: {'Success' if result.success else 'Failed'}")
 
     return 0 if all(r.success for r in results.values()) else 1
@@ -376,7 +376,7 @@ Enter your task/requirement: Assess the feasibility of building a mobile banking
 [Agent processes your request...]
 
 ╭─────────────────── Feasibility Result ───────────────────╮
-│ ✓ Success                                                 │
+│ [+] Success                                               │
 │                                                           │
 │ ## Feasibility Assessment                                 │
 │                                                           │
@@ -417,12 +417,12 @@ Design & Build Team
 ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━┓
 ┃ Role                ┃ Agent               ┃ Mode      ┃ Status     ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━┩
-│ Dev Lead            │ Dev Lead            │ hybrid    │ ✓ Enabled  │
-│ Frontend Developer  │ Frontend Developer  │ automated │ ✓ Enabled  │
-│ Backend Developer   │ Backend Developer   │ automated │ ✓ Enabled  │
-│ Automation Tester   │ Automation Tester   │ automated │ ✓ Enabled  │
-│ Nfr Tester          │ NFR Tester          │ hybrid    │ ✓ Enabled  │
-│ Pen Tester          │ Penetration Tester  │ manual    │ ✓ Enabled  │
+│ Dev Lead            │ Dev Lead            │ hybrid    │ [+] Enabled │
+│ Frontend Developer  │ Frontend Developer  │ automated │ [+] Enabled │
+│ Backend Developer   │ Backend Developer   │ automated │ [+] Enabled │
+│ Automation Tester   │ Automation Tester   │ automated │ [+] Enabled │
+│ Nfr Tester          │ NFR Tester          │ hybrid    │ [+] Enabled │
+│ Pen Tester          │ Penetration Tester  │ manual    │ [+] Enabled │
 └─────────────────────┴─────────────────────┴───────────┴────────────┘
 
 Options:
@@ -570,7 +570,7 @@ results = orchestrator.run_workflow(
 
 # Check results
 for phase, result in results.items():
-    print(f"{phase.value}: {'✓' if result.success else '✗'}")
+    print(f"{phase.value}: {'[+]' if result.success else '[x]'}")
 ```
 
 ### Example 3: Design & Build with Specific Roles
@@ -696,12 +696,12 @@ config = AgentConfig(
 
 ## Next Steps
 
-1. ✅ Complete installation and configuration
-2. ✅ Run your first feasibility assessment
-3. ⬜ Try the full DSDM workflow with a sample project
-4. ⬜ Explore the Design & Build specialized agents
-5. ⬜ Set up Jira/Confluence integration
-6. ⬜ Customize agent modes for your workflow
-7. ⬜ Create your own requirements files
+1. [x] Complete installation and configuration
+2. [x] Run your first feasibility assessment
+3. [ ] Try the full DSDM workflow with a sample project
+4. [ ] Explore the Design & Build specialized agents
+5. [ ] Set up Jira/Confluence integration
+6. [ ] Customize agent modes for your workflow
+7. [ ] Create your own requirements files
 
-Happy developing with DSDM Agents! 🚀
+Happy developing with DSDM Agents!

@@ -279,8 +279,8 @@ def format_tips_as_markdown(tips: List[CodingTip], max_tips: int = 10) -> str:
     lines = ["## Coding Tips & Best Practices\n"]
 
     for i, tip in enumerate(tips[:max_tips], 1):
-        priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(tip.priority, "⚪")
-        lines.append(f"### {i}. {priority_icon} {tip.title}")
+        priority_label = {"high": "[HIGH]", "medium": "[MEDIUM]", "low": "[LOW]"}.get(tip.priority, "")
+        lines.append(f"### {i}. {priority_label} {tip.title}")
         lines.append(f"**Category:** {tip.category.replace('_', ' ').title()}")
         lines.append(f"\n{tip.description}\n")
 
@@ -289,7 +289,7 @@ def format_tips_as_markdown(tips: List[CodingTip], max_tips: int = 10) -> str:
             lines.append(f"```\n{tip.code_example}\n```\n")
 
         if tip.documentation_url:
-            lines.append(f"📚 [Documentation]({tip.documentation_url})\n")
+            lines.append(f"[Documentation]({tip.documentation_url})\n")
 
         lines.append("---\n")
 
