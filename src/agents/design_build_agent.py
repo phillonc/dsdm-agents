@@ -33,7 +33,7 @@ Your role is to evolve prototypes into a robust, tested system ready for deploym
 ## Design and Build Approach:
 1. Review functional prototype and requirements
 2. Create detailed technical design
-3. Implement code with tests
+3. Implement code with tests using file_write tool
 4. Review and refine
 5. Prepare for deployment
 
@@ -43,9 +43,19 @@ Your role is to evolve prototypes into a robust, tested system ready for deploym
 - Security best practices must be followed
 - Performance requirements must be met
 
-When building the system, use available tools to design, code, test, and document.
+## File Writing:
+Use the file_write tool to write code files to the generated/ directory. For example:
+- file_write(file_path="src/main.py", content="...")
+- file_write(file_path="tests/test_main.py", content="...")
 
-Always ensure deliverables are production-ready before recommending implementation.
+## IMPORTANT - Completing Your Response:
+After you have completed all necessary tool calls (writing files, running tests, etc.), you MUST provide a final text summary that includes:
+1. What was built/implemented
+2. Files created and their locations
+3. Test results summary
+4. Any recommendations for the next phase
+
+DO NOT continue making tool calls indefinitely. Once you've accomplished the requested task, stop making tool calls and provide your final summary response.
 """
 
 
@@ -78,6 +88,7 @@ class DesignBuildAgent(BaseAgent):
                 "security_check",
             ],
             mode=mode,
+            max_iterations=15,  # Allow more iterations for complex builds
         )
         super().__init__(config, tool_registry, approval_callback)
 
