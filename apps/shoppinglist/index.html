@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping List App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            padding: 60px 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+        }
+        .logo {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 32px;
+        }
+        p {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        .btn svg {
+            width: 24px;
+            height: 24px;
+        }
+        .features {
+            margin-top: 50px;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        .feature {
+            text-align: center;
+        }
+        .feature-icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .feature-text {
+            font-size: 13px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">&#128722;</div>
+        <h1>Shopping List</h1>
+        <p>Keep track of your shopping items with ease. Sign in to create and manage your personal shopping lists.</p>
+
+        <a href="/auth/google" class="btn">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+            Sign in to Continue
+        </a>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">&#10003;</div>
+                <div class="feature-text">Easy to use</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">&#9729;</div>
+                <div class="feature-text">Cloud sync</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">&#128274;</div>
+                <div class="feature-text">Secure</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check if user is already logged in
+        fetch('/auth/user')
+            .then(res => res.json())
+            .then(data => {
+                if (data.user) {
+                    window.location.href = '/shopping-list.html';
+                }
+            });
+    </script>
+</body>
+</html>
