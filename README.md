@@ -204,7 +204,7 @@ Default modes for Design & Build roles:
 
 ## DevOps Agent
 
-The DevOps agent is based on the 14 LocalHighStreet Development Principles:
+The DevOps agent is based on the 14 Development Principles:
 
 | # | Principle | Tools |
 |---|-----------|-------|
