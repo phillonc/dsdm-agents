@@ -10,12 +10,19 @@ from dotenv import load_dotenv
 
 from ..tools.tool_registry import Tool, ToolRegistry
 from ..llm import LLMProvider, LLMConfig, BaseLLMClient, create_llm_client
+from .workflow_modes import (
+    WorkflowMode,
+    TipsContext,
+    get_tips_for_context,
+    format_tips_as_markdown,
+    get_workflow_mode_prompt,
+)
 
 load_dotenv()
 
 
 class AgentMode(Enum):
-    """Agent execution mode."""
+    """Agent execution mode (tool approval)."""
     MANUAL = "manual"      # Requires user approval for each action
     AUTOMATED = "automated"  # Runs autonomously with tools
     HYBRID = "hybrid"       # Some tools require approval, others don't
@@ -30,6 +37,7 @@ class AgentConfig:
     system_prompt: str
     tools: List[str] = field(default_factory=list)
     mode: AgentMode = AgentMode.AUTOMATED
+    workflow_mode: WorkflowMode = WorkflowMode.AGENT_WRITES_CODE  # How agent interacts
     model: Optional[str] = None  # If None, uses provider default from env
     max_tokens: int = 4096
     max_iterations: int = 10
@@ -45,6 +53,8 @@ class AgentResult:
     tool_calls: List[Dict[str, Any]] = field(default_factory=list)
     requires_next_phase: bool = False
     next_phase_input: Optional[Dict[str, Any]] = None
+    tips: Optional[str] = None  # Formatted tips markdown (for TIPS and MANUAL modes)
+    workflow_mode: Optional[WorkflowMode] = None  # Mode used for this execution
 
 
 class BaseAgent(ABC):
@@ -90,6 +100,14 @@ class BaseAgent(ABC):
     def mode(self, value: AgentMode) -> None:
         self.config.mode = value
 
+    @property
+    def workflow_mode(self) -> WorkflowMode:
+        return self.config.workflow_mode
+
+    @workflow_mode.setter
+    def workflow_mode(self, value: WorkflowMode) -> None:
+        self.config.workflow_mode = value
+
     def get_tools(self) -> List[Tool]:
         """Get tools available to this agent."""
         return [
@@ -101,6 +119,58 @@ class BaseAgent(ABC):
     def get_tools_anthropic_format(self) -> List[Dict[str, Any]]:
         """Get tools in Anthropic API format."""
         return self.tool_registry.to_anthropic_format(self.config.tools)
+
+    def _get_effective_system_prompt(self) -> str:
+        """Get system prompt with workflow mode adjustments."""
+        base_prompt = self.config.system_prompt
+        workflow_prompt = get_workflow_mode_prompt(self.config.workflow_mode)
+        return f"{base_prompt}\n\n{workflow_prompt}"
+
+    def _should_use_tools(self) -> bool:
+        """Determine if tools should be enabled based on workflow mode."""
+        # Only use tools in AGENT_WRITES_CODE mode
+        return self.config.workflow_mode == WorkflowMode.AGENT_WRITES_CODE
+
+    def _generate_tips(self, user_input: str, language: str = "python", framework: Optional[str] = None) -> str:
+        """Generate contextual tips based on the task."""
+        # Detect language and framework from input if not specified
+        input_lower = user_input.lower()
+
+        if "react" in input_lower or "jsx" in input_lower:
+            language = "javascript"
+            framework = "react"
+        elif "node" in input_lower or "express" in input_lower:
+            language = "javascript"
+            framework = "node"
+        elif "typescript" in input_lower:
+            language = "javascript"
+        elif "python" in input_lower or "django" in input_lower or "flask" in input_lower or "fastapi" in input_lower:
+            language = "python"
+            if "async" in input_lower:
+                framework = "async"
+            if "api" in input_lower or "fastapi" in input_lower:
+                framework = "api"
+
+        # Detect specific concerns
+        concerns = []
+        if any(word in input_lower for word in ["test", "testing", "pytest", "jest"]):
+            concerns.append("testing")
+        if any(word in input_lower for word in ["security", "auth", "login", "password"]):
+            concerns.append("security")
+        if any(word in input_lower for word in ["api", "endpoint", "rest", "graphql"]):
+            concerns.append("api")
+        if any(word in input_lower for word in ["async", "await", "concurrent"]):
+            concerns.append("async")
+
+        context = TipsContext(
+            task_description=user_input,
+            language=language,
+            framework=framework,
+            specific_concerns=concerns,
+        )
+
+        tips = get_tips_for_context(context)
+        return format_tips_as_markdown(tips)
 
     def _should_approve_tool(self, tool: Tool, tool_input: Dict[str, Any]) -> bool:
         """Check if tool execution should proceed."""
@@ -141,10 +211,19 @@ class BaseAgent(ABC):
         if context:
             message_content = f"Context: {context}\n\nTask: {user_input}"
 
+        # Generate tips for non-code-writing modes
+        tips = None
+        if self.config.workflow_mode in (WorkflowMode.AGENT_PROVIDES_TIPS, WorkflowMode.MANUAL_WITH_TIPS):
+            tips = self._generate_tips(user_input)
+            # Add tips to context for the LLM to reference
+            message_content = f"{message_content}\n\n## Relevant Best Practices:\n{tips}"
+
         self.messages = [{"role": "user", "content": message_content}]
         self.tool_call_history = []
 
-        tools = self.get_tools_anthropic_format()
+        # Only provide tools in AGENT_WRITES_CODE mode
+        tools = self.get_tools_anthropic_format() if self._should_use_tools() else []
+        effective_prompt = self._get_effective_system_prompt()
         iterations = 0
 
         while iterations < self.config.max_iterations:
@@ -153,7 +232,7 @@ class BaseAgent(ABC):
             # Call LLM using provider-agnostic client
             response = self.llm_client.chat(
                 messages=self.messages,
-                system_prompt=self.config.system_prompt,
+                system_prompt=effective_prompt,
                 tools=tools if tools else None,
                 max_tokens=self.config.max_tokens,
             )
@@ -161,8 +240,8 @@ class BaseAgent(ABC):
             stop_reason = response.get("stop_reason", "")
             tool_calls = response.get("tool_calls", [])
 
-            # Check for tool use
-            if stop_reason == "tool_use" or tool_calls:
+            # Check for tool use (only in AGENT_WRITES_CODE mode)
+            if (stop_reason == "tool_use" or tool_calls) and self._should_use_tools():
                 # Add assistant response to messages
                 # For Anthropic, use raw_content; for others, construct message
                 if "raw_content" in response:
@@ -188,17 +267,23 @@ class BaseAgent(ABC):
             elif stop_reason in ("end_turn", "stop"):
                 # Extract final response
                 output = response.get("content", "")
-                return self._process_output(output)
+                result = self._process_output(output)
+                # Add tips and workflow mode to result
+                result.tips = tips
+                result.workflow_mode = self.config.workflow_mode
+                return result
 
             else:
                 return AgentResult(
                     success=False,
                     output=f"Unexpected stop reason: {stop_reason}",
+                    workflow_mode=self.config.workflow_mode,
                 )
 
         return AgentResult(
             success=False,
             output="Max iterations reached",
+            workflow_mode=self.config.workflow_mode,
         )
 
     @abstractmethod

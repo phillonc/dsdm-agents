@@ -8,8 +8,10 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
+from rich.markdown import Markdown
 
 from ..agents.base_agent import AgentMode, AgentResult, BaseAgent
+from ..agents.workflow_modes import WorkflowMode
 from ..utils.output_formatter import OutputFormatter, get_formatter
 from ..agents.feasibility_agent import FeasibilityAgent
 from ..agents.business_study_agent import BusinessStudyAgent
@@ -56,6 +58,7 @@ class PhaseConfig:
     phase: DSDMPhase
     agent_class: Type[BaseAgent]
     mode: AgentMode = AgentMode.AUTOMATED
+    workflow_mode: WorkflowMode = WorkflowMode.AGENT_WRITES_CODE
     enabled: bool = True
 
 
@@ -65,6 +68,7 @@ class RoleConfig:
     role: DesignBuildRole
     agent_class: Type[BaseAgent]
     mode: AgentMode = AgentMode.AUTOMATED
+    workflow_mode: WorkflowMode = WorkflowMode.AGENT_WRITES_CODE
     enabled: bool = True
 
 
@@ -75,6 +79,7 @@ class OrchestratorConfig:
     design_build_roles: List[RoleConfig] = field(default_factory=list)
     interactive: bool = True
     auto_advance: bool = False  # Automatically advance to next phase if conditions met
+    default_workflow_mode: WorkflowMode = WorkflowMode.AGENT_WRITES_CODE
 
 
 class DSDMOrchestrator:
@@ -194,13 +199,39 @@ class DSDMOrchestrator:
         if agent:
             agent.mode = mode
 
+    def set_workflow_mode(self, phase: DSDMPhase, workflow_mode: WorkflowMode) -> None:
+        """Set the workflow mode for a specific phase agent."""
+        agent = self.agents.get(phase)
+        if agent:
+            agent.workflow_mode = workflow_mode
+
+    def set_role_workflow_mode(self, role: DesignBuildRole, workflow_mode: WorkflowMode) -> None:
+        """Set the workflow mode for a specialized Design & Build agent."""
+        agent = self.design_build_agents.get(role)
+        if agent:
+            agent.workflow_mode = workflow_mode
+
+    def set_all_workflow_modes(self, workflow_mode: WorkflowMode) -> None:
+        """Set the workflow mode for all agents."""
+        for agent in self.agents.values():
+            agent.workflow_mode = workflow_mode
+        for agent in self.design_build_agents.values():
+            agent.workflow_mode = workflow_mode
+
     def list_phases(self) -> None:
         """Display all phases and their configurations."""
         table = Table(title="DSDM Phases")
         table.add_column("Phase", style="cyan")
         table.add_column("Agent", style="green")
         table.add_column("Mode", style="yellow")
+        table.add_column("Workflow", style="blue")
         table.add_column("Status", style="magenta")
+
+        workflow_icons = {
+            WorkflowMode.AGENT_WRITES_CODE: "🤖 Write",
+            WorkflowMode.AGENT_PROVIDES_TIPS: "💡 Tips",
+            WorkflowMode.MANUAL_WITH_TIPS: "✋ Manual",
+        }
 
         for phase in self.PHASE_ORDER:
             agent = self.agents.get(phase)
@@ -211,15 +242,19 @@ class DSDMOrchestrator:
                 elif phase == self.current_phase:
                     status = "► Running"
 
+                workflow_display = workflow_icons.get(agent.workflow_mode, agent.workflow_mode.value)
+
                 table.add_row(
                     phase.value.replace("_", " ").title(),
                     agent.name,
                     agent.mode.value,
+                    workflow_display,
                     status,
                 )
             else:
                 table.add_row(
                     phase.value.replace("_", " ").title(),
+                    "-",
                     "-",
                     "-",
                     "✗ Disabled",
@@ -233,7 +268,14 @@ class DSDMOrchestrator:
         table.add_column("Role", style="cyan")
         table.add_column("Agent", style="green")
         table.add_column("Mode", style="yellow")
+        table.add_column("Workflow", style="blue")
         table.add_column("Status", style="magenta")
+
+        workflow_icons = {
+            WorkflowMode.AGENT_WRITES_CODE: "🤖 Write",
+            WorkflowMode.AGENT_PROVIDES_TIPS: "💡 Tips",
+            WorkflowMode.MANUAL_WITH_TIPS: "✋ Manual",
+        }
 
         for role in self.DESIGN_BUILD_ROLE_ORDER:
             agent = self.design_build_agents.get(role)
@@ -244,15 +286,19 @@ class DSDMOrchestrator:
                 elif role == self.current_role:
                     status = "► Running"
 
+                workflow_display = workflow_icons.get(agent.workflow_mode, agent.workflow_mode.value)
+
                 table.add_row(
                     role.value.replace("_", " ").title(),
                     agent.name,
                     agent.mode.value,
+                    workflow_display,
                     status,
                 )
             else:
                 table.add_row(
                     role.value.replace("_", " ").title(),
+                    "-",
                     "-",
                     "-",
                     "✗ Disabled",
@@ -487,10 +533,11 @@ class DSDMOrchestrator:
             self.console.print("2. Run full workflow")
             self.console.print("3. Design & Build team")
             self.console.print("4. Configure modes")
-            self.console.print("5. View tools")
-            self.console.print("6. Exit")
+            self.console.print("5. Configure workflow modes")
+            self.console.print("6. View tools")
+            self.console.print("7. Exit")
 
-            choice = Prompt.ask("Select option", choices=["1", "2", "3", "4", "5", "6"])
+            choice = Prompt.ask("Select option", choices=["1", "2", "3", "4", "5", "6", "7"])
 
             if choice == "1":
                 self._run_specific_phase_menu()
@@ -501,8 +548,10 @@ class DSDMOrchestrator:
             elif choice == "4":
                 self._configure_modes_menu()
             elif choice == "5":
-                self._view_tools_menu()
+                self._configure_workflow_modes_menu()
             elif choice == "6":
+                self._view_tools_menu()
+            elif choice == "7":
                 break
 
     def _run_specific_phase_menu(self) -> None:
@@ -647,3 +696,93 @@ class DSDMOrchestrator:
             self.list_tools()
         else:
             self.list_tools(DSDMPhase(choice))
+
+    def _configure_workflow_modes_menu(self) -> None:
+        """Menu for configuring workflow modes."""
+        self.console.print("\n[bold cyan]Configure Workflow Modes[/bold cyan]")
+        self.console.print("\n[bold]Workflow Mode Options:[/bold]")
+        self.console.print("  🤖 [green]agent_writes_code[/green] - Agent autonomously writes code using tools")
+        self.console.print("  💡 [yellow]agent_provides_tips[/yellow] - Agent provides guidance/tips without writing code")
+        self.console.print("  ✋ [blue]manual_with_tips[/blue] - Developer writes code manually, agent advises")
+
+        # Ask for scope
+        self.console.print("\n[bold]Configure for:[/bold]")
+        self.console.print("1. All agents")
+        self.console.print("2. Specific phase")
+        self.console.print("3. Design & Build roles")
+        self.console.print("4. Back")
+
+        choice = Prompt.ask("Select option", choices=["1", "2", "3", "4"])
+
+        if choice == "1":
+            # Set for all agents
+            new_mode = Prompt.ask(
+                "Select workflow mode for all agents",
+                choices=["agent_writes_code", "agent_provides_tips", "manual_with_tips"],
+                default="agent_writes_code",
+            )
+            self.set_all_workflow_modes(WorkflowMode(new_mode))
+            self.console.print(f"\n[green]✓ All agents set to: {new_mode}[/green]")
+
+        elif choice == "2":
+            # Set for specific phase
+            phase_names = [p.value for p in self.PHASE_ORDER if p in self.agents]
+            self.console.print("\nAvailable phases:")
+            for i, name in enumerate(phase_names, 1):
+                agent = self.agents[DSDMPhase(name)]
+                self.console.print(f"  {i}. {name.replace('_', ' ').title()} (current: {agent.workflow_mode.value})")
+
+            phase_choice = Prompt.ask("Select phase", choices=[str(i) for i in range(1, len(phase_names) + 1)])
+            phase = DSDMPhase(phase_names[int(phase_choice) - 1])
+
+            new_mode = Prompt.ask(
+                "Select workflow mode",
+                choices=["agent_writes_code", "agent_provides_tips", "manual_with_tips"],
+                default=self.agents[phase].workflow_mode.value,
+            )
+            self.set_workflow_mode(phase, WorkflowMode(new_mode))
+            self.console.print(f"\n[green]✓ {phase.value} set to: {new_mode}[/green]")
+
+        elif choice == "3":
+            # Set for Design & Build roles
+            self._configure_role_workflow_modes_menu()
+
+    def _configure_role_workflow_modes_menu(self) -> None:
+        """Menu for configuring Design & Build role workflow modes."""
+        self.console.print("\n[bold cyan]Configure Design & Build Workflow Modes[/bold cyan]")
+
+        # Ask if setting all or individual
+        set_all = Confirm.ask("Set workflow mode for all roles at once?")
+
+        if set_all:
+            new_mode = Prompt.ask(
+                "Select workflow mode for all Design & Build roles",
+                choices=["agent_writes_code", "agent_provides_tips", "manual_with_tips"],
+                default="agent_writes_code",
+            )
+            for role in self.DESIGN_BUILD_ROLE_ORDER:
+                if role in self.design_build_agents:
+                    self.set_role_workflow_mode(role, WorkflowMode(new_mode))
+            self.console.print(f"\n[green]✓ All Design & Build roles set to: {new_mode}[/green]")
+        else:
+            for role in self.DESIGN_BUILD_ROLE_ORDER:
+                if role in self.design_build_agents:
+                    agent = self.design_build_agents[role]
+                    self.console.print(f"\n{role.value.replace('_', ' ').title()}: {agent.workflow_mode.value}")
+                    new_mode = Prompt.ask(
+                        "Select workflow mode",
+                        choices=["agent_writes_code", "agent_provides_tips", "manual_with_tips", "skip"],
+                        default=agent.workflow_mode.value,
+                    )
+                    if new_mode != "skip":
+                        self.set_role_workflow_mode(role, WorkflowMode(new_mode))
+
+    def _display_tips(self, result: AgentResult) -> None:
+        """Display tips from an agent result if available."""
+        if result.tips:
+            self.console.print("\n")
+            self.console.print(Panel(
+                Markdown(result.tips),
+                title="💡 Coding Tips & Best Practices",
+                border_style="yellow",
+            ))

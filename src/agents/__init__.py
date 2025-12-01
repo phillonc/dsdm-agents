@@ -1,4 +1,12 @@
 from .base_agent import BaseAgent, AgentMode, AgentConfig, AgentResult
+from .workflow_modes import (
+    WorkflowMode,
+    CodingTip,
+    TipsContext,
+    get_tips_for_context,
+    format_tips_as_markdown,
+    get_workflow_mode_prompt,
+)
 from .feasibility_agent import FeasibilityAgent
 from .business_study_agent import BusinessStudyAgent
 from .functional_model_agent import FunctionalModelAgent
@@ -19,6 +27,13 @@ __all__ = [
     "AgentMode",
     "AgentConfig",
     "AgentResult",
+    # Workflow Modes
+    "WorkflowMode",
+    "CodingTip",
+    "TipsContext",
+    "get_tips_for_context",
+    "format_tips_as_markdown",
+    "get_workflow_mode_prompt",
     # DSDM Phase Agents
     "FeasibilityAgent",
     "BusinessStudyAgent",
