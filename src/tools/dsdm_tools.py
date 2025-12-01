@@ -11,6 +11,7 @@ def create_dsdm_tool_registry(
     include_confluence: bool = False,
     include_jira: bool = False,
     include_devops: bool = False,
+    include_file_tools: bool = True,
 ) -> ToolRegistry:
     """Create a tool registry with all DSDM tools."""
     registry = ToolRegistry()
@@ -1018,5 +1019,9 @@ def create_dsdm_tool_registry(
     if include_devops:
         from .integrations.devops_tools import register_devops_tools
         register_devops_tools(registry)
+
+    if include_file_tools:
+        from .file_tools import register_file_tools
+        register_file_tools(registry)
 
     return registry

@@ -63,6 +63,11 @@ class DevLeadAgent(BaseAgent):
                 "define_architecture",
                 "create_adr",
                 "track_decision",
+                # File Operations
+                "file_write",
+                "file_read",
+                "directory_create",
+                "directory_list",
                 # Code Review & Quality
                 "review_code",
                 "check_code_quality",

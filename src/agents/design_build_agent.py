@@ -67,6 +67,11 @@ class DesignBuildAgent(BaseAgent):
                 "create_technical_design",
                 "generate_code",
                 "write_file",
+                # File Operations (actual file writing)
+                "file_write",
+                "file_read",
+                "directory_create",
+                "directory_list",
                 "run_tests",
                 "review_code",
                 "create_documentation",
@@ -92,7 +97,7 @@ class DesignBuildAgent(BaseAgent):
                 "tests_passed": tests_passed,
                 "files_created": [
                     tc for tc in self.tool_call_history
-                    if tc["tool"] in ["generate_code", "write_file"]
+                    if tc["tool"] in ["generate_code", "write_file", "file_write"]
                 ],
             },
             tool_calls=self.tool_call_history,

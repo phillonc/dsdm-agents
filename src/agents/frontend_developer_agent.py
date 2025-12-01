@@ -71,6 +71,11 @@ class FrontendDeveloperAgent(BaseAgent):
                 "generate_code",
                 "write_file",
                 "generate_code_scaffold",
+                # File Operations (actual file writing)
+                "file_write",
+                "file_read",
+                "directory_create",
+                "directory_list",
                 # Testing
                 "run_tests",
                 "run_functional_tests",
@@ -95,7 +100,7 @@ class FrontendDeveloperAgent(BaseAgent):
         """Process frontend developer output."""
         files_created = [
             tc for tc in self.tool_call_history
-            if tc["tool"] in ["generate_code", "write_file"]
+            if tc["tool"] in ["generate_code", "write_file", "file_write"]
         ]
 
         tests_passed = any(

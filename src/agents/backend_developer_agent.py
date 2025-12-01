@@ -70,6 +70,11 @@ class BackendDeveloperAgent(BaseAgent):
                 "generate_code",
                 "write_file",
                 "generate_code_scaffold",
+                # File Operations (actual file writing)
+                "file_write",
+                "file_read",
+                "directory_create",
+                "directory_list",
                 # Architecture
                 "create_technical_design",
                 "define_architecture",
@@ -96,7 +101,7 @@ class BackendDeveloperAgent(BaseAgent):
         """Process backend developer output."""
         files_created = [
             tc for tc in self.tool_call_history
-            if tc["tool"] in ["generate_code", "write_file"]
+            if tc["tool"] in ["generate_code", "write_file", "file_write"]
         ]
 
         tests_passed = any(
