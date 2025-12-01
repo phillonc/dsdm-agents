@@ -43,10 +43,13 @@ Your role is to evolve prototypes into a robust, tested system ready for deploym
 - Security best practices must be followed
 - Performance requirements must be met
 
-## File Writing:
-Use the file_write tool to write code files to the generated/ directory. For example:
-- file_write(file_path="src/main.py", content="...")
-- file_write(file_path="tests/test_main.py", content="...")
+## Project Structure:
+First use project_init to create a proper project structure under generated/<project_name>/:
+- project_init(project_name="my_project", project_type="python")
+
+Then use file_write to write code files within that project:
+- file_write(file_path="my_project/src/main.py", content="...")
+- file_write(file_path="my_project/tests/test_main.py", content="...")
 
 ## IMPORTANT - Completing Your Response:
 After you have completed all necessary tool calls (writing files, running tests, etc.), you MUST provide a final text summary that includes:
@@ -78,6 +81,7 @@ class DesignBuildAgent(BaseAgent):
                 "generate_code",
                 "write_file",
                 # File Operations (actual file writing)
+                "project_init",
                 "file_write",
                 "file_read",
                 "directory_create",
