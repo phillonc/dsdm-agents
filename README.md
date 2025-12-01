@@ -4,7 +4,7 @@ AI-powered agents implementing the Dynamic Systems Development Method (DSDM) fra
 
 ## Overview
 
-DSDM Agents provides a set of specialized AI agents for each phase of the DSDM methodology, plus a DevOps agent based on the LocalHighStreet Development Principles.
+DSDM Agents provides a set of specialized AI agents for each phase of the DSDM methodology, plus a DevOps agent based on the Development Principles.
 
 ### DSDM Phase Agents
 
