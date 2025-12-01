@@ -1,4 +1,4 @@
-# LocalHighStreet Development Principles & VS Code/Cursor Extensions
+# Development Principles & VS Code/Cursor Extensions
 
 This document outlines our core development principles and the VS Code/Cursor extensions that support each principle throughout the development lifecycle.
 
