@@ -1,4 +1,4 @@
-"""DevOps tools based on LocalHighStreet Development Principles."""
+"""DevOps tools based on Development Principles."""
 
 import json
 import os

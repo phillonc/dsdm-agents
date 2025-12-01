@@ -1,4 +1,4 @@
-"""DevOps Agent - Based on LocalHighStreet Development Principles."""
+"""DevOps Agent - Based on Development Principles."""
 
 from typing import Any, Callable, Dict, Optional
 
@@ -6,7 +6,7 @@ from .base_agent import AgentConfig, AgentMode, AgentResult, BaseAgent
 from ..tools.tool_registry import ToolRegistry
 
 
-DEVOPS_SYSTEM_PROMPT = """You are a DevOps Agent operating based on the LocalHighStreet Development Principles.
+DEVOPS_SYSTEM_PROMPT = """You are a DevOps Agent operating based on the Development Principles.
 
 Your role is to enable and enforce development best practices throughout the software development lifecycle.
 
