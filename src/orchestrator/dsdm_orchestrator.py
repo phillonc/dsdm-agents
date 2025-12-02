@@ -14,6 +14,7 @@ from ..agents.base_agent import AgentMode, AgentResult, BaseAgent
 from ..agents.workflow_modes import WorkflowMode
 from ..utils.output_formatter import OutputFormatter, get_formatter
 from ..agents.feasibility_agent import FeasibilityAgent
+from ..agents.product_manager_agent import ProductManagerAgent
 from ..agents.business_study_agent import BusinessStudyAgent
 from ..agents.functional_model_agent import FunctionalModelAgent
 from ..agents.design_build_agent import DesignBuildAgent
@@ -32,9 +33,21 @@ from ..tools.tool_registry import ToolRegistry
 from ..tools.dsdm_tools import create_dsdm_tool_registry
 
 
+def _moscow_to_jira_priority(moscow: str) -> str:
+    """Convert MoSCoW priority to Jira priority."""
+    mapping = {
+        "must_have": "Highest",
+        "should_have": "High",
+        "could_have": "Medium",
+        "wont_have": "Low",
+    }
+    return mapping.get(moscow.lower().replace(" ", "_"), "Medium")
+
+
 class DSDMPhase(Enum):
     """DSDM project phases."""
     FEASIBILITY = "feasibility"
+    PRD_TRD = "prd_trd"  # PRD (Product Manager) and TRD (Dev Lead) creation after feasibility
     BUSINESS_STUDY = "business_study"
     FUNCTIONAL_MODEL = "functional_model"
     DESIGN_BUILD = "design_build"
@@ -88,6 +101,7 @@ class DSDMOrchestrator:
     PHASE_ORDER = [
         DSDMPhase.FEASIBILITY,
         DSDMPhase.BUSINESS_STUDY,
+        DSDMPhase.PRD_TRD,
         DSDMPhase.FUNCTIONAL_MODEL,
         DSDMPhase.DESIGN_BUILD,
         DSDMPhase.IMPLEMENTATION,
@@ -138,6 +152,7 @@ class DSDMOrchestrator:
         return OrchestratorConfig(
             phases=[
                 PhaseConfig(DSDMPhase.FEASIBILITY, FeasibilityAgent, AgentMode.AUTOMATED),
+                PhaseConfig(DSDMPhase.PRD_TRD, ProductManagerAgent, AgentMode.AUTOMATED),
                 PhaseConfig(DSDMPhase.BUSINESS_STUDY, BusinessStudyAgent, AgentMode.AUTOMATED),
                 PhaseConfig(DSDMPhase.FUNCTIONAL_MODEL, FunctionalModelAgent, AgentMode.AUTOMATED),
                 PhaseConfig(DSDMPhase.DESIGN_BUILD, DesignBuildAgent, AgentMode.HYBRID),
@@ -359,6 +374,10 @@ class DSDMOrchestrator:
         context: Optional[Dict[str, Any]] = None,
     ) -> AgentResult:
         """Run a specific phase."""
+        # Special handling for PRD_TRD phase - runs both Product Manager and Dev Lead
+        if phase == DSDMPhase.PRD_TRD:
+            return self._run_prd_trd_phase(user_input, context)
+
         agent = self.agents.get(phase)
         if not agent:
             self.formatter.format_error(
@@ -403,6 +422,397 @@ class DSDMOrchestrator:
         )
 
         return result
+
+    def _run_prd_trd_phase(
+        self,
+        user_input: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> AgentResult:
+        """Run the PRD/TRD phase - Product Manager creates PRD, Dev Lead creates TRD."""
+        self.current_phase = DSDMPhase.PRD_TRD
+
+        # Get context from previous phases (feasibility and business study)
+        full_context = context or {}
+        if DSDMPhase.FEASIBILITY in self.results and self.results[DSDMPhase.FEASIBILITY].next_phase_input:
+            full_context.update(self.results[DSDMPhase.FEASIBILITY].next_phase_input)
+        if DSDMPhase.BUSINESS_STUDY in self.results and self.results[DSDMPhase.BUSINESS_STUDY].next_phase_input:
+            full_context.update(self.results[DSDMPhase.BUSINESS_STUDY].next_phase_input)
+
+        combined_output = []
+        combined_artifacts = {}
+        all_tool_calls = []
+
+        # Step 1: Product Manager creates PRD
+        pm_agent = self.agents.get(DSDMPhase.PRD_TRD)
+        if pm_agent:
+            self.formatter.format_agent_start(
+                agent_name="Product Manager",
+                phase_or_role="PRD Creation",
+                mode=pm_agent.mode.value,
+                description="Creating Product Requirements Document based on feasibility analysis",
+            )
+
+            prd_input = f"""Based on the feasibility analysis and business study, create a comprehensive Product Requirements Document (PRD).
+
+Feasibility Context:
+{full_context.get('feasibility_report', user_input)}
+
+Business Study Context:
+{full_context.get('business_study_report', '')}
+
+Create the PRD with:
+1. Executive Summary
+2. Problem Statement
+3. Product Vision
+4. Target Audience & User Personas
+5. Business Objectives with Success Metrics
+6. Feature Specifications (using MoSCoW prioritization)
+7. User Journeys
+8. Constraints & Assumptions
+9. Risks & Mitigations
+10. Release Plan (MVP, Phase 1, Future)
+
+Use the generate_product_requirements_document tool to create the formal PRD."""
+
+            prd_result = pm_agent.run(prd_input, full_context)
+            combined_output.append(f"## PRD Creation\n{prd_result.output}")
+            combined_artifacts["prd"] = prd_result.artifacts
+            all_tool_calls.extend(prd_result.tool_calls or [])
+
+            self.formatter.format_agent_result(
+                phase_or_role="PRD Creation",
+                success=prd_result.success,
+                output=prd_result.output,
+                artifacts=prd_result.artifacts,
+                tool_calls=pm_agent.tool_call_history if hasattr(pm_agent, 'tool_call_history') else None,
+            )
+
+            if not prd_result.success:
+                self.current_phase = None
+                return AgentResult(
+                    success=False,
+                    output="PRD creation failed",
+                    artifacts=combined_artifacts,
+                    tool_calls=all_tool_calls,
+                )
+
+            # Update context with PRD output for TRD creation
+            full_context["prd_output"] = prd_result.output
+            full_context["prd_artifacts"] = prd_result.artifacts
+
+        # Step 2: Dev Lead creates TRD based on PRD
+        dev_lead_agent = self.design_build_agents.get(DesignBuildRole.DEV_LEAD)
+        if dev_lead_agent:
+            self.formatter.format_agent_start(
+                agent_name="Dev Lead",
+                phase_or_role="TRD Creation",
+                mode=dev_lead_agent.mode.value,
+                description="Creating Technical Requirements Document based on PRD",
+            )
+
+            trd_input = f"""Based on the Product Requirements Document (PRD) and business study, create a comprehensive Technical Requirements Document (TRD).
+
+PRD Summary:
+{full_context.get('prd_output', '')}
+
+Business Study Context:
+{full_context.get('business_study_report', '')}
+
+Feasibility Context:
+{full_context.get('feasibility_report', user_input)}
+
+Create the TRD with:
+1. Executive Summary (technical perspective)
+2. System Overview & Key Features
+3. Architecture Design (type, components, data flow, tech stack)
+4. Functional Requirements (with acceptance criteria)
+5. Non-Functional Requirements (performance, security, reliability, scalability)
+6. API Specifications
+7. Data Models
+8. Security Requirements (auth, authorization, data protection, compliance)
+9. Testing Requirements (unit, integration, e2e, coverage targets)
+10. Deployment Requirements (environments, infrastructure, CI/CD, monitoring)
+11. Dependencies
+12. Known Limitations
+13. Future Considerations
+
+Use the generate_technical_requirements_document tool to create the formal TRD."""
+
+            trd_result = dev_lead_agent.run(trd_input, full_context)
+            combined_output.append(f"\n## TRD Creation\n{trd_result.output}")
+            combined_artifacts["trd"] = trd_result.artifacts
+            all_tool_calls.extend(trd_result.tool_calls or [])
+
+            self.formatter.format_agent_result(
+                phase_or_role="TRD Creation",
+                success=trd_result.success,
+                output=trd_result.output,
+                artifacts=trd_result.artifacts,
+                tool_calls=dev_lead_agent.tool_call_history if hasattr(dev_lead_agent, 'tool_call_history') else None,
+            )
+
+            if not trd_result.success:
+                self.current_phase = None
+                return AgentResult(
+                    success=False,
+                    output="TRD creation failed",
+                    artifacts=combined_artifacts,
+                    tool_calls=all_tool_calls,
+                )
+
+            full_context["trd_output"] = trd_result.output
+            full_context["trd_artifacts"] = trd_result.artifacts
+
+        # Step 3: Get approval from Dev Lead and Test Lead before syncing to Jira/Confluence
+        approval_granted = False
+        if self.config.interactive:
+            self.console.print("\n[bold cyan]═══ PRD/TRD Approval Required ═══[/bold cyan]")
+            self.console.print("\n[yellow]The following documents have been created:[/yellow]")
+            self.console.print("  • Product Requirements Document (PRD)")
+            self.console.print("  • Technical Requirements Document (TRD)")
+            self.console.print("\n[yellow]These documents require approval from Dev Lead and Test Lead[/yellow]")
+            self.console.print("[yellow]before being pushed to Jira and Confluence.[/yellow]\n")
+
+            # Show summary of documents
+            if full_context.get("prd_artifacts"):
+                self.console.print("[dim]PRD Summary:[/dim]")
+                prd_sections = full_context.get("prd_artifacts", {}).get("sections_included", {})
+                if prd_sections:
+                    features_count = prd_sections.get("features", 0)
+                    self.console.print(f"  - Features defined: {features_count}")
+
+            if full_context.get("trd_artifacts"):
+                self.console.print("[dim]TRD Summary:[/dim]")
+                trd_sections = full_context.get("trd_artifacts", {}).get("sections_included", {})
+                if trd_sections:
+                    func_req = trd_sections.get("functional_requirements", 0)
+                    nfr_req = trd_sections.get("non_functional_requirements", 0)
+                    self.console.print(f"  - Functional requirements: {func_req}")
+                    self.console.print(f"  - Non-functional requirements: {nfr_req}")
+
+            self.console.print("")
+            approval_granted = Confirm.ask(
+                "[bold]Dev Lead & Test Lead: Do you approve these documents for Jira/Confluence sync?[/bold]"
+            )
+        else:
+            # In non-interactive mode, auto-approve
+            approval_granted = True
+
+        # Step 4: Sync to Jira and Confluence if approved and integrations are enabled
+        sync_results = {}
+        if approval_granted:
+            combined_output.append("\n## Document Approval")
+            combined_output.append("✓ PRD and TRD approved by Dev Lead and Test Lead")
+
+            # Check if Jira/Confluence integrations are available
+            jira_tool = self.tool_registry.get("jira_create_issue")
+            confluence_tool = self.tool_registry.get("confluence_create_page")
+
+            if jira_tool or confluence_tool:
+                self.console.print("\n[bold cyan]═══ Syncing to Jira/Confluence ═══[/bold cyan]")
+
+                # Sync PRD to Confluence
+                if confluence_tool:
+                    self.formatter.format_progress(1, 2, "Pushing PRD to Confluence")
+                    prd_sync = self._sync_prd_to_confluence(full_context)
+                    sync_results["confluence_prd"] = prd_sync
+                    if prd_sync.get("success"):
+                        combined_output.append(f"✓ PRD synced to Confluence (Page ID: {prd_sync.get('page_id', 'N/A')})")
+                    else:
+                        combined_output.append(f"⚠ PRD Confluence sync: {prd_sync.get('error', 'Failed')}")
+
+                    # Sync TRD to Confluence
+                    self.formatter.format_progress(2, 2, "Pushing TRD to Confluence")
+                    trd_sync = self._sync_trd_to_confluence(full_context)
+                    sync_results["confluence_trd"] = trd_sync
+                    if trd_sync.get("success"):
+                        combined_output.append(f"✓ TRD synced to Confluence (Page ID: {trd_sync.get('page_id', 'N/A')})")
+                    else:
+                        combined_output.append(f"⚠ TRD Confluence sync: {trd_sync.get('error', 'Failed')}")
+
+                # Create Jira issues from requirements
+                if jira_tool:
+                    self.formatter.format_progress(1, 1, "Creating Jira issues from requirements")
+                    jira_sync = self._sync_requirements_to_jira(full_context)
+                    sync_results["jira"] = jira_sync
+                    if jira_sync.get("success"):
+                        created_count = jira_sync.get("created_count", 0)
+                        combined_output.append(f"✓ {created_count} requirements synced to Jira")
+                    else:
+                        combined_output.append(f"⚠ Jira sync: {jira_sync.get('error', 'Failed')}")
+
+                combined_artifacts["sync_results"] = sync_results
+            else:
+                combined_output.append("\n[Note: Jira/Confluence integrations not enabled. Documents saved locally only.]")
+        else:
+            combined_output.append("\n## Document Approval")
+            combined_output.append("✗ Documents not approved - Jira/Confluence sync skipped")
+            combined_output.append("  Please review and re-run the PRD_TRD phase after addressing concerns.")
+
+        self.current_phase = None
+
+        # Combine results
+        final_result = AgentResult(
+            success=True,
+            output="\n".join(combined_output),
+            artifacts=combined_artifacts,
+            tool_calls=all_tool_calls,
+            requires_next_phase=approval_granted,  # Only proceed if approved
+            next_phase_input={
+                "prd_output": full_context.get("prd_output", ""),
+                "trd_output": full_context.get("trd_output", ""),
+                "prd_artifacts": full_context.get("prd_artifacts", {}),
+                "trd_artifacts": full_context.get("trd_artifacts", {}),
+                "approval_granted": approval_granted,
+                "sync_results": sync_results,
+            },
+        )
+
+        self.results[DSDMPhase.PRD_TRD] = final_result
+        return final_result
+
+    def _sync_prd_to_confluence(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Sync PRD to Confluence."""
+        try:
+            confluence_tool = self.tool_registry.get("confluence_create_dsdm_doc")
+            if not confluence_tool:
+                confluence_tool = self.tool_registry.get("confluence_create_page")
+
+            if not confluence_tool:
+                return {"success": False, "error": "Confluence tools not available"}
+
+            # Get project name from context
+            prd_artifacts = context.get("prd_artifacts", {})
+            project_name = prd_artifacts.get("project_name", "Project")
+
+            # Get space key from environment or use default
+            import os
+            space_key = os.environ.get("CONFLUENCE_SPACE_KEY", "PROJ")
+
+            # Build PRD content for Confluence
+            prd_output = context.get("prd_output", "")
+            content_sections = {
+                "Executive Summary": prd_artifacts.get("executive_summary", "See PRD document"),
+                "Problem Statement": prd_artifacts.get("problem_statement", "See PRD document"),
+                "Features": f"Total features defined: {prd_artifacts.get('sections_included', {}).get('features', 0)}",
+                "Full Document": prd_output[:2000] + "..." if len(prd_output) > 2000 else prd_output,
+            }
+
+            if confluence_tool.name == "confluence_create_dsdm_doc":
+                result = confluence_tool.handler(
+                    space_key=space_key,
+                    doc_type="business_requirements",
+                    project_name=project_name,
+                    content_sections=content_sections,
+                )
+            else:
+                # Use basic page creation
+                content = f"<h1>{project_name} - Product Requirements Document</h1>"
+                content += f"<p>{prd_output}</p>"
+                result = confluence_tool.handler(
+                    space_key=space_key,
+                    title=f"{project_name} - PRD",
+                    content=content,
+                )
+
+            import json
+            return json.loads(result)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _sync_trd_to_confluence(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Sync TRD to Confluence."""
+        try:
+            confluence_tool = self.tool_registry.get("confluence_create_dsdm_doc")
+            if not confluence_tool:
+                confluence_tool = self.tool_registry.get("confluence_create_page")
+
+            if not confluence_tool:
+                return {"success": False, "error": "Confluence tools not available"}
+
+            # Get project name from context
+            trd_artifacts = context.get("trd_artifacts", {})
+            project_name = trd_artifacts.get("project_name", "Project")
+
+            # Get space key from environment or use default
+            import os
+            space_key = os.environ.get("CONFLUENCE_SPACE_KEY", "PROJ")
+
+            # Build TRD content for Confluence
+            trd_output = context.get("trd_output", "")
+            content_sections = {
+                "Architecture Overview": trd_artifacts.get("architecture", {}).get("type", "See TRD document"),
+                "Functional Requirements": f"Total: {trd_artifacts.get('sections_included', {}).get('functional_requirements', 0)}",
+                "Non-Functional Requirements": f"Total: {trd_artifacts.get('sections_included', {}).get('non_functional_requirements', 0)}",
+                "Full Document": trd_output[:2000] + "..." if len(trd_output) > 2000 else trd_output,
+            }
+
+            if confluence_tool.name == "confluence_create_dsdm_doc":
+                result = confluence_tool.handler(
+                    space_key=space_key,
+                    doc_type="technical_design",
+                    project_name=project_name,
+                    content_sections=content_sections,
+                )
+            else:
+                # Use basic page creation
+                content = f"<h1>{project_name} - Technical Requirements Document</h1>"
+                content += f"<p>{trd_output}</p>"
+                result = confluence_tool.handler(
+                    space_key=space_key,
+                    title=f"{project_name} - TRD",
+                    content=content,
+                )
+
+            import json
+            return json.loads(result)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _sync_requirements_to_jira(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Sync requirements from PRD/TRD to Jira as issues."""
+        try:
+            bulk_create_tool = self.tool_registry.get("jira_bulk_create_requirements")
+            if not bulk_create_tool:
+                create_tool = self.tool_registry.get("jira_create_issue")
+                if not create_tool:
+                    return {"success": False, "error": "Jira tools not available"}
+
+            import os
+            project_key = os.environ.get("JIRA_PROJECT_KEY", "PROJ")
+
+            # Extract requirements from PRD artifacts
+            prd_artifacts = context.get("prd_artifacts", {})
+            features = prd_artifacts.get("features", [])
+
+            if not features:
+                # If no structured features, create a single epic for the PRD
+                return {"success": True, "created_count": 0, "message": "No structured features to sync"}
+
+            # Build requirements list for bulk creation
+            requirements = []
+            for feature in features if isinstance(features, list) else []:
+                if isinstance(feature, dict):
+                    req = {
+                        "summary": feature.get("name", feature.get("id", "Feature")),
+                        "description": feature.get("description", ""),
+                        "priority": _moscow_to_jira_priority(feature.get("priority", "should_have")),
+                        "issue_type": "Story",
+                    }
+                    requirements.append(req)
+
+            if bulk_create_tool and requirements:
+                result = bulk_create_tool.handler(
+                    project_key=project_key,
+                    requirements=requirements,
+                )
+                import json
+                return json.loads(result)
+            else:
+                return {"success": True, "created_count": 0, "message": "No requirements to create"}
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     def run_workflow(
         self,

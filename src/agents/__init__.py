@@ -16,6 +16,7 @@ from .workflow_modes import (
     get_workflow_mode_prompt,
 )
 from .feasibility_agent import FeasibilityAgent
+from .product_manager_agent import ProductManagerAgent
 from .business_study_agent import BusinessStudyAgent
 from .functional_model_agent import FunctionalModelAgent
 from .design_build_agent import DesignBuildAgent
@@ -47,6 +48,7 @@ __all__ = [
     "get_workflow_mode_prompt",
     # DSDM Phase Agents
     "FeasibilityAgent",
+    "ProductManagerAgent",
     "BusinessStudyAgent",
     "FunctionalModelAgent",
     "DesignBuildAgent",

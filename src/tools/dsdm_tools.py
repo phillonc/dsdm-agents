@@ -107,6 +107,181 @@ def create_dsdm_tool_registry(
         category="feasibility"
     ))
 
+    # ==================== PRD/TRD GENERATION PHASE TOOLS ====================
+    # These tools are used after Feasibility to create formal documentation
+
+    registry.register(Tool(
+        name="generate_product_requirements_document",
+        description="Generate a comprehensive Product Requirements Document (PRD) based on feasibility analysis",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "project_name": {
+                    "type": "string",
+                    "description": "Name of the project"
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Document version (e.g., '1.0.0')"
+                },
+                "executive_summary": {
+                    "type": "string",
+                    "description": "Brief overview of the product and its purpose"
+                },
+                "problem_statement": {
+                    "type": "string",
+                    "description": "Description of the problem being solved"
+                },
+                "product_vision": {
+                    "type": "string",
+                    "description": "Long-term vision for the product"
+                },
+                "target_audience": {
+                    "type": "object",
+                    "properties": {
+                        "primary_users": {"type": "array", "items": {"type": "string"}},
+                        "secondary_users": {"type": "array", "items": {"type": "string"}},
+                        "user_personas": {"type": "array", "items": {"type": "object"}}
+                    },
+                    "description": "Target user groups and personas"
+                },
+                "business_objectives": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "objective": {"type": "string"},
+                            "success_metrics": {"type": "array", "items": {"type": "string"}},
+                            "priority": {"type": "string", "enum": ["critical", "high", "medium", "low"]}
+                        }
+                    },
+                    "description": "Business objectives with success metrics"
+                },
+                "features": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "name": {"type": "string"},
+                            "description": {"type": "string"},
+                            "user_stories": {"type": "array", "items": {"type": "string"}},
+                            "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
+                            "priority": {"type": "string", "enum": ["must_have", "should_have", "could_have", "wont_have"]}
+                        }
+                    },
+                    "description": "Product features with MoSCoW priorities"
+                },
+                "user_journeys": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "actor": {"type": "string"},
+                            "steps": {"type": "array", "items": {"type": "string"}},
+                            "outcome": {"type": "string"}
+                        }
+                    },
+                    "description": "Key user journeys and workflows"
+                },
+                "constraints": {
+                    "type": "object",
+                    "properties": {
+                        "budget": {"type": "string"},
+                        "timeline": {"type": "string"},
+                        "technical": {"type": "array", "items": {"type": "string"}},
+                        "regulatory": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "description": "Project constraints"
+                },
+                "assumptions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Key assumptions made"
+                },
+                "risks": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "description": {"type": "string"},
+                            "probability": {"type": "string", "enum": ["low", "medium", "high"]},
+                            "impact": {"type": "string", "enum": ["low", "medium", "high"]},
+                            "mitigation": {"type": "string"}
+                        }
+                    },
+                    "description": "Product risks with mitigation strategies"
+                },
+                "success_criteria": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "metric": {"type": "string"},
+                            "target": {"type": "string"},
+                            "measurement_method": {"type": "string"}
+                        }
+                    },
+                    "description": "Success criteria and KPIs"
+                },
+                "release_plan": {
+                    "type": "object",
+                    "properties": {
+                        "mvp_features": {"type": "array", "items": {"type": "string"}},
+                        "phase_1_features": {"type": "array", "items": {"type": "string"}},
+                        "future_features": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "description": "Phased release plan"
+                },
+                "stakeholders": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "role": {"type": "string"},
+                            "responsibilities": {"type": "array", "items": {"type": "string"}}
+                        }
+                    },
+                    "description": "Key stakeholders"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Path to save the PRD document (default: docs/PRODUCT_REQUIREMENTS.md)"
+                }
+            },
+            "required": ["project_name", "executive_summary", "problem_statement", "features"]
+        },
+        handler=lambda project_name, version="1.0.0", executive_summary="", problem_statement="", product_vision=None, target_audience=None, business_objectives=None, features=None, user_journeys=None, constraints=None, assumptions=None, risks=None, success_criteria=None, release_plan=None, stakeholders=None, output_path=None: json.dumps({
+            "project_name": project_name,
+            "version": version,
+            "document_generated": True,
+            "sections_included": {
+                "executive_summary": bool(executive_summary),
+                "problem_statement": bool(problem_statement),
+                "product_vision": bool(product_vision),
+                "target_audience": bool(target_audience),
+                "business_objectives": len(business_objectives) if business_objectives else 0,
+                "features": len(features) if features else 0,
+                "user_journeys": len(user_journeys) if user_journeys else 0,
+                "constraints": bool(constraints),
+                "assumptions": len(assumptions) if assumptions else 0,
+                "risks": len(risks) if risks else 0,
+                "success_criteria": len(success_criteria) if success_criteria else 0,
+                "release_plan": bool(release_plan),
+                "stakeholders": len(stakeholders) if stakeholders else 0
+            },
+            "output_path": output_path or f"generated/{project_name}/docs/PRODUCT_REQUIREMENTS.md",
+            "status": "ready_for_stakeholder_review",
+            "timestamp": datetime.now().isoformat()
+        }),
+        requires_approval=False,
+        category="prd_trd"
+    ))
+
     # ==================== BUSINESS STUDY PHASE TOOLS ====================
 
     registry.register(Tool(
@@ -864,7 +1039,7 @@ def create_dsdm_tool_registry(
             "timestamp": datetime.now().isoformat()
         }),
         requires_approval=False,
-        category="design_build"
+        category="prd_trd"
     ))
 
     # ==================== IMPLEMENTATION PHASE TOOLS ====================
