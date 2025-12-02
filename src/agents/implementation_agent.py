@@ -2,7 +2,7 @@
 
 from typing import Any, Callable, Dict, Optional
 
-from .base_agent import AgentConfig, AgentMode, AgentResult, BaseAgent
+from .base_agent import AgentConfig, AgentMode, AgentResult, BaseAgent, ProgressCallback
 from ..tools.tool_registry import ToolRegistry
 
 
@@ -60,6 +60,7 @@ class ImplementationAgent(BaseAgent):
         tool_registry: ToolRegistry,
         mode: AgentMode = AgentMode.HYBRID,  # Implementation often needs manual approval
         approval_callback: Optional[Callable[[str, Dict[str, Any]], bool]] = None,
+        progress_callback: Optional[ProgressCallback] = None,
     ):
         config = AgentConfig(
             name="Implementation Agent",
@@ -79,7 +80,7 @@ class ImplementationAgent(BaseAgent):
             ],
             mode=mode,
         )
-        super().__init__(config, tool_registry, approval_callback)
+        super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)
 
     def _process_output(self, output: str) -> AgentResult:
         """Process implementation output."""

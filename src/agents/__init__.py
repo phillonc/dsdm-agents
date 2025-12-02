@@ -1,4 +1,12 @@
-from .base_agent import BaseAgent, AgentMode, AgentConfig, AgentResult
+from .base_agent import (
+    BaseAgent,
+    AgentMode,
+    AgentConfig,
+    AgentResult,
+    ProgressEvent,
+    ProgressInfo,
+    ProgressCallback,
+)
 from .workflow_modes import (
     WorkflowMode,
     CodingTip,
@@ -27,6 +35,9 @@ __all__ = [
     "AgentMode",
     "AgentConfig",
     "AgentResult",
+    "ProgressEvent",
+    "ProgressInfo",
+    "ProgressCallback",
     # Workflow Modes
     "WorkflowMode",
     "CodingTip",

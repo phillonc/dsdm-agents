@@ -394,16 +394,16 @@ DSDM Agents supports multiple LLM providers. Configure your preferred provider i
 
 | Provider | Description | Model Examples |
 |----------|-------------|----------------|
-| **Anthropic** | Claude models (default) | claude-sonnet-4-20250514, claude-opus-4-20250514 |
+| **Anthropic** | Claude models (default) | claude-sonnet-4-5-20250929, claude-opus-4-5-20251101 |
 | **OpenAI** | GPT models | gpt-4o, gpt-4-turbo, gpt-3.5-turbo |
-| **Gemini** | Google AI models | gemini-2.0-flash-exp, gemini-1.5-pro |
-| **Ollama** | Local LLM | llama3.2, codellama, mistral |
+| **Gemini** | Google AI models | gemini-2.5-pro, gemini-2.5-flash |
+| **Ollama** | Local/Cloud LLM | kimi-k2-thinking:cloud, llama3.2, codellama |
 
 #### Anthropic (Default)
 ```env
 LLM_PROVIDER=anthropic
 ANTHROPIC_API_KEY=your-api-key-here
-ANTHROPIC_MODEL=claude-sonnet-4-20250514
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
 ```
 
 #### OpenAI
@@ -424,7 +424,7 @@ pip install google-generativeai
 ```env
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=your-api-key-here
-GEMINI_MODEL=gemini-2.0-flash-exp
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 #### Ollama (Local LLM)
@@ -433,7 +433,7 @@ GEMINI_MODEL=gemini-2.0-flash-exp
 
 2. Pull a model:
 ```bash
-ollama pull llama3.2
+ollama pull kimi-k2-thinking:cloud
 ollama pull codellama  # For code-specific tasks
 ```
 
@@ -441,7 +441,7 @@ ollama pull codellama  # For code-specific tasks
 ```env
 LLM_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2
+OLLAMA_MODEL=kimi-k2-thinking:cloud
 OLLAMA_CODE_MODEL=codellama
 OLLAMA_EMBEDDING_MODEL=nomic-embed-text
 OLLAMA_TIMEOUT=120

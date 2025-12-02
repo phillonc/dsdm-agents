@@ -2,7 +2,7 @@
 
 from typing import Any, Callable, Dict, Optional
 
-from .base_agent import AgentConfig, AgentMode, AgentResult, BaseAgent
+from .base_agent import AgentConfig, AgentMode, AgentResult, BaseAgent, ProgressCallback
 from ..llm import LLMProvider
 from ..tools.tool_registry import ToolRegistry
 
@@ -60,6 +60,7 @@ class FrontendDeveloperAgent(BaseAgent):
         tool_registry: ToolRegistry,
         mode: AgentMode = AgentMode.AUTOMATED,
         approval_callback: Optional[Callable[[str, Dict[str, Any]], bool]] = None,
+        progress_callback: Optional[ProgressCallback] = None,
     ):
         config = AgentConfig(
             name="Frontend Developer",
@@ -92,9 +93,9 @@ class FrontendDeveloperAgent(BaseAgent):
             ],
             mode=mode,
             llm_provider=LLMProvider.GEMINI,
-            model="gemini-3.0-flash",
+            model="gemini-2.5-flash",
         )
-        super().__init__(config, tool_registry, approval_callback)
+        super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)
 
     def _process_output(self, output: str) -> AgentResult:
         """Process frontend developer output."""

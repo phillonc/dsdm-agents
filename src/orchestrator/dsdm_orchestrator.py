@@ -108,8 +108,10 @@ class DSDMOrchestrator:
         include_devops: bool = True,
         include_confluence: bool = False,
         include_jira: bool = False,
+        show_progress: bool = True,
     ):
         self.config = config or self._default_config()
+        self.show_progress = show_progress
         self.tool_registry = create_dsdm_tool_registry(
             include_confluence=include_confluence,
             include_jira=include_jira,
@@ -123,6 +125,9 @@ class DSDMOrchestrator:
         self.role_results: Dict[DesignBuildRole, AgentResult] = {}
         self.current_phase: Optional[DSDMPhase] = None
         self.current_role: Optional[DesignBuildRole] = None
+
+        # Create progress callback if enabled
+        self._progress_callback = self.formatter.create_progress_callback() if show_progress else None
 
         # Initialize agents
         self._initialize_agents()
@@ -159,6 +164,7 @@ class DSDMOrchestrator:
                     tool_registry=self.tool_registry,
                     mode=phase_config.mode,
                     approval_callback=self._approval_callback if self.config.interactive else None,
+                    progress_callback=self._progress_callback,
                 )
                 self.agents[phase_config.phase] = agent
 
@@ -170,6 +176,7 @@ class DSDMOrchestrator:
                     tool_registry=self.tool_registry,
                     mode=role_config.mode,
                     approval_callback=self._approval_callback if self.config.interactive else None,
+                    progress_callback=self._progress_callback,
                 )
                 self.design_build_agents[role_config.role] = agent
 
@@ -215,8 +222,20 @@ class DSDMOrchestrator:
         """Set the workflow mode for all agents."""
         for agent in self.agents.values():
             agent.workflow_mode = workflow_mode
+
+    def set_progress_enabled(self, enabled: bool) -> None:
+        """Enable or disable progress reporting for all agents."""
+        self.show_progress = enabled
+        if enabled:
+            self._progress_callback = self.formatter.create_progress_callback()
+        else:
+            self._progress_callback = None
+
+        # Update all agents
+        for agent in self.agents.values():
+            agent.set_progress_callback(self._progress_callback)
         for agent in self.design_build_agents.values():
-            agent.workflow_mode = workflow_mode
+            agent.set_progress_callback(self._progress_callback)
 
     def list_phases(self) -> None:
         """Display all phases and their configurations."""

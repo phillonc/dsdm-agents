@@ -374,7 +374,7 @@ dsdm-agents/
 ```env
 LLM_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
-ANTHROPIC_MODEL=claude-sonnet-4-20250514
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
 ANTHROPIC_TIMEOUT=120
 ```
 
@@ -390,14 +390,14 @@ OPENAI_ORG_ID=org-... (optional)
 ```env
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=...
-GEMINI_MODEL=gemini-2.0-flash-exp
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
-#### Ollama (Local)
+#### Ollama (Local/Cloud)
 ```env
 LLM_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2
+OLLAMA_MODEL=kimi-k2-thinking:cloud
 OLLAMA_CODE_MODEL=codellama
 ```
 

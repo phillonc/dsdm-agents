@@ -2,7 +2,7 @@
 
 from typing import Any, Callable, Dict, Optional
 
-from .base_agent import AgentConfig, AgentMode, AgentResult, BaseAgent
+from .base_agent import AgentConfig, AgentMode, AgentResult, BaseAgent, ProgressCallback
 from ..tools.tool_registry import ToolRegistry
 
 
@@ -87,6 +87,7 @@ class DesignBuildAgent(BaseAgent):
         tool_registry: ToolRegistry,
         mode: AgentMode = AgentMode.AUTOMATED,
         approval_callback: Optional[Callable[[str, Dict[str, Any]], bool]] = None,
+        progress_callback: Optional[ProgressCallback] = None,
     ):
         config = AgentConfig(
             name="Design & Build Agent",
@@ -111,9 +112,9 @@ class DesignBuildAgent(BaseAgent):
                 "generate_technical_requirements_document",
             ],
             mode=mode,
-            max_iterations=15,  # Allow more iterations for complex builds
+            max_iterations=100,  # Allow more iterations for complex builds
         )
-        super().__init__(config, tool_registry, approval_callback)
+        super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)
 
     def _process_output(self, output: str) -> AgentResult:
         """Process design and build output."""

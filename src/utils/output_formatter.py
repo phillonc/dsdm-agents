@@ -310,6 +310,88 @@ class OutputFormatter:
         """Display progress indicator."""
         self.console.print(f"[dim][{current}/{total}][/dim] {description}")
 
+    def format_agent_progress(
+        self,
+        event: str,
+        message: str,
+        agent_name: str = "",
+        iteration: int = 0,
+        max_iterations: int = 0,
+        tool_name: Optional[str] = None,
+        tool_result: Optional[str] = None,
+    ) -> None:
+        """Display real-time agent progress updates.
+
+        Args:
+            event: The type of progress event (started, thinking, tool_calling, etc.)
+            message: Human-readable progress message
+            agent_name: Name of the agent
+            iteration: Current iteration number
+            max_iterations: Maximum iterations allowed
+            tool_name: Name of tool being called (for tool events)
+            tool_result: Preview of tool result (for tool_completed events)
+        """
+        # Build progress indicator
+        progress_prefix = ""
+        if iteration > 0 and max_iterations > 0:
+            progress_prefix = f"[dim][{iteration}/{max_iterations}][/dim] "
+
+        # Format based on event type
+        if event == "started":
+            self.console.print(f"\n[bold green]> {agent_name}:[/bold green] {message}")
+
+        elif event == "thinking":
+            self.console.print(f"{progress_prefix}[cyan]  Thinking...[/cyan] {message}")
+
+        elif event == "iteration":
+            self.console.print(f"\n{progress_prefix}[blue]  Iteration {iteration}[/blue]")
+
+        elif event == "tool_calling":
+            tool_display = f"[yellow]{tool_name}[/yellow]" if tool_name else "tool"
+            self.console.print(f"{progress_prefix}[dim]  Calling[/dim] {tool_display}")
+
+        elif event == "tool_completed":
+            tool_display = f"[green]{tool_name}[/green]" if tool_name else "tool"
+            result_display = ""
+            if tool_result:
+                # Truncate and clean result for display
+                clean_result = tool_result.replace('\n', ' ').strip()
+                result_display = f" [dim]-> {clean_result[:60]}{'...' if len(clean_result) > 60 else ''}[/dim]"
+            self.console.print(f"{progress_prefix}[dim]  Completed[/dim] {tool_display}{result_display}")
+
+        elif event == "processing":
+            self.console.print(f"{progress_prefix}[cyan]  Processing...[/cyan] {message}")
+
+        elif event == "completed":
+            self.console.print(f"\n[bold green]  Completed:[/bold green] {message}")
+
+        elif event == "error":
+            self.console.print(f"\n[bold red]  Error:[/bold red] {message}")
+
+        else:
+            # Generic progress message
+            self.console.print(f"{progress_prefix}[dim]  {message}[/dim]")
+
+    def create_progress_callback(self):
+        """Create a progress callback function for agents.
+
+        Returns a callback that can be passed to BaseAgent for progress reporting.
+        """
+        from ..agents.base_agent import ProgressInfo
+
+        def callback(info: ProgressInfo) -> None:
+            self.format_agent_progress(
+                event=info.event.value,
+                message=info.message,
+                agent_name=info.agent_name,
+                iteration=info.iteration,
+                max_iterations=info.max_iterations,
+                tool_name=info.tool_name,
+                tool_result=info.tool_result,
+            )
+
+        return callback
+
 
 # Global formatter instance
 _formatter: Optional[OutputFormatter] = None
