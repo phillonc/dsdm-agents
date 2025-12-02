@@ -80,38 +80,6 @@ def create_dsdm_tool_registry(
     ))
 
     registry.register(Tool(
-        name="estimate_resources",
-        description="Estimate resources required for the project",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "team_size": {
-                    "type": "integer",
-                    "description": "Estimated team size"
-                },
-                "duration_weeks": {
-                    "type": "integer",
-                    "description": "Estimated duration in weeks"
-                },
-                "skills_required": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Required skills"
-                }
-            },
-            "required": ["team_size", "duration_weeks"]
-        },
-        handler=lambda team_size, duration_weeks, skills_required=None: json.dumps({
-            "team_size": team_size,
-            "duration_weeks": duration_weeks,
-            "skills_required": skills_required or [],
-            "estimated_cost_factor": team_size * duration_weeks
-        }),
-        requires_approval=True,
-        category="feasibility"
-    ))
-
-    registry.register(Tool(
         name="identify_risks",
         description="Identify and document project risks",
         input_schema={
@@ -135,36 +103,6 @@ def create_dsdm_tool_registry(
             "risk_areas": risk_areas,
             "severity_threshold": severity_threshold,
             "status": "documented"
-        }),
-        category="feasibility"
-    ))
-
-    registry.register(Tool(
-        name="check_dsdm_suitability",
-        description="Check if DSDM methodology is suitable for this project",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "project_type": {
-                    "type": "string",
-                    "description": "Type of project"
-                },
-                "stakeholder_availability": {
-                    "type": "string",
-                    "enum": ["low", "medium", "high"],
-                    "description": "Expected stakeholder availability"
-                },
-                "flexibility_needed": {
-                    "type": "boolean",
-                    "description": "Whether requirements are likely to change"
-                }
-            },
-            "required": ["project_type"]
-        },
-        handler=lambda project_type, stakeholder_availability="medium", flexibility_needed=True: json.dumps({
-            "dsdm_suitable": flexibility_needed and stakeholder_availability != "low",
-            "project_type": project_type,
-            "recommendation": "DSDM recommended" if flexibility_needed else "Consider waterfall"
         }),
         category="feasibility"
     ))
@@ -754,6 +692,181 @@ def create_dsdm_tool_registry(
         category="design_build"
     ))
 
+    registry.register(Tool(
+        name="generate_technical_requirements_document",
+        description="Generate a comprehensive Technical Requirements Document (TRD) for developer manual review after build completion",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "project_name": {
+                    "type": "string",
+                    "description": "Name of the project"
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Document version (e.g., '1.0.0')"
+                },
+                "executive_summary": {
+                    "type": "string",
+                    "description": "Brief overview of the system purpose and scope"
+                },
+                "system_overview": {
+                    "type": "object",
+                    "properties": {
+                        "description": {"type": "string"},
+                        "key_features": {"type": "array", "items": {"type": "string"}},
+                        "target_users": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "description": "High-level system description and features"
+                },
+                "architecture": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"type": "string"},
+                        "components": {"type": "array", "items": {"type": "string"}},
+                        "data_flow": {"type": "string"},
+                        "technology_stack": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "description": "System architecture details"
+                },
+                "functional_requirements": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "description": {"type": "string"},
+                            "priority": {"type": "string", "enum": ["must_have", "should_have", "could_have", "wont_have"]},
+                            "acceptance_criteria": {"type": "array", "items": {"type": "string"}}
+                        }
+                    },
+                    "description": "List of functional requirements with MoSCoW priorities"
+                },
+                "non_functional_requirements": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "category": {"type": "string", "enum": ["performance", "security", "reliability", "usability", "maintainability", "scalability"]},
+                            "description": {"type": "string"},
+                            "target_metric": {"type": "string"}
+                        }
+                    },
+                    "description": "Non-functional requirements (performance, security, etc.)"
+                },
+                "api_specifications": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "endpoint": {"type": "string"},
+                            "method": {"type": "string"},
+                            "description": {"type": "string"},
+                            "request_schema": {"type": "object"},
+                            "response_schema": {"type": "object"}
+                        }
+                    },
+                    "description": "API endpoint specifications"
+                },
+                "data_models": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "fields": {"type": "array", "items": {"type": "object"}},
+                            "relationships": {"type": "array", "items": {"type": "string"}}
+                        }
+                    },
+                    "description": "Data model definitions"
+                },
+                "security_requirements": {
+                    "type": "object",
+                    "properties": {
+                        "authentication": {"type": "string"},
+                        "authorization": {"type": "string"},
+                        "data_protection": {"type": "array", "items": {"type": "string"}},
+                        "compliance": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "description": "Security specifications"
+                },
+                "testing_requirements": {
+                    "type": "object",
+                    "properties": {
+                        "unit_tests": {"type": "string"},
+                        "integration_tests": {"type": "string"},
+                        "e2e_tests": {"type": "string"},
+                        "coverage_target": {"type": "string"}
+                    },
+                    "description": "Testing strategy and requirements"
+                },
+                "deployment_requirements": {
+                    "type": "object",
+                    "properties": {
+                        "environments": {"type": "array", "items": {"type": "string"}},
+                        "infrastructure": {"type": "string"},
+                        "ci_cd": {"type": "string"},
+                        "monitoring": {"type": "string"}
+                    },
+                    "description": "Deployment and infrastructure requirements"
+                },
+                "dependencies": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "version": {"type": "string"},
+                            "purpose": {"type": "string"}
+                        }
+                    },
+                    "description": "External dependencies and libraries"
+                },
+                "known_limitations": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Known limitations and constraints"
+                },
+                "future_considerations": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Future enhancements and roadmap items"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Path to save the TRD document (default: docs/TECHNICAL_REQUIREMENTS.md)"
+                }
+            },
+            "required": ["project_name", "executive_summary", "system_overview", "architecture", "functional_requirements"]
+        },
+        handler=lambda project_name, version="1.0.0", executive_summary="", system_overview=None, architecture=None, functional_requirements=None, non_functional_requirements=None, api_specifications=None, data_models=None, security_requirements=None, testing_requirements=None, deployment_requirements=None, dependencies=None, known_limitations=None, future_considerations=None, output_path=None: json.dumps({
+            "project_name": project_name,
+            "version": version,
+            "document_generated": True,
+            "sections_included": {
+                "executive_summary": bool(executive_summary),
+                "system_overview": bool(system_overview),
+                "architecture": bool(architecture),
+                "functional_requirements": len(functional_requirements) if functional_requirements else 0,
+                "non_functional_requirements": len(non_functional_requirements) if non_functional_requirements else 0,
+                "api_specifications": len(api_specifications) if api_specifications else 0,
+                "data_models": len(data_models) if data_models else 0,
+                "security_requirements": bool(security_requirements),
+                "testing_requirements": bool(testing_requirements),
+                "deployment_requirements": bool(deployment_requirements),
+                "dependencies": len(dependencies) if dependencies else 0,
+                "known_limitations": len(known_limitations) if known_limitations else 0,
+                "future_considerations": len(future_considerations) if future_considerations else 0
+            },
+            "output_path": output_path or f"generated/{project_name}/docs/TECHNICAL_REQUIREMENTS.md",
+            "status": "ready_for_developer_review",
+            "timestamp": datetime.now().isoformat()
+        }),
+        requires_approval=False,
+        category="design_build"
+    ))
+
     # ==================== IMPLEMENTATION PHASE TOOLS ====================
 
     registry.register(Tool(
@@ -1024,4 +1137,263 @@ def create_dsdm_tool_registry(
         from .file_tools import register_file_tools
         register_file_tools(registry)
 
+    # ==================== JIRA-CONFLUENCE SYNC WORKFLOW ====================
+    # Register workflow tools when both Jira and Confluence are enabled
+    if include_jira and include_confluence:
+        _register_sync_workflow_tools(registry)
+
     return registry
+
+
+def _register_sync_workflow_tools(registry: ToolRegistry) -> None:
+    """Register tools for Jira-Confluence sync workflow integration."""
+
+    registry.register(Tool(
+        name="sync_work_item_status",
+        description="Sync a Jira work item's status to Confluence documentation as part of the DSDM workflow. This should be called after updating work items in Jira to keep Confluence documentation in sync.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "issue_key": {
+                    "type": "string",
+                    "description": "The Jira issue key to sync (e.g., PROJ-123)"
+                },
+                "status": {
+                    "type": "string",
+                    "description": "The current status of the work item"
+                },
+                "summary": {
+                    "type": "string",
+                    "description": "Summary/title of the work item"
+                },
+                "phase": {
+                    "type": "string",
+                    "enum": ["feasibility", "business_study", "functional_model", "design_build", "implementation"],
+                    "description": "Current DSDM phase for the work item"
+                },
+                "confluence_space_key": {
+                    "type": "string",
+                    "description": "Confluence space key to sync to"
+                },
+                "confluence_page_id": {
+                    "type": "string",
+                    "description": "Optional specific Confluence page ID to update"
+                }
+            },
+            "required": ["issue_key", "status", "summary", "confluence_space_key"]
+        },
+        handler=_handle_sync_work_item_status,
+        category="workflow"
+    ))
+
+    registry.register(Tool(
+        name="setup_jira_confluence_sync",
+        description="Set up automatic synchronization between Jira and Confluence for the DSDM workflow. Once enabled, all Jira status transitions and updates will automatically reflect in Confluence documentation.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "confluence_space_key": {
+                    "type": "string",
+                    "description": "The Confluence space key to sync to"
+                },
+                "create_status_page": {
+                    "type": "boolean",
+                    "description": "Whether to create a Work Item Status Log page in Confluence (default: true)"
+                },
+                "issue_page_mappings": {
+                    "type": "object",
+                    "description": "Optional mapping of Jira issue keys to Confluence page IDs"
+                }
+            },
+            "required": ["confluence_space_key"]
+        },
+        handler=_handle_setup_jira_confluence_sync,
+        category="workflow"
+    ))
+
+    registry.register(Tool(
+        name="get_sync_status",
+        description="Get the current status of Jira-Confluence synchronization configuration",
+        input_schema={
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        handler=_handle_get_sync_status,
+        category="workflow"
+    ))
+
+
+def _handle_sync_work_item_status(
+    issue_key: str,
+    status: str,
+    summary: str,
+    confluence_space_key: str,
+    phase: str = None,
+    confluence_page_id: str = None,
+) -> str:
+    """Handle sync work item status request."""
+    try:
+        from .integrations.jira_tools import (
+            enable_confluence_sync,
+            set_confluence_page_mapping,
+            _sync_issue_to_confluence,
+            _confluence_sync_enabled,
+        )
+
+        # Ensure sync is enabled with the provided space key
+        if not _confluence_sync_enabled:
+            enable_confluence_sync(confluence_space_key)
+
+        # Set page mapping if provided
+        if confluence_page_id:
+            set_confluence_page_mapping(issue_key, confluence_page_id)
+
+        # Build additional info with DSDM context
+        additional_info = {}
+        if phase:
+            additional_info["dsdm_phase"] = phase
+
+        # Perform the sync
+        result = _sync_issue_to_confluence(
+            issue_key=issue_key,
+            status=status,
+            summary=summary,
+            update_type=f"dsdm_workflow_{phase}" if phase else "dsdm_workflow",
+            additional_info=additional_info if additional_info else None,
+        )
+
+        if result and result.get("success"):
+            return json.dumps({
+                "success": True,
+                "issue_key": issue_key,
+                "status": status,
+                "phase": phase,
+                "confluence_space": confluence_space_key,
+                "sync_result": result,
+                "message": f"Successfully synced {issue_key} status to Confluence"
+            })
+        elif result and result.get("error"):
+            return json.dumps({
+                "success": False,
+                "error": result.get("error"),
+                "issue_key": issue_key
+            })
+        else:
+            return json.dumps({
+                "success": False,
+                "error": "Sync returned no result",
+                "issue_key": issue_key
+            })
+
+    except ImportError as e:
+        return json.dumps({"error": f"Required integration not available: {str(e)}"})
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+def _handle_setup_jira_confluence_sync(
+    confluence_space_key: str,
+    create_status_page: bool = True,
+    issue_page_mappings: dict = None,
+) -> str:
+    """Handle setup Jira-Confluence sync request."""
+    try:
+        from .integrations.jira_tools import enable_confluence_sync
+        from .integrations.confluence_tools import get_confluence_client
+
+        # Enable the sync
+        enable_confluence_sync(confluence_space_key, issue_page_mappings)
+
+        result = {
+            "success": True,
+            "confluence_space_key": confluence_space_key,
+            "sync_enabled": True,
+            "page_mappings_configured": len(issue_page_mappings) if issue_page_mappings else 0,
+        }
+
+        # Optionally create a status page
+        if create_status_page:
+            try:
+                confluence = get_confluence_client()
+                if confluence.is_configured:
+                    # Check if status page already exists
+                    search_result = confluence.search(
+                        f'space="{confluence_space_key}" AND title="Work Item Status Log"',
+                        limit=1
+                    )
+
+                    if not search_result.get("results"):
+                        # Create the status page
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        status_page_content = f"""<h1>Work Item Status Log</h1>
+<p><strong>Space:</strong> {confluence_space_key}</p>
+<p><strong>Last Updated:</strong> {timestamp}</p>
+<p>This page tracks status changes for Jira work items automatically synced from the DSDM workflow.</p>
+<hr/>
+<h2>Sync Configuration</h2>
+<p><strong>Auto-sync:</strong> Enabled</p>
+<p><strong>Sync started:</strong> {timestamp}</p>
+<hr/>
+<h2>Status History</h2>
+<table>
+<thead>
+<tr>
+<th>Timestamp</th>
+<th>Issue Key</th>
+<th>Summary</th>
+<th>Status</th>
+<th>Update Type</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+"""
+                        new_page = confluence.create_page(
+                            space_key=confluence_space_key,
+                            title="Work Item Status Log",
+                            content=status_page_content,
+                        )
+                        result["status_page_created"] = True
+                        result["status_page_id"] = new_page["id"]
+                    else:
+                        result["status_page_created"] = False
+                        result["status_page_id"] = search_result["results"][0]["id"]
+                        result["message"] = "Status page already exists"
+            except Exception as e:
+                result["status_page_error"] = str(e)
+
+        result["info"] = "Jira-Confluence sync is now active. All Jira transitions and updates will automatically sync to Confluence."
+
+        return json.dumps(result)
+
+    except ImportError as e:
+        return json.dumps({"error": f"Required integration not available: {str(e)}"})
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+def _handle_get_sync_status() -> str:
+    """Handle get sync status request."""
+    try:
+        from .integrations.jira_tools import (
+            _confluence_sync_enabled,
+            _confluence_space_key,
+            _confluence_page_mapping,
+        )
+
+        return json.dumps({
+            "sync_enabled": _confluence_sync_enabled,
+            "confluence_space_key": _confluence_space_key,
+            "page_mappings_count": len(_confluence_page_mapping),
+            "page_mappings": _confluence_page_mapping,
+        })
+
+    except ImportError:
+        return json.dumps({
+            "sync_enabled": False,
+            "error": "Jira integration not available"
+        })
+    except Exception as e:
+        return json.dumps({"error": str(e)})

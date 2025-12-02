@@ -51,12 +51,29 @@ Then use file_write to write code files within that project:
 - file_write(file_path="my_project/src/main.py", content="...")
 - file_write(file_path="my_project/tests/test_main.py", content="...")
 
+## IMPORTANT - Technical Requirements Document (TRD):
+After completing all code implementation and testing, you MUST generate a comprehensive Technical Requirements Document using the generate_technical_requirements_document tool. This TRD is essential for developer manual review and should include:
+- Executive summary of the system
+- System overview with key features
+- Architecture details and technology stack
+- All functional requirements with MoSCoW priorities
+- Non-functional requirements (performance, security, reliability)
+- API specifications (if applicable)
+- Data models and schemas
+- Security requirements
+- Testing requirements and coverage targets
+- Deployment requirements
+- Dependencies list
+- Known limitations
+- Future considerations
+
 ## IMPORTANT - Completing Your Response:
-After you have completed all necessary tool calls (writing files, running tests, etc.), you MUST provide a final text summary that includes:
+After you have completed all necessary tool calls (writing files, running tests, generating TRD, etc.), you MUST provide a final text summary that includes:
 1. What was built/implemented
 2. Files created and their locations
 3. Test results summary
-4. Any recommendations for the next phase
+4. Technical Requirements Document location
+5. Any recommendations for the next phase
 
 DO NOT continue making tool calls indefinitely. Once you've accomplished the requested task, stop making tool calls and provide your final summary response.
 """
@@ -90,6 +107,8 @@ class DesignBuildAgent(BaseAgent):
                 "review_code",
                 "create_documentation",
                 "security_check",
+                # Technical Requirements Document generation
+                "generate_technical_requirements_document",
             ],
             mode=mode,
             max_iterations=15,  # Allow more iterations for complex builds

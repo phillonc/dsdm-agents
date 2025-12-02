@@ -53,9 +53,7 @@ class FeasibilityAgent(BaseAgent):
             tools=[
                 "analyze_requirements",
                 "assess_technical_feasibility",
-                "estimate_resources",
                 "identify_risks",
-                "check_dsdm_suitability",
             ],
             mode=mode,
         )
