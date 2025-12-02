@@ -28,7 +28,7 @@ def write_file_handler(
     file_path: str,
     content: str,
     output_dir: Optional[str] = None,
-    overwrite: bool = False,
+    overwrite: bool = True,
 ) -> str:
     """Write content to a file in the output directory."""
     try:
@@ -493,7 +493,7 @@ def register_file_tools(registry: ToolRegistry) -> None:
                 },
                 "overwrite": {
                     "type": "boolean",
-                    "description": "Whether to overwrite existing files (default: false)"
+                    "description": "Whether to overwrite existing files (default: true)"
                 }
             },
             "required": ["file_path", "content"]

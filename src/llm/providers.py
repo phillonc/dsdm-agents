@@ -44,7 +44,7 @@ class LLMConfig:
             return cls(
                 provider=provider,
                 api_key=os.environ.get("ANTHROPIC_API_KEY"),
-                model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514"),
+                model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
                 timeout=int(os.environ.get("ANTHROPIC_TIMEOUT", "120")),
             )
 
@@ -61,14 +61,14 @@ class LLMConfig:
             return cls(
                 provider=provider,
                 api_key=os.environ.get("GEMINI_API_KEY"),
-                model=os.environ.get("GEMINI_MODEL", "gemini-2.0-flash-exp"),
+                model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
                 timeout=int(os.environ.get("GEMINI_TIMEOUT", "120")),
             )
 
         elif provider == LLMProvider.OLLAMA:
             return cls(
                 provider=provider,
-                model=os.environ.get("OLLAMA_MODEL", "llama3.2"),
+                model=os.environ.get("OLLAMA_MODEL", "kimi-k2-thinking:cloud"),
                 base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
                 timeout=int(os.environ.get("OLLAMA_TIMEOUT", "120")),
                 extra_params={
@@ -140,7 +140,7 @@ class AnthropicClient(BaseLLMClient):
         request_params = {
             "model": self.config.model,
             "messages": messages,
-            "max_tokens": kwargs.get("max_tokens", 4096),
+            "max_tokens": kwargs.get("max_tokens", 8192),
         }
 
         if system_prompt:
@@ -217,12 +217,42 @@ class OpenAIClient(BaseLLMClient):
         full_messages = []
         if system_prompt:
             full_messages.append({"role": "system", "content": system_prompt})
-        full_messages.extend(messages)
+
+        # Convert messages to OpenAI format, handling complex content structures
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+
+            # Handle Anthropic-style tool results (list of tool_result dicts)
+            if isinstance(content, list) and content:
+                if isinstance(content[0], dict) and content[0].get("type") == "tool_result":
+                    # OpenAI expects tool messages for tool results
+                    for tr in content:
+                        tool_call_id = tr.get("tool_use_id", "unknown")
+                        result = tr.get("content", "")
+                        full_messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "content": result,
+                        })
+                    continue  # Skip normal message append
+                elif hasattr(content[0], "text"):
+                    # Anthropic raw_content blocks
+                    text_parts = []
+                    for block in content:
+                        if hasattr(block, "text"):
+                            text_parts.append(block.text)
+                    content = "\n".join(text_parts)
+                else:
+                    # Unknown list format - stringify
+                    content = str(content)
+
+            full_messages.append({"role": role, "content": content})
 
         request_params = {
             "model": self.config.model,
             "messages": full_messages,
-            "max_tokens": kwargs.get("max_tokens", 4096),
+            "max_tokens": kwargs.get("max_tokens", 8192),
         }
 
         if tools:
@@ -294,6 +324,123 @@ class GeminiClient(BaseLLMClient):
                 )
         return self._client
 
+    def _convert_protobuf_to_dict(self, obj: Any) -> Any:
+        """Convert Protobuf objects to native Python types.
+
+        Handles RepeatedCompositeFieldContainer, MapComposite, Struct, and other
+        Protobuf types that can't be directly JSON serialized.
+        """
+        # Handle None - return empty dict for tool args context
+        if obj is None:
+            return {}
+
+        # Handle native Python dict (already converted)
+        if isinstance(obj, dict):
+            return obj
+
+        # Handle basic types
+        if isinstance(obj, (str, int, float, bool)):
+            return obj
+
+        # Handle google.protobuf.Struct specifically (used by Gemini for function args)
+        # Struct has a 'fields' attribute containing the actual key-value pairs
+        if hasattr(obj, "fields"):
+            result = {}
+            try:
+                for key, value in obj.fields.items():
+                    result[key] = self._convert_protobuf_value(value)
+                return result
+            except Exception:
+                # If fields iteration fails, try MessageToDict
+                pass
+
+        # Handle dict-like objects (including MapComposite)
+        if hasattr(obj, "keys") and hasattr(obj, "items"):
+            try:
+                return {k: self._convert_protobuf_to_dict(v) for k, v in obj.items()}
+            except Exception:
+                pass
+
+        # Handle list-like objects (including RepeatedCompositeFieldContainer)
+        if hasattr(obj, "__iter__") and not isinstance(obj, (str, bytes)):
+            try:
+                return [self._convert_protobuf_to_dict(item) for item in obj]
+            except Exception:
+                pass
+
+        # Handle Protobuf messages with DESCRIPTOR - use preserving_proto_field_name
+        # to keep original field names (e.g., "file_path" instead of "filePath")
+        if hasattr(obj, "DESCRIPTOR"):
+            try:
+                from google.protobuf.json_format import MessageToDict
+                return MessageToDict(obj, preserving_proto_field_name=True)
+            except Exception:
+                pass
+
+        # Fallback: return empty dict for tool args (safer than string)
+        return {}
+
+    def _convert_protobuf_value(self, value: Any) -> Any:
+        """Convert a google.protobuf.Value to a native Python type.
+
+        Protobuf Value can contain: null, number, string, bool, struct, or list.
+        """
+        # Handle None
+        if value is None:
+            return None
+
+        # Handle already-converted Python types
+        if isinstance(value, (str, int, float, bool, dict, list)):
+            return value
+
+        # Try to use WhichOneof to determine the value type (more reliable)
+        if hasattr(value, "WhichOneof"):
+            try:
+                kind = value.WhichOneof("kind")
+                if kind == "null_value":
+                    return None
+                elif kind == "number_value":
+                    return value.number_value
+                elif kind == "string_value":
+                    return value.string_value
+                elif kind == "bool_value":
+                    return value.bool_value
+                elif kind == "struct_value":
+                    return self._convert_protobuf_to_dict(value.struct_value)
+                elif kind == "list_value":
+                    return [self._convert_protobuf_value(v) for v in value.list_value.values]
+            except Exception:
+                pass
+
+        # Fallback: Check which field is set in the Value using HasField
+        try:
+            if hasattr(value, "null_value") and value.HasField("null_value"):
+                return None
+            if hasattr(value, "number_value") and value.HasField("number_value"):
+                return value.number_value
+            if hasattr(value, "string_value") and value.HasField("string_value"):
+                return value.string_value
+            if hasattr(value, "bool_value") and value.HasField("bool_value"):
+                return value.bool_value
+            if hasattr(value, "struct_value") and value.HasField("struct_value"):
+                return self._convert_protobuf_to_dict(value.struct_value)
+            if hasattr(value, "list_value") and value.HasField("list_value"):
+                return [self._convert_protobuf_value(v) for v in value.list_value.values]
+        except Exception:
+            pass
+
+        # Last resort fallback: try to access value attributes directly
+        if hasattr(value, "string_value") and value.string_value:
+            return value.string_value
+        if hasattr(value, "number_value"):
+            try:
+                return value.number_value
+            except Exception:
+                pass
+
+        # Return None for unknown value types
+        return None
+
     def chat(
         self,
         messages: List[Dict[str, str]],
@@ -303,41 +450,83 @@ class GeminiClient(BaseLLMClient):
     ) -> Dict[str, Any]:
         try:
             import google.generativeai as genai
+            from google.ai import generativelanguage as glm
         except ImportError:
             raise ImportError(
                 "google-generativeai package not installed. "
                 "Run: pip install google-generativeai"
             )
 
+        # Ensure API key is configured before any operations
+        genai.configure(api_key=self.config.api_key)
+
         # Convert messages to Gemini format
         gemini_messages = []
         for msg in messages:
             role = "user" if msg["role"] == "user" else "model"
+            content = msg["content"]
+
+            # Handle Anthropic-style tool results (list of tool_result dicts)
+            if isinstance(content, list) and content and isinstance(content[0], dict):
+                if content[0].get("type") == "tool_result":
+                    # Convert to Gemini function response format
+                    parts = []
+                    for tool_result in content:
+                        tool_use_id = tool_result.get("tool_use_id", "unknown")
+                        # Extract function name from ID format: "gemini_{func_name}_{counter}"
+                        # e.g., "gemini_file_write_1" -> "file_write"
+                        if tool_use_id.startswith("gemini_"):
+                            # Remove "gemini_" prefix and trailing "_N" counter
+                            parts_of_id = tool_use_id[7:].rsplit("_", 1)
+                            func_name = parts_of_id[0] if parts_of_id else tool_use_id
+                        else:
+                            func_name = tool_use_id
+                        parts.append(glm.Part(
+                            function_response=glm.FunctionResponse(
+                                name=func_name,
+                                response={"result": tool_result.get("content", "")}
+                            )
+                        ))
+                    gemini_messages.append({"role": role, "parts": parts})
+                    continue
+
+            # Handle Anthropic raw_content (list of content blocks)
+            if isinstance(content, list):
+                parts = []
+                for block in content:
+                    if hasattr(block, "text"):
+                        parts.append(block.text)
+                    elif hasattr(block, "name"):  # Tool use block
+                        parts.append(glm.Part(
+                            function_call=glm.FunctionCall(
+                                name=block.name,
+                                args=block.input
+                            )
+                        ))
+                if parts:
+                    gemini_messages.append({"role": role, "parts": parts})
+                continue
+
+            # Regular text content
             gemini_messages.append({
                 "role": role,
-                "parts": [msg["content"]]
+                "parts": [content] if isinstance(content, str) else [str(content)]
             })
 
         # Create chat with system instruction
         generation_config = genai.GenerationConfig(
-            max_output_tokens=kwargs.get("max_tokens", 4096),
+            max_output_tokens=kwargs.get("max_tokens", 8192),
         )
 
-        model = genai.GenerativeModel(
-            self.config.model,
-            system_instruction=system_prompt if system_prompt else None,
-            generation_config=generation_config,
-        )
-
-        # Handle tools if provided
+        # Handle tools if provided - convert to Gemini format
         gemini_tools = None
         if tools:
             gemini_tools = []
             for tool in tools:
                 gemini_tools.append(
-                    genai.protos.Tool(
+                    glm.Tool(
                         function_declarations=[
-                            genai.protos.FunctionDeclaration(
+                            glm.FunctionDeclaration(
                                 name=tool.get("name"),
                                 description=tool.get("description", ""),
                                 parameters=self._convert_schema_to_gemini(
@@ -348,11 +537,53 @@ class GeminiClient(BaseLLMClient):
                     )
                 )
 
+        # Try to add system_instruction if supported (not available in all versions)
+        try:
+            model = genai.GenerativeModel(
+                self.config.model,
+                system_instruction=system_prompt if system_prompt else None,
+                generation_config=generation_config,
+                tools=gemini_tools,
+            )
+        except TypeError:
+            # Fallback for older versions that don't support system_instruction
+            model = genai.GenerativeModel(
+                self.config.model,
+                generation_config=generation_config,
+                tools=gemini_tools,
+            )
+            # Prepend system prompt to first message if we have one
+            if system_prompt and gemini_messages:
+                first_msg = gemini_messages[0]
+                if isinstance(first_msg.get("parts"), list) and first_msg["parts"]:
+                    first_content = first_msg["parts"][0]
+                    if isinstance(first_content, str):
+                        first_msg["parts"][0] = f"System: {system_prompt}\n\nUser: {first_content}"
+
         chat = model.start_chat(history=gemini_messages[:-1] if len(gemini_messages) > 1 else [])
-        response = chat.send_message(
-            gemini_messages[-1]["parts"][0] if gemini_messages else "",
-            tools=gemini_tools,
-        )
+
+        message_content = gemini_messages[-1]["parts"][0] if gemini_messages else ""
+
+        # Handle StopCandidateException and other errors from Gemini
+        try:
+            response = chat.send_message(message_content)
+        except Exception as e:
+            error_type = type(e).__name__
+            # Handle StopCandidateException (safety blocks, recitation, etc.)
+            if "StopCandidate" in error_type:
+                # Try to extract candidate info from the exception
+                candidate_info = str(e)
+                return {
+                    "content": f"Response blocked by Gemini safety filters: {candidate_info}",
+                    "role": "assistant",
+                    "model": self.config.model,
+                    "usage": {"input_tokens": 0, "output_tokens": 0},
+                    "stop_reason": "blocked",
+                    "tool_calls": [],
+                    "error": error_type,
+                }
+            # Re-raise other exceptions
+            raise
 
         # Extract tool calls if any
         tool_calls = []
@@ -361,10 +592,25 @@ class GeminiClient(BaseLLMClient):
         for part in response.parts:
             if hasattr(part, "function_call") and part.function_call:
                 tool_id_counter += 1
+                func_name = part.function_call.name
+                raw_args = part.function_call.args
+
+                # Debug: Log raw args type and value
+                import sys
+                print(f"[DEBUG] Tool: {func_name}, Raw args type: {type(raw_args).__name__}", file=sys.stderr)
+
+                # Convert Protobuf args to native Python dict
+                # This handles RepeatedCompositeFieldContainer and other Protobuf types
+                args = self._convert_protobuf_to_dict(raw_args)
+
+                # Debug: Log converted args
+                print(f"[DEBUG] Tool: {func_name}, Converted args: {args}", file=sys.stderr)
+
                 tool_calls.append({
-                    "id": f"gemini_tool_{tool_id_counter}",
-                    "name": part.function_call.name,
-                    "input": dict(part.function_call.args),
+                    # Encode function name in ID for proper response mapping
+                    "id": f"gemini_{func_name}_{tool_id_counter}",
+                    "name": func_name,
+                    "input": args if isinstance(args, dict) else {},
                 })
             elif hasattr(part, "text"):
                 content += part.text
@@ -384,7 +630,7 @@ class GeminiClient(BaseLLMClient):
     def _convert_schema_to_gemini(self, schema: Dict[str, Any]) -> Any:
         """Convert JSON schema to Gemini parameter format."""
         try:
-            import google.generativeai as genai
+            from google.ai import generativelanguage as glm
         except ImportError:
             return None
 
@@ -394,24 +640,35 @@ class GeminiClient(BaseLLMClient):
         properties = schema.get("properties", {})
         required = schema.get("required", [])
 
+        type_map = {
+            "string": glm.Type.STRING,
+            "integer": glm.Type.INTEGER,
+            "number": glm.Type.NUMBER,
+            "boolean": glm.Type.BOOLEAN,
+            "array": glm.Type.ARRAY,
+            "object": glm.Type.OBJECT,
+        }
+
         gemini_properties = {}
         for name, prop in properties.items():
             prop_type = prop.get("type", "string")
-            type_map = {
-                "string": genai.protos.Type.STRING,
-                "integer": genai.protos.Type.INTEGER,
-                "number": genai.protos.Type.NUMBER,
-                "boolean": genai.protos.Type.BOOLEAN,
-                "array": genai.protos.Type.ARRAY,
-                "object": genai.protos.Type.OBJECT,
+            schema_kwargs = {
+                "type_": type_map.get(prop_type, glm.Type.STRING),
+                "description": prop.get("description", ""),
             }
-            gemini_properties[name] = genai.protos.Schema(
-                type=type_map.get(prop_type, genai.protos.Type.STRING),
-                description=prop.get("description", ""),
-            )
 
-        return genai.protos.Schema(
-            type=genai.protos.Type.OBJECT,
+            # Handle array items
+            if prop_type == "array" and "items" in prop:
+                items = prop["items"]
+                items_type = items.get("type", "string")
+                schema_kwargs["items"] = glm.Schema(
+                    type_=type_map.get(items_type, glm.Type.STRING),
+                )
+
+            gemini_properties[name] = glm.Schema(**schema_kwargs)
+
+        return glm.Schema(
+            type_=glm.Type.OBJECT,
             properties=gemini_properties,
             required=required,
         )
@@ -454,7 +711,34 @@ class OllamaClient(BaseLLMClient):
         ollama_messages = []
         if system_prompt:
             ollama_messages.append({"role": "system", "content": system_prompt})
-        ollama_messages.extend(messages)
+
+        # Convert messages to Ollama format, handling complex content structures
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+
+            # Handle Anthropic-style tool results (list of tool_result dicts)
+            if isinstance(content, list) and content:
+                if isinstance(content[0], dict) and content[0].get("type") == "tool_result":
+                    # Convert tool results to plain text for Ollama
+                    tool_results = []
+                    for tr in content:
+                        tool_id = tr.get("tool_use_id", "unknown")
+                        result = tr.get("content", "")
+                        tool_results.append(f"Tool {tool_id} returned: {result}")
+                    content = "\n".join(tool_results)
+                elif hasattr(content[0], "text"):
+                    # Anthropic raw_content blocks
+                    text_parts = []
+                    for block in content:
+                        if hasattr(block, "text"):
+                            text_parts.append(block.text)
+                    content = "\n".join(text_parts)
+                else:
+                    # Unknown list format - stringify
+                    content = str(content)
+
+            ollama_messages.append({"role": role, "content": content})
 
         request_data = {
             "model": self.config.model,

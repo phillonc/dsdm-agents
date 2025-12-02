@@ -1,5 +1,6 @@
 """Base Agent class for DSDM methodology agents."""
 
+import json
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -21,6 +22,36 @@ from .workflow_modes import (
 load_dotenv()
 
 
+class ProgressEvent(Enum):
+    """Types of progress events that agents can emit."""
+    STARTED = "started"
+    THINKING = "thinking"
+    TOOL_CALLING = "tool_calling"
+    TOOL_COMPLETED = "tool_completed"
+    ITERATION = "iteration"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    ERROR = "error"
+
+
+@dataclass
+class ProgressInfo:
+    """Information about agent progress."""
+    event: ProgressEvent
+    message: str
+    agent_name: str = ""
+    iteration: int = 0
+    max_iterations: int = 0
+    tool_name: Optional[str] = None
+    tool_input: Optional[Dict[str, Any]] = None
+    tool_result: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+
+
+# Type alias for progress callback
+ProgressCallback = Callable[[ProgressInfo], None]
+
+
 class AgentMode(Enum):
     """Agent execution mode (tool approval)."""
     MANUAL = "manual"      # Requires user approval for each action
@@ -39,8 +70,8 @@ class AgentConfig:
     mode: AgentMode = AgentMode.AUTOMATED
     workflow_mode: WorkflowMode = WorkflowMode.AGENT_WRITES_CODE  # How agent interacts
     model: Optional[str] = None  # If None, uses provider default from env
-    max_tokens: int = 4096
-    max_iterations: int = 10
+    max_tokens: int = 8192
+    max_iterations: int = 100
     llm_provider: Optional[LLMProvider] = None  # If None, uses LLM_PROVIDER from env
 
 
@@ -66,10 +97,12 @@ class BaseAgent(ABC):
         tool_registry: ToolRegistry,
         approval_callback: Optional[Callable[[str, Dict[str, Any]], bool]] = None,
         llm_client: Optional[BaseLLMClient] = None,
+        progress_callback: Optional[ProgressCallback] = None,
     ):
         self.config = config
         self.tool_registry = tool_registry
         self.approval_callback = approval_callback
+        self.progress_callback = progress_callback
 
         # Initialize LLM client - use provided client, or create from config/env
         if llm_client is not None:
@@ -83,6 +116,22 @@ class BaseAgent(ABC):
 
         self.messages: List[Dict[str, Any]] = []
         self.tool_call_history: List[Dict[str, Any]] = []
+
+    def _emit_progress(self, event: ProgressEvent, message: str, **kwargs) -> None:
+        """Emit a progress event if callback is set."""
+        if self.progress_callback:
+            info = ProgressInfo(
+                event=event,
+                message=message,
+                agent_name=self.config.name,
+                max_iterations=self.config.max_iterations,
+                **kwargs
+            )
+            self.progress_callback(info)
+
+    def set_progress_callback(self, callback: Optional[ProgressCallback]) -> None:
+        """Set or update the progress callback."""
+        self.progress_callback = callback
 
     @property
     def name(self) -> str:
@@ -187,9 +236,36 @@ class BaseAgent(ABC):
             return False
         return True
 
+    def _normalize_tool_name(self, tool_name: str) -> str:
+        """Normalize tool name by stripping common prefixes that LLMs may hallucinate.
+
+        Some LLMs (especially Gemini) may add prefixes like 'files.' or 'tools.' to
+        tool names. This method strips those prefixes to find the actual tool.
+        """
+        # Common prefixes that LLMs may add
+        prefixes_to_strip = ["files.", "tools.", "file.", "tool."]
+
+        normalized = tool_name
+        for prefix in prefixes_to_strip:
+            if normalized.lower().startswith(prefix):
+                normalized = normalized[len(prefix):]
+                break
+
+        return normalized
+
     def _execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> str:
         """Execute a tool with approval check."""
+        # Try to find tool with original name first
         tool = self.tool_registry.get(tool_name)
+
+        # If not found, try normalized name
+        if tool is None:
+            normalized_name = self._normalize_tool_name(tool_name)
+            if normalized_name != tool_name:
+                tool = self.tool_registry.get(normalized_name)
+                if tool is not None:
+                    tool_name = normalized_name  # Use normalized name for history
+
         if tool is None:
             return f"Unknown tool: {tool_name}"
 
@@ -206,6 +282,13 @@ class BaseAgent(ABC):
 
     def run(self, user_input: str, context: Optional[Dict[str, Any]] = None) -> AgentResult:
         """Run the agent with user input."""
+        # Emit started event
+        self._emit_progress(
+            ProgressEvent.STARTED,
+            f"Starting task: {user_input[:100]}..." if len(user_input) > 100 else f"Starting task: {user_input}",
+            details={"context": context} if context else None
+        )
+
         # Build initial message with context
         message_content = user_input
         if context:
@@ -229,6 +312,20 @@ class BaseAgent(ABC):
         while iterations < self.config.max_iterations:
             iterations += 1
 
+            # Emit iteration progress
+            self._emit_progress(
+                ProgressEvent.ITERATION,
+                f"Processing iteration {iterations}/{self.config.max_iterations}",
+                iteration=iterations
+            )
+
+            # Emit thinking event
+            self._emit_progress(
+                ProgressEvent.THINKING,
+                "Analyzing and planning next steps...",
+                iteration=iterations
+            )
+
             # Call LLM using provider-agnostic client
             response = self.llm_client.chat(
                 messages=self.messages,
@@ -241,7 +338,8 @@ class BaseAgent(ABC):
             tool_calls = response.get("tool_calls", [])
 
             # Check for tool use (only in AGENT_WRITES_CODE mode)
-            if (stop_reason == "tool_use" or tool_calls) and self._should_use_tools():
+            # Process tool calls if we have any, regardless of stop_reason
+            if tool_calls and self._should_use_tools():
                 # Add assistant response to messages
                 # For Anthropic, use raw_content; for others, construct message
                 if "raw_content" in response:
@@ -254,7 +352,38 @@ class BaseAgent(ABC):
                 # Process tool calls
                 tool_results = []
                 for tc in tool_calls:
-                    result = self._execute_tool(tc["name"], tc["input"])
+                    # Emit tool calling event
+                    self._emit_progress(
+                        ProgressEvent.TOOL_CALLING,
+                        f"Executing tool: {tc['name']}",
+                        iteration=iterations,
+                        tool_name=tc["name"],
+                        tool_input=tc["input"]
+                    )
+
+                    # Validate tool input is not empty before execution
+                    tool_input = tc["input"]
+                    if not tool_input or (isinstance(tool_input, dict) and len(tool_input) == 0):
+                        # LLM returned empty parameters - provide informative error
+                        result = json.dumps({
+                            "success": False,
+                            "error": f"Tool '{tc['name']}' called with empty parameters. The LLM did not provide required arguments.",
+                            "tool_name": tc["name"],
+                            "tool_id": tc["id"],
+                        })
+                    else:
+                        result = self._execute_tool(tc["name"], tool_input)
+
+                    # Emit tool completed event
+                    result_preview = str(result)[:100] + "..." if len(str(result)) > 100 else str(result)
+                    self._emit_progress(
+                        ProgressEvent.TOOL_COMPLETED,
+                        f"Tool {tc['name']} completed",
+                        iteration=iterations,
+                        tool_name=tc["name"],
+                        tool_result=result_preview
+                    )
+
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": tc["id"],
@@ -264,21 +393,116 @@ class BaseAgent(ABC):
                 # Add tool results to messages
                 self.messages.append({"role": "user", "content": tool_results})
 
-            elif stop_reason in ("end_turn", "stop"):
+            elif stop_reason in ("end_turn", "stop", "end"):
+                # No more tool calls and conversation ended normally
                 # Extract final response
+                self._emit_progress(
+                    ProgressEvent.PROCESSING,
+                    "Generating final response...",
+                    iteration=iterations
+                )
+
                 output = response.get("content", "")
+
+                # If output is empty, try to extract from raw_content
+                if not output and "raw_content" in response:
+                    raw_content = response["raw_content"]
+                    if isinstance(raw_content, list):
+                        for block in raw_content:
+                            if hasattr(block, "text"):
+                                output = block.text
+                                break
+                    elif isinstance(raw_content, str):
+                        output = raw_content
+
                 result = self._process_output(output)
                 # Add tips and workflow mode to result
                 result.tips = tips
                 result.workflow_mode = self.config.workflow_mode
+
+                # Emit completed event
+                self._emit_progress(
+                    ProgressEvent.COMPLETED,
+                    "Task completed successfully" if result.success else "Task completed with issues",
+                    iteration=iterations,
+                    details={"success": result.success, "tool_calls": len(self.tool_call_history)}
+                )
+
                 return result
 
+            elif stop_reason == "tool_use":
+                # stop_reason says tool_use but no tool_calls - might be an error
+                # Try to extract any text content and return if we have it
+                output = response.get("content", "")
+                if output:
+                    result = self._process_output(output)
+                    result.tips = tips
+                    result.workflow_mode = self.config.workflow_mode
+
+                    self._emit_progress(
+                        ProgressEvent.COMPLETED,
+                        "Task completed",
+                        iteration=iterations
+                    )
+
+                    return result
+                # Otherwise continue the loop to get more response
+                continue
+
+            elif stop_reason == "" or stop_reason is None:
+                # Empty stop reason - check if we have content
+                output = response.get("content", "")
+                if output:
+                    # If we have content without tool calls, treat as complete
+                    result = self._process_output(output)
+                    result.tips = tips
+                    result.workflow_mode = self.config.workflow_mode
+
+                    self._emit_progress(
+                        ProgressEvent.COMPLETED,
+                        "Task completed",
+                        iteration=iterations
+                    )
+
+                    return result
+                # No content and no stop reason - continue loop
+                continue
+
             else:
+                # Unknown stop reason - try to get content anyway
+                output = response.get("content", "")
+                if output:
+                    result = self._process_output(output)
+                    result.tips = tips
+                    result.workflow_mode = self.config.workflow_mode
+
+                    self._emit_progress(
+                        ProgressEvent.COMPLETED,
+                        "Task completed",
+                        iteration=iterations
+                    )
+
+                    return result
+
+                # Emit error event
+                self._emit_progress(
+                    ProgressEvent.ERROR,
+                    f"Unexpected stop reason: {stop_reason}",
+                    iteration=iterations
+                )
+
                 return AgentResult(
                     success=False,
                     output=f"Unexpected stop reason: {stop_reason}",
                     workflow_mode=self.config.workflow_mode,
                 )
+
+        # Emit error for max iterations
+        self._emit_progress(
+            ProgressEvent.ERROR,
+            f"Max iterations ({self.config.max_iterations}) reached",
+            iteration=iterations
+        )
 
         return AgentResult(
             success=False,

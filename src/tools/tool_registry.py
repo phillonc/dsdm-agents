@@ -25,9 +25,30 @@ class Tool:
         }
 
     def execute(self, **kwargs) -> str:
-        """Execute the tool with given arguments."""
+        """Execute the tool with given arguments.
+
+        Filters kwargs to only include parameters defined in the tool's input schema.
+        This protects against LLM providers (like Gemini) returning extra fields
+        in function call arguments that aren't part of the expected schema.
+        """
         try:
-            result = self.handler(**kwargs)
+            # Filter kwargs to only include parameters defined in schema
+            expected_params = set(self.input_schema.get("properties", {}).keys())
+            filtered_kwargs = {k: v for k, v in kwargs.items() if k in expected_params}
+
+            # Validate required parameters are present
+            required_params = set(self.input_schema.get("required", []))
+            missing_params = required_params - set(filtered_kwargs.keys())
+            if missing_params:
+                return json.dumps({
+                    "success": False,
+                    "error": f"Missing required parameters: {missing_params}",
+                    "received_params": list(kwargs.keys()),
+                    "expected_params": list(expected_params),
+                    "raw_input": {k: str(v)[:100] for k, v in kwargs.items()},  # Truncate for readability
+                })
+
+            result = self.handler(**filtered_kwargs)
             return str(result)
         except Exception as e:
             return f"Error executing {self.name}: {str(e)}"
