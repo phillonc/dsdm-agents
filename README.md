@@ -30,7 +30,7 @@ The Design & Build phase can be broken down into specialized roles for more gran
 | **NFR Tester** | NFRTesterAgent | Hybrid | Performance, scalability, reliability, accessibility |
 | **Penetration Tester** | PenTesterAgent | Manual | Security scans, vulnerability assessment, OWASP |
 
-Each agent has specialized tools and can operate in **Manual**, **Automated**, or **Hybrid** mode.
+Each agent has specialized tools and can operate in **Manual**, **Automated**, or **Hybrid** mode, with configurable **Workflow Modes** for how agents interact with developers.
 
 ## Getting Started
 
@@ -82,6 +82,7 @@ This opens a menu where you can:
 - Run the full DSDM workflow
 - Access the Design & Build team (specialized roles)
 - Configure agent modes (Manual/Automated/Hybrid)
+- Configure workflow modes (Write/Tips/Manual)
 - View available tools for each phase
 
 ### Command Line
@@ -115,7 +116,7 @@ python main.py --list-tools
 
 ```python
 from src.orchestrator import DSDMOrchestrator, DSDMPhase, DesignBuildRole
-from src.agents import AgentMode
+from src.agents import AgentMode, WorkflowMode
 
 # Create orchestrator with all integrations
 orchestrator = DSDMOrchestrator(
@@ -136,6 +137,9 @@ print(f"Output: {result.output}")
 # Change agent mode
 orchestrator.set_agent_mode(DSDMPhase.DESIGN_BUILD, AgentMode.MANUAL)
 
+# Change workflow mode
+orchestrator.set_workflow_mode(DSDMPhase.DESIGN_BUILD, WorkflowMode.AGENT_PROVIDES_TIPS)
+
 # Run full workflow
 results = orchestrator.run_workflow(
     "Build an e-commerce platform",
@@ -148,7 +152,7 @@ results = orchestrator.run_workflow(
 
 ```python
 from src.orchestrator import DSDMOrchestrator, DesignBuildRole
-from src.agents import AgentMode
+from src.agents import AgentMode, WorkflowMode
 
 orchestrator = DSDMOrchestrator()
 
@@ -176,9 +180,14 @@ results = orchestrator.run_design_build_team(
 
 # Configure role mode
 orchestrator.set_role_mode(DesignBuildRole.PEN_TESTER, AgentMode.MANUAL)
+
+# Configure role workflow mode
+orchestrator.set_role_workflow_mode(DesignBuildRole.FRONTEND_DEV, WorkflowMode.MANUAL_WITH_TIPS)
 ```
 
 ## Agent Modes
+
+### Execution Modes (Tool Approval)
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
@@ -186,7 +195,7 @@ orchestrator.set_role_mode(DesignBuildRole.PEN_TESTER, AgentMode.MANUAL)
 | **MANUAL** | Every tool requires user approval | Production deployments, sensitive operations |
 | **HYBRID** | Some tools auto-run, critical ones need approval | Balanced workflow |
 
-Default modes by phase:
+Default execution modes by phase:
 - Feasibility → Automated
 - Business Study → Automated
 - Functional Model → Automated
@@ -194,13 +203,63 @@ Default modes by phase:
 - Implementation → Manual
 - DevOps → Hybrid
 
-Default modes for Design & Build roles:
+Default execution modes for Design & Build roles:
 - Dev Lead → Hybrid
 - Frontend Developer → Automated
 - Backend Developer → Automated
 - Automation Tester → Automated
 - NFR Tester → Hybrid
 - Penetration Tester → Manual
+
+### Workflow Modes (Agent Interaction Style)
+
+Workflow modes determine how agents interact with developers:
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **AGENT_WRITES_CODE** | Agent autonomously writes code using tools | Full automation, rapid prototyping |
+| **AGENT_PROVIDES_TIPS** | Agent provides guidance and best practices without writing code | Learning, architecture review |
+| **MANUAL_WITH_TIPS** | Developer writes code manually, agent provides contextual advice | Hands-on learning, code review |
+
+#### Using Workflow Modes
+
+**Programmatic configuration:**
+```python
+from src.orchestrator import DSDMOrchestrator, DSDMPhase, DesignBuildRole
+from src.agents import WorkflowMode
+
+orchestrator = DSDMOrchestrator()
+
+# Set workflow mode for a specific phase
+orchestrator.set_workflow_mode(DSDMPhase.DESIGN_BUILD, WorkflowMode.AGENT_PROVIDES_TIPS)
+
+# Set workflow mode for a Design & Build role
+orchestrator.set_role_workflow_mode(DesignBuildRole.BACKEND_DEV, WorkflowMode.MANUAL_WITH_TIPS)
+
+# Set workflow mode for all agents
+orchestrator.set_all_workflow_modes(WorkflowMode.AGENT_WRITES_CODE)
+```
+
+**Interactive menu:**
+Select option 5 "Configure workflow modes" from the main menu to:
+- Set workflow mode for all agents at once
+- Configure specific phases individually
+- Configure Design & Build roles individually
+
+#### Contextual Tips
+
+When using `AGENT_PROVIDES_TIPS` or `MANUAL_WITH_TIPS` modes, agents provide contextual best practices based on:
+
+- **Language detection**: Python, JavaScript/TypeScript
+- **Framework detection**: React, Node.js, FastAPI, Django, etc.
+- **Task analysis**: Testing, security, API design, async patterns
+
+Tips include:
+- Code quality best practices
+- Security recommendations
+- Performance optimization
+- Testing strategies
+- Links to official documentation
 
 ## DevOps Agent
 
@@ -283,6 +342,51 @@ orchestrator = DSDMOrchestrator(include_jira=True)
 - `jira_create_user_story` - Create DSDM-formatted user stories with MoSCoW priority
 - `jira_create_timebox` - Create sprints/timeboxes
 - `jira_bulk_create_requirements` - Bulk create requirements
+- `jira_enable_confluence_sync` - Enable automatic sync to Confluence
+- `jira_disable_confluence_sync` - Disable automatic sync
+- `jira_sync_to_confluence` - Manually sync an issue to Confluence
+- `jira_set_confluence_page_mapping` - Map issue to specific Confluence page
+
+### Jira-Confluence Sync
+
+When both Jira and Confluence integrations are enabled, you can automatically sync work item status changes to Confluence documentation.
+
+**Setup automatic sync:**
+```python
+from src.orchestrator import DSDMOrchestrator
+
+orchestrator = DSDMOrchestrator(include_jira=True, include_confluence=True)
+
+# Setup sync - this will:
+# 1. Enable automatic sync for all Jira updates
+# 2. Create a "Work Item Status Log" page in Confluence
+result = orchestrator.tool_registry.execute(
+    "setup_jira_confluence_sync",
+    confluence_space_key="PROJ"
+)
+```
+
+**How it works:**
+- When you transition a Jira issue (e.g., "To Do" -> "In Progress"), the status is automatically logged to Confluence
+- When you update a Jira issue, the changes are synced to Confluence
+- A "Work Item Status Log" page tracks all status changes with timestamps
+
+**Workflow Tools (available when both integrations enabled):**
+- `setup_jira_confluence_sync` - Enable sync and create status page
+- `sync_work_item_status` - Sync with DSDM phase context
+- `get_sync_status` - Check current sync configuration
+
+**Map specific issues to documentation pages:**
+```python
+# Map a Jira issue to its design document in Confluence
+orchestrator.tool_registry.execute(
+    "jira_set_confluence_page_mapping",
+    issue_key="PROJ-123",
+    page_id="12345678"
+)
+
+# Now when PROJ-123 status changes, the design doc is updated
+```
 
 ### LLM Provider Configuration
 
@@ -412,7 +516,8 @@ See [examples/custom_tools_example.py](examples/custom_tools_example.py) for mor
 dsdm-agents/
 ├── src/
 │   ├── agents/                    # DSDM phase agents
-│   │   ├── base_agent.py
+│   │   ├── base_agent.py          # Base agent class with workflow modes
+│   │   ├── workflow_modes.py      # Workflow mode definitions and tips
 │   │   ├── feasibility_agent.py
 │   │   ├── business_study_agent.py
 │   │   ├── functional_model_agent.py
@@ -425,6 +530,14 @@ dsdm-agents/
 │   │   ├── automation_tester_agent.py
 │   │   ├── nfr_tester_agent.py
 │   │   └── pen_tester_agent.py
+│   ├── llm/                       # LLM provider abstraction
+│   │   ├── __init__.py
+│   │   ├── config.py              # Provider configuration
+│   │   ├── base_client.py         # Base LLM client interface
+│   │   ├── anthropic_client.py    # Anthropic Claude
+│   │   ├── openai_client.py       # OpenAI GPT
+│   │   ├── gemini_client.py       # Google Gemini
+│   │   └── ollama_client.py       # Local Ollama
 │   ├── tools/                     # Tool definitions
 │   │   ├── tool_registry.py
 │   │   ├── dsdm_tools.py
@@ -434,12 +547,16 @@ dsdm-agents/
 │   │       └── devops_tools.py
 │   ├── orchestrator/              # Workflow management
 │   │   └── dsdm_orchestrator.py
+│   ├── utils/                     # Utility functions
+│   │   └── output_formatter.py    # Terminal output formatting
 │   └── docs/                      # Documentation
 │       └── development-principles.md
 ├── examples/                      # Usage examples
+├── generated/                     # Agent-generated project files
 ├── main.py                        # CLI entry point
 ├── requirements.txt
 ├── .env.example
+├── GETTING_STARTED.md             # Comprehensive setup guide
 └── README.md
 ```
 

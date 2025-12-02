@@ -8,3 +8,31 @@ requests>=2.31.0
 # Optional LLM providers (install as needed)
 # openai>=1.0.0          # For OpenAI GPT models
 # google-generativeai>=0.8.0  # For Google Gemini models
+
+# DevOps Agent dependencies
+# Testing & Quality (Principle 2, 3)
+pytest>=8.0.0
+pytest-cov>=4.0.0
+pytest-asyncio>=0.21.0
+
+# Linting & Static Analysis (Principle 3)
+ruff>=0.1.0
+pylint>=2.16.0
+flake8>=7.0.0
+
+# Security Scanning (Principle 7)
+bandit>=1.7.0
+safety>=3.0.0
+pip-audit>=2.0.0
+
+# Performance Testing (Principle 7)
+locust>=2.20.0
+
+# Infrastructure as Code (Principle 6, 8)
+# Note: Install Terraform CLI via: brew install terraform (macOS) or apt install terraform (Linux)
+
+# Container Management (Principle 8)
+# Note: Install Docker from https://www.docker.com/products/docker-desktop/
+
+# Accessibility Testing (Principle 7)
+# Note: Install pa11y via: npm install -g pa11y pa11y-ci

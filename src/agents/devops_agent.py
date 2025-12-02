@@ -1,9 +1,68 @@
-"""DevOps Agent - Based on Development Principles."""
+"""DevOps Agent - Based on Development Principles.
+
+Installed Tools and Package Versions:
+=====================================
+Testing & Quality (Principle 2, 3):
+  - pytest 9.0.1
+  - pytest-cov 4.1.0
+  - pytest-asyncio 0.21.1
+
+Linting & Static Analysis (Principle 3):
+  - ruff 0.1.7
+  - pylint 2.16.2
+  - flake8 7.0.0
+
+Security Scanning (Principle 7):
+  - bandit 1.9.2
+  - safety 3.7.0
+  - pip-audit 2.10.0
+
+Performance Testing (Principle 7):
+  - locust 2.42.6
+
+Infrastructure as Code (Principle 6, 8):
+  - Terraform 1.5.7
+  - Docker 28.5.1
+
+Accessibility Testing (Principle 7):
+  - pa11y 9.0.1
+
+Cryptography (secure JWT with pyca/cryptography):
+  - pyjwt[crypto] 2.10.1
+  - cryptography 46.0.3
+"""
 
 from typing import Any, Callable, Dict, Optional
 
 from .base_agent import AgentConfig, AgentMode, AgentResult, BaseAgent
 from ..tools.tool_registry import ToolRegistry
+
+
+# Tool version constants for runtime validation
+DEVOPS_TOOL_VERSIONS = {
+    # Testing & Quality
+    "pytest": "9.0.1",
+    "pytest-cov": "4.1.0",
+    "pytest-asyncio": "0.21.1",
+    # Linting & Static Analysis
+    "ruff": "0.1.7",
+    "pylint": "2.16.2",
+    "flake8": "7.0.0",
+    # Security Scanning
+    "bandit": "1.9.2",
+    "safety": "3.7.0",
+    "pip-audit": "2.10.0",
+    # Performance Testing
+    "locust": "2.42.6",
+    # Infrastructure as Code
+    "terraform": "1.5.7",
+    "docker": "28.5.1",
+    # Accessibility Testing
+    "pa11y": "9.0.1",
+    # Cryptography
+    "pyjwt": "2.10.1",
+    "cryptography": "46.0.3",
+}
 
 
 DEVOPS_SYSTEM_PROMPT = """You are a DevOps Agent operating based on the Development Principles.
@@ -89,6 +148,37 @@ Your role is to enable and enforce development best practices throughout the sof
 4. **Monitoring**: Set up health checks and dashboards
 5. **Security**: Run security scans and enforce compliance
 6. **Automation**: Identify and eliminate toil
+
+## Available Tools and Versions:
+
+### Testing & Quality (Principle 2, 3):
+- pytest 9.0.1 - Test framework with coverage support
+- pytest-cov 4.1.0 - Coverage plugin for pytest
+- pytest-asyncio 0.21.1 - Async test support
+
+### Linting & Static Analysis (Principle 3):
+- ruff 0.1.7 - Fast Python linter
+- pylint 2.16.2 - Python static code analyzer
+- flake8 7.0.0 - Style guide enforcement
+
+### Security Scanning (Principle 7):
+- bandit 1.9.2 - Security issue finder
+- safety 3.7.0 - Dependency vulnerability checker
+- pip-audit 2.10.0 - Audit Python packages for vulnerabilities
+
+### Performance Testing (Principle 7):
+- locust 2.42.6 - Load testing framework
+
+### Infrastructure as Code (Principle 6, 8):
+- Terraform 1.5.7 - Infrastructure provisioning
+- Docker 28.5.1 - Container management
+
+### Accessibility Testing (Principle 7):
+- pa11y 9.0.1 - Accessibility testing tool
+
+### Cryptography:
+- pyjwt[crypto] 2.10.1 - JWT implementation using pyca/cryptography
+- cryptography 46.0.3 - Secure cryptographic operations
 
 When helping with DevOps tasks, always reference the relevant principle and explain how the action aligns with it.
 """

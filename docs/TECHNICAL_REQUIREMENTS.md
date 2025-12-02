@@ -449,12 +449,17 @@ JIRA_DEFAULT_PROJECT=PROJ
 | Tool | Description |
 |------|-------------|
 | `jira_create_issue` | Create new Jira issue |
-| `jira_update_issue` | Update existing issue |
+| `jira_update_issue` | Update existing issue (auto-syncs to Confluence if enabled) |
 | `jira_get_issue` | Retrieve issue details |
 | `jira_search_issues` | JQL search |
 | `jira_add_comment` | Add comment to issue |
+| `jira_transition_issue` | Change issue status (auto-syncs to Confluence if enabled) |
 | `jira_create_sprint` | Create new sprint |
 | `jira_add_to_sprint` | Add issues to sprint |
+| `jira_enable_confluence_sync` | Enable automatic Confluence sync |
+| `jira_disable_confluence_sync` | Disable automatic Confluence sync |
+| `jira_sync_to_confluence` | Manually sync issue to Confluence |
+| `jira_set_confluence_page_mapping` | Map issue to specific Confluence page |
 
 ### 7.2 Confluence Integration
 
@@ -475,7 +480,58 @@ CONFLUENCE_DEFAULT_SPACE=SPACE
 | `confluence_search` | CQL search |
 | `confluence_add_attachment` | Upload attachment |
 
-### 7.3 File System Integration
+### 7.3 Jira-Confluence Sync Integration
+
+When both Jira and Confluence integrations are enabled, the system supports automatic synchronization of work item status changes to Confluence documentation.
+
+#### Configuration
+Enable sync programmatically:
+```python
+orchestrator = DSDMOrchestrator(include_jira=True, include_confluence=True)
+
+# Setup automatic sync
+orchestrator.tool_registry.execute(
+    "setup_jira_confluence_sync",
+    confluence_space_key="PROJ",
+    create_status_page=True
+)
+```
+
+#### Sync Behavior
+| Trigger | Action |
+|---------|--------|
+| `jira_transition_issue` | Logs status change to Confluence status page |
+| `jira_update_issue` | Logs field update to Confluence status page |
+| Manual `jira_sync_to_confluence` | Syncs current issue state on demand |
+
+#### Workflow Tools
+| Tool | Description |
+|------|-------------|
+| `setup_jira_confluence_sync` | Enable sync and optionally create status log page |
+| `sync_work_item_status` | Sync with DSDM phase context |
+| `get_sync_status` | Get current sync configuration |
+
+#### Work Item Status Log Page
+When sync is enabled, a "Work Item Status Log" page is created/updated in Confluence with:
+- Timestamp of each status change
+- Issue key and summary
+- Current status
+- Update type (transition, field_update, manual_sync)
+
+#### Page Mapping
+Map specific Jira issues to dedicated Confluence pages:
+```python
+# Map issue to its design document
+orchestrator.tool_registry.execute(
+    "jira_set_confluence_page_mapping",
+    issue_key="PROJ-123",
+    page_id="12345678"
+)
+```
+
+When mapped, status updates for that issue will be added to the specific page instead of the general status log.
+
+### 7.4 File System Integration
 
 #### Output Structure
 ```
