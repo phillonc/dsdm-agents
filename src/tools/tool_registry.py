@@ -24,17 +24,48 @@ class Tool:
             "input_schema": self.input_schema,
         }
 
+    # Common parameter aliases to handle LLM variations
+    PARAMETER_ALIASES = {
+        "path": "file_path",
+        "filepath": "file_path",
+        "filename": "file_path",
+        "file": "file_path",
+        "dir": "dir_path",
+        "directory": "dir_path",
+        "dirpath": "dir_path",
+        "text": "content",
+        "body": "content",
+        "data": "content",
+        "source": "source_path",
+        "dest": "dest_path",
+        "destination": "dest_path",
+        "name": "project_name",
+        "project": "project_name",
+    }
+
     def execute(self, **kwargs) -> str:
         """Execute the tool with given arguments.
 
         Filters kwargs to only include parameters defined in the tool's input schema.
         This protects against LLM providers (like Gemini) returning extra fields
         in function call arguments that aren't part of the expected schema.
+        Also applies parameter aliasing to handle common LLM variations.
         """
         try:
-            # Filter kwargs to only include parameters defined in schema
+            # Apply parameter aliases to normalize LLM variations
             expected_params = set(self.input_schema.get("properties", {}).keys())
-            filtered_kwargs = {k: v for k, v in kwargs.items() if k in expected_params}
+            normalized_kwargs = {}
+            for k, v in kwargs.items():
+                # Check if this is an alias for an expected parameter
+                if k not in expected_params and k in self.PARAMETER_ALIASES:
+                    canonical = self.PARAMETER_ALIASES[k]
+                    if canonical in expected_params and canonical not in kwargs:
+                        normalized_kwargs[canonical] = v
+                        continue
+                normalized_kwargs[k] = v
+
+            # Filter kwargs to only include parameters defined in schema
+            filtered_kwargs = {k: v for k, v in normalized_kwargs.items() if k in expected_params}
 
             # Validate required parameters are present
             required_params = set(self.input_schema.get("required", []))
