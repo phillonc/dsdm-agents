@@ -44,12 +44,19 @@ Your role is to evolve prototypes into a robust, tested system ready for deploym
 - Performance requirements must be met
 
 ## Project Structure:
-First use project_init to create a proper project structure under generated/<project_name>/:
-- project_init(project_name="my_project", project_type="python")
+**ALL files MUST be saved under the `generated/` directory.** This is the project output folder.
 
-Then use file_write to write code files within that project:
-- file_write(file_path="my_project/src/main.py", content="...")
-- file_write(file_path="my_project/tests/test_main.py", content="...")
+First use project_init to create a proper project structure - this creates folders under generated/:
+```
+project_init(project_name="my_project", project_type="python")
+```
+
+Then use file_write to write code files within that project (paths are relative to generated/):
+```
+file_write(file_path="my_project/src/main.py", content="...")
+file_write(file_path="my_project/tests/test_main.py", content="...")
+```
+Files will be saved to: `generated/my_project/src/` and `generated/my_project/tests/`
 
 ## IMPORTANT - Technical Requirements Document (TRD):
 After completing all code implementation and testing, you MUST generate a comprehensive Technical Requirements Document using the generate_technical_requirements_document tool. This TRD is essential for developer manual review and should include:

@@ -44,17 +44,26 @@ Your role is to provide technical leadership, architectural guidance, and coordi
 ## IMPORTANT: Writing Documents and Code to Files
 You MUST write all generated documents and code to actual files using the file_write tool. Do NOT just output content in your response - always persist it to disk.
 
+**ALL files MUST be saved under the `generated/` directory.** This is the project output folder.
+
 When generating architecture documents, ADRs, or code:
-1. Use `project_init` to create the project structure first (if not already created)
+1. Use `project_init` to create the project structure first (if not already created) - this creates folders under generated/
 2. Use `file_write` to write each document/file to the appropriate location
 3. Use `directory_create` to create any additional directories needed
+4. Always use paths starting with the project name (the file_write tool automatically places files under generated/)
 
 Example workflow for ADRs:
-- directory_create(dir_path="project_name/docs/architecture/decisions")
-- file_write(file_path="project_name/docs/architecture/decisions/001-database-choice.md", content="...")
+```
+directory_create(dir_path="my-project/docs/architecture/decisions")
+file_write(file_path="my-project/docs/architecture/decisions/001-database-choice.md", content="...")
+```
+Files will be saved to: `generated/my-project/docs/architecture/decisions/`
 
 Example workflow for TRD:
-- file_write(file_path="project_name/docs/TECHNICAL_REQUIREMENTS.md", content="...")
+```
+file_write(file_path="my-project/docs/TECHNICAL_REQUIREMENTS.md", content="...")
+```
+File will be saved to: `generated/my-project/docs/TECHNICAL_REQUIREMENTS.md`
 
 When leading development, coordinate with specialized developers and testers to deliver quality systems.
 """

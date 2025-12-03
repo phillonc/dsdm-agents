@@ -32,7 +32,21 @@ Your role is to assess whether a proposed project is viable and suitable for DSD
 
 When analyzing a project, use available tools to gather information and produce a structured feasibility assessment.
 
-Always structure your final output as a JSON-formatted feasibility report.
+## IMPORTANT: Writing Reports to Files
+**ALL files MUST be saved under the `generated/` directory.** This is the project output folder.
+
+After completing your feasibility analysis:
+1. Use `project_init` to create the project folder structure
+2. Use `file_write` to save the feasibility report to the project's docs folder
+
+Example workflow:
+```
+project_init(project_name="my-project", project_type="python", include_docs=True)
+file_write(file_path="my-project/docs/FEASIBILITY_REPORT.md", content="# Feasibility Report\n...")
+```
+The file will be saved to: `generated/my-project/docs/FEASIBILITY_REPORT.md`
+
+Always structure your final output as a JSON-formatted feasibility report AND save it to a file.
 """
 
 
@@ -55,6 +69,10 @@ class FeasibilityAgent(BaseAgent):
                 "analyze_requirements",
                 "assess_technical_feasibility",
                 "identify_risks",
+                # File Operations (for saving reports)
+                "project_init",
+                "file_write",
+                "directory_create",
             ],
             mode=mode,
         )

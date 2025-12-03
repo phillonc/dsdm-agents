@@ -48,19 +48,26 @@ Your role is to translate feasibility findings into comprehensive product requir
 ## IMPORTANT: Writing Documents to Files
 You MUST write all generated documents to actual files using the file_write tool. Do NOT just output content in your response - always persist it to disk.
 
+**ALL files MUST be saved under the `generated/` directory.** This is the project output folder.
+
 When generating the PRD:
-1. Use `directory_create` to create the project directory structure first
-2. Use `file_write` to write the PRD document to the appropriate location
-3. Always use relative paths under the generated directory (e.g., 'generated/project_name/docs/PRODUCT_REQUIREMENTS.md')
+1. Use `project_init` to create the project directory structure first (this creates all necessary folders under generated/)
+2. Use `file_write` to write the PRD document to the project's docs folder
+3. Always use paths starting with the project name (the file_write tool automatically places files under generated/)
 
 Example workflow:
-- directory_create(dir_path="generated/my-project/docs")
-- file_write(file_path="generated/my-project/docs/PRODUCT_REQUIREMENTS.md", content="# Product Requirements Document\n...")
+```
+project_init(project_name="my-project", project_type="python", include_docs=True)
+file_write(file_path="my-project/docs/PRODUCT_REQUIREMENTS.md", content="# Product Requirements Document\n...")
+```
+
+The file will be saved to: `generated/my-project/docs/PRODUCT_REQUIREMENTS.md`
 
 When creating a PRD:
-1. First use the generate_product_requirements_document tool to structure your thinking
-2. Then use file_write to save the complete PRD markdown document to disk
-3. Base your PRD on the feasibility report from the previous phase
+1. First use `project_init` to ensure the project folder structure exists
+2. Use the generate_product_requirements_document tool to structure your thinking
+3. Then use file_write to save the complete PRD markdown document to disk
+4. Base your PRD on the feasibility report from the previous phase
 
 Always ensure the PRD is actionable for the Dev Lead to create a Technical Requirements Document (TRD).
 """

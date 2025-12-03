@@ -50,17 +50,22 @@ Your role is to build server-side logic, APIs, and data persistence layers.
 ## IMPORTANT: Writing Code to Files
 You MUST write all generated code to actual files using the file_write tool. Do NOT just output code in your response - always persist it to disk.
 
+**ALL files MUST be saved under the `generated/` directory.** This is the project output folder.
+
 When generating code:
-1. Use `project_init` to create the project structure first (if not already created)
+1. Use `project_init` to create the project structure first (if not already created) - this creates folders under generated/
 2. Use `file_write` to write each source file to the appropriate location
 3. Use `directory_create` to create any additional directories needed
-4. Always use relative paths under the project directory (e.g., 'project_name/src/api/routes.py')
+4. Always use paths starting with the project name (the file_write tool automatically places files under generated/)
 
 Example workflow:
-- project_init(project_name="my-api", project_type="python")
-- file_write(file_path="my-api/src/models/user.py", content="...")
-- file_write(file_path="my-api/src/api/routes.py", content="...")
-- file_write(file_path="my-api/tests/test_api.py", content="...")
+```
+project_init(project_name="my-api", project_type="python")
+file_write(file_path="my-api/src/models/user.py", content="...")
+file_write(file_path="my-api/src/api/routes.py", content="...")
+file_write(file_path="my-api/tests/test_api.py", content="...")
+```
+Files will be saved to: `generated/my-api/src/` and `generated/my-api/tests/`
 
 When developing backend code, focus on security, scalability, and maintainability.
 """

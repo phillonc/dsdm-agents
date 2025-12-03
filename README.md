@@ -194,7 +194,42 @@ results = orchestrator.run_workflow(
 
 ### Project Management
 
-DSDM Agents automatically manages projects in the `generated/` directory. Before creating a new project, it checks if one already exists.
+DSDM Agents automatically manages projects in the `generated/` directory. **All documentation, code, and artifacts are saved under this folder.**
+
+#### Output Structure
+
+When running any phase, all files are organized under `generated/<project-name>/`:
+
+```
+generated/
+└── my-project/
+    ├── docs/
+    │   ├── FEASIBILITY_REPORT.md      # From Feasibility phase
+    │   ├── BUSINESS_STUDY.md          # From Business Study phase
+    │   ├── PRODUCT_REQUIREMENTS.md    # PRD from Product Manager
+    │   ├── TECHNICAL_REQUIREMENTS.md  # TRD from Dev Lead
+    │   ├── FUNCTIONAL_MODEL_REPORT.md # From Functional Model phase
+    │   ├── DEPLOYMENT_PLAN.md         # From Implementation phase
+    │   ├── TRAINING_MATERIALS.md      # User training guides
+    │   ├── HANDOVER_DOCS.md           # Operations handover
+    │   ├── api/                       # API documentation
+    │   ├── architecture/              # Architecture Decision Records
+    │   │   └── decisions/
+    │   │       └── 001-database-choice.md
+    │   └── user-guides/               # End-user documentation
+    ├── src/                           # Production code
+    │   └── ...
+    ├── tests/                         # Test files
+    │   ├── unit/
+    │   └── integration/
+    ├── config/                        # Configuration files
+    ├── prototypes/                    # Functional prototypes
+    ├── README.md
+    ├── .gitignore
+    └── pyproject.toml / package.json
+```
+
+Before creating a new project, agents check if one already exists.
 
 #### List Existing Projects
 
@@ -709,6 +744,8 @@ Key practices used by these agents:
 - `estimate_resources` - Estimate team and budget needs
 - `identify_risks` - Document project risks
 - `check_dsdm_suitability` - Verify DSDM fit
+- `project_init` - Create project folder structure
+- `file_write` - Save feasibility report to `generated/<project>/docs/`
 
 ### Business Study Phase
 - `analyze_business_process` - Map current processes
@@ -717,6 +754,7 @@ Key practices used by these agents:
 - `define_architecture` - High-level system design
 - `create_timebox_plan` - Plan iterations
 - `update_risk_log` - Maintain risk register
+- `project_init`, `file_write` - Save reports to `generated/<project>/docs/`
 
 ### Functional Model Phase
 - `create_prototype` - Build functional prototypes
@@ -725,15 +763,17 @@ Key practices used by these agents:
 - `refine_requirements` - Update based on feedback
 - `run_functional_tests` - Validate functionality
 - `document_iteration` - Record progress
+- `project_init`, `file_write`, `file_read` - Save prototypes and reports to `generated/<project>/`
 
 ### Design & Build Phase
 - `create_technical_design` - Detailed designs
 - `generate_code` - Write production code
-- `write_file` - Create files
 - `run_tests` - Execute test suites
 - `review_code` - Quality checks
 - `create_documentation` - Technical docs
 - `security_check` - Security scanning
+- `generate_technical_requirements_document` - Create TRD
+- `project_init`, `file_write`, `file_read`, `directory_create` - Save all code and docs to `generated/<project>/`
 
 ### Project Management Tools
 - `project_list` - List all existing projects in generated/ directory
@@ -757,6 +797,7 @@ Key practices used by these agents:
 - `create_training_materials` - User guides
 - `notify_stakeholders` - Communication
 - `generate_handover_docs` - Operations handover
+- `file_write`, `file_read`, `directory_create` - Save deployment docs to `generated/<project>/docs/`
 
 ### DevOps Tools (28 tools)
 **Testing & Quality:** `run_tests`, `check_coverage`, `run_linter`, `run_security_scan`, `check_code_quality`

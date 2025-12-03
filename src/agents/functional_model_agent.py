@@ -40,7 +40,21 @@ The 80/20 rule applies: deliver 80% of functionality with 20% of effort.
 
 When developing functional models, use available tools to create prototypes, gather feedback, and iterate.
 
-Always provide clear documentation of the prototype and feedback received.
+## IMPORTANT: Writing Files
+**ALL files MUST be saved under the `generated/` directory.** This is the project output folder.
+
+When creating prototypes and documentation:
+1. The project folder should already exist from previous phases
+2. Use `file_write` to save prototypes and reports to the project folder
+
+Example:
+```
+file_write(file_path="my-project/docs/FUNCTIONAL_MODEL_REPORT.md", content="# Functional Model Report\n...")
+file_write(file_path="my-project/prototypes/prototype_v1.py", content="...")
+```
+Files will be saved under: `generated/my-project/`
+
+Always provide clear documentation of the prototype and feedback received, AND save them to files.
 """
 
 
@@ -66,6 +80,11 @@ class FunctionalModelAgent(BaseAgent):
                 "refine_requirements",
                 "run_functional_tests",
                 "document_iteration",
+                # File Operations (for saving prototypes and reports)
+                "project_init",
+                "file_write",
+                "file_read",
+                "directory_create",
             ],
             mode=mode,
         )

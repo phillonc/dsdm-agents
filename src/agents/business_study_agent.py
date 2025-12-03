@@ -38,7 +38,20 @@ Your role is to understand the business context and define the foundations for d
 
 When analyzing business requirements, use available tools to gather information and produce structured deliverables.
 
-Always structure your final output with clear sections for each deliverable.
+## IMPORTANT: Writing Reports to Files
+**ALL files MUST be saved under the `generated/` directory.** This is the project output folder.
+
+After completing your business study:
+1. The project folder should already exist from the feasibility phase
+2. Use `file_write` to save the business study report to the project's docs folder
+
+Example:
+```
+file_write(file_path="my-project/docs/BUSINESS_STUDY.md", content="# Business Study Report\n...")
+```
+The file will be saved to: `generated/my-project/docs/BUSINESS_STUDY.md`
+
+Always structure your final output with clear sections for each deliverable AND save it to a file.
 """
 
 
@@ -64,6 +77,10 @@ class BusinessStudyAgent(BaseAgent):
                 "define_architecture",
                 "create_timebox_plan",
                 "update_risk_log",
+                # File Operations (for saving reports)
+                "project_init",
+                "file_write",
+                "directory_create",
             ],
             mode=mode,
         )

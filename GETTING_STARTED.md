@@ -344,12 +344,32 @@ python run_project.py requirements.md
 5. **View tools** - See available tools for each phase
 6. **Exit** - Close the application
 
+### Where Are My Files Saved?
+
+All generated documentation, code, and artifacts are saved under the `generated/` directory:
+
+```
+generated/
+└── my-project/
+    ├── docs/
+    │   ├── FEASIBILITY_REPORT.md      # From Feasibility phase
+    │   ├── BUSINESS_STUDY.md          # From Business Study phase
+    │   ├── PRODUCT_REQUIREMENTS.md    # PRD from Product Manager
+    │   ├── TECHNICAL_REQUIREMENTS.md  # TRD from Dev Lead
+    │   └── ...
+    ├── src/                           # Production code
+    ├── tests/                         # Test files
+    └── ...
+```
+
+After each phase runs, check `generated/<project-name>/docs/` for documentation.
+
 ### Running a Specific Phase
 
 1. Select option `1` from the main menu
 2. Choose a phase (e.g., `1` for Feasibility)
 3. Enter your requirements when prompted
-4. Review the agent's output
+4. Review the agent's output (also saved to `generated/<project>/docs/`)
 
 Example session:
 
@@ -622,7 +642,7 @@ result = orchestrator.run_phase(
 
 3. **Review in Hybrid Mode** - Use hybrid mode for critical phases to maintain human oversight
 
-4. **Save Outputs** - Capture agent outputs for documentation and future reference
+4. **Check the `generated/` Folder** - All documentation, code, and artifacts are saved to `generated/<project>/`. Check this folder after each phase.
 
 5. **Iterate** - DSDM is iterative - run phases multiple times as requirements evolve
 

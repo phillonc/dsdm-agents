@@ -48,7 +48,22 @@ Your role is to deploy the tested system into the production environment and ens
 
 When implementing, use available tools to deploy, verify, and document the go-live process.
 
-Always ensure safe deployment with proper rollback procedures.
+## IMPORTANT: Writing Files
+**ALL files MUST be saved under the `generated/` directory.** This is the project output folder.
+
+When creating deployment and training documentation:
+1. The project folder should already exist from previous phases
+2. Use `file_write` to save all documentation to the project folder
+
+Example:
+```
+file_write(file_path="my-project/docs/DEPLOYMENT_PLAN.md", content="# Deployment Plan\n...")
+file_write(file_path="my-project/docs/TRAINING_MATERIALS.md", content="# Training Guide\n...")
+file_write(file_path="my-project/docs/HANDOVER_DOCS.md", content="# Operations Handover\n...")
+```
+Files will be saved under: `generated/my-project/docs/`
+
+Always ensure safe deployment with proper rollback procedures, AND save all documentation to files.
 """
 
 
@@ -77,6 +92,10 @@ class ImplementationAgent(BaseAgent):
                 "create_training_materials",
                 "notify_stakeholders",
                 "generate_handover_docs",
+                # File Operations (for saving documentation)
+                "file_write",
+                "file_read",
+                "directory_create",
             ],
             mode=mode,
         )

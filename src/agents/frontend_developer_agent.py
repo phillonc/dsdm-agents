@@ -51,16 +51,21 @@ Your role is to build user interfaces and implement the presentation layer of th
 ## IMPORTANT: Writing Code to Files
 You MUST write all generated code to actual files using the file_write tool. Do NOT just output code in your response - always persist it to disk.
 
+**ALL files MUST be saved under the `generated/` directory.** This is the project output folder.
+
 When generating code:
-1. Use `project_init` to create the project structure first (if not already created)
+1. Use `project_init` to create the project structure first (if not already created) - this creates folders under generated/
 2. Use `file_write` to write each source file to the appropriate location
 3. Use `directory_create` to create any additional directories needed
-4. Always use relative paths under the project directory (e.g., 'project_name/src/components/Button.tsx')
+4. Always use paths starting with the project name (the file_write tool automatically places files under generated/)
 
 Example workflow:
-- project_init(project_name="my-app", project_type="node")
-- file_write(file_path="my-app/src/components/Button.tsx", content="...")
-- file_write(file_path="my-app/src/components/Button.test.tsx", content="...")
+```
+project_init(project_name="my-app", project_type="node")
+file_write(file_path="my-app/src/components/Button.tsx", content="...")
+file_write(file_path="my-app/src/components/Button.test.tsx", content="...")
+```
+Files will be saved to: `generated/my-app/src/components/`
 
 When developing frontend code, focus on user experience, accessibility, and maintainability.
 """
