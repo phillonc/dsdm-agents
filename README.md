@@ -67,6 +67,50 @@ Edit `.env` and add your Anthropic API key:
 ANTHROPIC_API_KEY=your-api-key-here
 ```
 
+## Quick Start Examples
+
+Here are 3 example prompts to get you started with DSDM Agents:
+
+### Example 1: Build a New Application from Scratch
+
+```bash
+python main.py --workflow --input "Build a task management application with user authentication, project organization, and team collaboration features. Users should be able to create tasks, assign them to team members, set due dates, and track progress with kanban boards."
+```
+
+This runs the full DSDM workflow:
+1. **Feasibility** - Analyzes technical viability and resource requirements
+2. **Business Study** - Defines requirements with MoSCoW prioritization
+3. **PRD/TRD** - Creates Product and Technical Requirements Documents
+4. **Functional Model** - Generates prototypes and validates with stakeholders
+5. **Design & Build** - Develops production-ready code with tests
+6. **Implementation** - Prepares deployment and documentation
+
+### Example 2: Add a Feature to an Existing Project
+
+```bash
+python main.py --phase design_build --input "Add real-time notifications to the existing task management app. Include: 1) Push notifications for task assignments, 2) Email digests for overdue tasks, 3) In-app notification center with read/unread status, 4) User preferences for notification types. The app uses React frontend and Node.js/Express backend with PostgreSQL."
+```
+
+This runs only the Design & Build phase to implement a specific feature, generating:
+- Technical design documents
+- Production code for frontend and backend
+- Unit and integration tests
+- API documentation
+
+### Example 3: Analyze and Plan a Migration Project
+
+```bash
+python main.py --phase feasibility --input "Migrate our legacy monolithic e-commerce platform to microservices architecture. Current stack: PHP/Laravel with MySQL. Target: Node.js microservices with PostgreSQL and Redis. Must maintain 99.9% uptime during migration. ~500k monthly active users, 50k daily orders."
+```
+
+This runs the Feasibility phase to assess:
+- Technical complexity and risks
+- Resource requirements (team, timeline, infrastructure)
+- Migration strategy options
+- Go/no-go recommendation with justification
+
+---
+
 ## Usage
 
 ### Interactive Mode
@@ -147,6 +191,84 @@ results = orchestrator.run_workflow(
     end_phase=DSDMPhase.FUNCTIONAL_MODEL
 )
 ```
+
+### Project Management
+
+DSDM Agents automatically manages projects in the `generated/` directory. Before creating a new project, it checks if one already exists.
+
+#### List Existing Projects
+
+```python
+from src.tools.file_tools import list_projects_handler, get_project_handler, init_project_handler
+import json
+
+# List all valid projects (with src/, tests/, or config files)
+result = list_projects_handler()
+data = json.loads(result)
+
+print(f"Found {data['count']} projects:")
+for project in data['projects']:
+    print(f"  - {project['name']} (type: {project['type']})")
+    print(f"    Last modified: {project['last_modified']}")
+    print(f"    Has tests: {project['has_tests']}, Has docs: {project['has_docs']}")
+
+# List ALL directories (including non-project folders)
+result = list_projects_handler(include_all=True)
+```
+
+#### Check if Project Exists
+
+```python
+# Get detailed info about a specific project
+result = get_project_handler("my-app")
+data = json.loads(result)
+
+if data['exists']:
+    project = data['project']
+    print(f"Project: {project['name']}")
+    print(f"Type: {project['type']}")
+    print(f"Files: {project['file_count']}")
+    print(f"Directories: {project['directory_count']}")
+    print(f"Structure: {project['structure']}")
+else:
+    print(f"Project not found: {data['message']}")
+```
+
+#### Initialize a New Project
+
+```python
+# Create a new project (checks if exists first)
+result = init_project_handler(
+    project_name="my-new-app",
+    project_type="python",  # or "node"
+    include_tests=True,
+    include_docs=True,
+    include_config=True,
+    include_infrastructure=False
+)
+data = json.loads(result)
+
+if data.get('already_exists'):
+    # Project already exists - returns existing info
+    print(f"Project already exists: {data['message']}")
+    print(f"Existing project info: {data['existing_project']}")
+else:
+    # New project created
+    print(f"Created project at: {data['base_path']}")
+    print(f"Directories: {data['directories_created']}")
+    print(f"Files: {data['files_created']}")
+
+# Force recreate an existing project
+result = init_project_handler("my-new-app", force_recreate=True)
+```
+
+#### Available Project Tools
+
+| Tool | Description |
+|------|-------------|
+| `project_list` | List all projects in generated/ directory |
+| `project_get` | Get details of a specific project |
+| `project_init` | Initialize new project (checks existence first) |
 
 ### Using Design & Build Specialized Agents
 
@@ -612,6 +734,18 @@ Key practices used by these agents:
 - `review_code` - Quality checks
 - `create_documentation` - Technical docs
 - `security_check` - Security scanning
+
+### Project Management Tools
+- `project_list` - List all existing projects in generated/ directory
+- `project_get` - Get details of a specific project (structure, file counts, type)
+- `project_init` - Initialize new project (auto-checks if exists first)
+- `file_write` - Write content to files
+- `file_read` - Read file contents
+- `file_append` - Append to files
+- `file_copy` - Copy files
+- `file_delete` - Delete files
+- `directory_create` - Create directories
+- `directory_list` - List directory contents
 
 ### Implementation Phase
 - `create_deployment_plan` - Plan go-live

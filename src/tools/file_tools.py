@@ -270,6 +270,179 @@ def copy_file_handler(
         })
 
 
+def list_projects_handler(
+    output_dir: Optional[str] = None,
+    include_all: bool = False,
+) -> str:
+    """List all existing projects in the generated directory.
+
+    Args:
+        output_dir: Base directory to search (default: 'generated')
+        include_all: If True, include all directories. If False, only include
+                     directories that look like DSDM projects (have src/, tests/,
+                     docs/, or project config files).
+    """
+    try:
+        base_path = Path(output_dir or DEFAULT_OUTPUT_DIR)
+
+        if not base_path.exists():
+            return json.dumps({
+                "success": True,
+                "projects": [],
+                "count": 0,
+                "message": "Generated directory does not exist yet. No projects found."
+            })
+
+        projects = []
+        for item in base_path.iterdir():
+            if item.is_dir() and not item.name.startswith('.'):
+                # Check for common project indicators
+                has_pyproject = (item / "pyproject.toml").exists()
+                has_package_json = (item / "package.json").exists()
+                has_requirements = (item / "requirements.txt").exists()
+                has_src = (item / "src").exists()
+                has_tests = (item / "tests").exists()
+                has_docs = (item / "docs").exists()
+                has_readme = (item / "README.md").exists() or (item / "readme.md").exists()
+
+                # Determine project type
+                if has_pyproject or has_requirements:
+                    project_type = "python"
+                elif has_package_json:
+                    project_type = "node"
+                else:
+                    project_type = "unknown"
+
+                # Determine if this looks like a valid project
+                # A valid project should have at least one of: project config, src dir, tests dir
+                is_valid_project = any([
+                    has_pyproject,
+                    has_package_json,
+                    has_requirements,
+                    has_src and (has_tests or has_docs or has_readme),
+                ])
+
+                # Skip non-project directories unless include_all is True
+                if not include_all and not is_valid_project:
+                    continue
+
+                # Get project metadata
+                project_info = {
+                    "name": item.name,
+                    "path": str(item),
+                    "absolute_path": str(item.absolute()),
+                    "type": project_type,
+                    "has_docs": has_docs,
+                    "has_tests": has_tests,
+                    "has_src": has_src,
+                    "is_valid_project": is_valid_project,
+                }
+
+                # Get last modified time
+                project_info["last_modified"] = datetime.fromtimestamp(
+                    item.stat().st_mtime
+                ).isoformat()
+
+                projects.append(project_info)
+
+        # Sort by last modified (most recent first)
+        projects.sort(key=lambda x: x["last_modified"], reverse=True)
+
+        return json.dumps({
+            "success": True,
+            "projects": projects,
+            "count": len(projects),
+        })
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+        })
+
+
+def get_project_handler(
+    project_name: str,
+    output_dir: Optional[str] = None,
+) -> str:
+    """Get details of a specific project if it exists."""
+    try:
+        base_path = Path(output_dir or DEFAULT_OUTPUT_DIR) / project_name
+
+        if not base_path.exists():
+            return json.dumps({
+                "success": False,
+                "exists": False,
+                "project_name": project_name,
+                "message": f"Project '{project_name}' does not exist in {output_dir or DEFAULT_OUTPUT_DIR}/"
+            })
+
+        if not base_path.is_dir():
+            return json.dumps({
+                "success": False,
+                "exists": False,
+                "project_name": project_name,
+                "error": f"'{project_name}' exists but is not a directory"
+            })
+
+        # Gather project details
+        project_info = {
+            "name": project_name,
+            "path": str(base_path),
+            "absolute_path": str(base_path.absolute()),
+            "exists": True,
+        }
+
+        # Determine project type
+        if (base_path / "pyproject.toml").exists():
+            project_info["type"] = "python"
+        elif (base_path / "package.json").exists():
+            project_info["type"] = "node"
+        else:
+            project_info["type"] = "unknown"
+
+        # List top-level structure
+        project_info["structure"] = {
+            "has_src": (base_path / "src").exists(),
+            "has_tests": (base_path / "tests").exists(),
+            "has_docs": (base_path / "docs").exists(),
+            "has_config": (base_path / "config").exists(),
+            "has_infrastructure": (base_path / "infrastructure").exists(),
+        }
+
+        # Get file counts
+        file_count = 0
+        dir_count = 0
+        for item in base_path.rglob("*"):
+            if item.is_file():
+                file_count += 1
+            elif item.is_dir():
+                dir_count += 1
+
+        project_info["file_count"] = file_count
+        project_info["directory_count"] = dir_count
+        project_info["last_modified"] = datetime.fromtimestamp(
+            base_path.stat().st_mtime
+        ).isoformat()
+
+        return json.dumps({
+            "success": True,
+            "exists": True,
+            "project": project_info,
+        })
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "project_name": project_name,
+        })
+
+
+def project_exists(project_name: str, output_dir: Optional[str] = None) -> bool:
+    """Check if a project already exists (helper function)."""
+    base_path = Path(output_dir or DEFAULT_OUTPUT_DIR) / project_name
+    return base_path.exists() and base_path.is_dir()
+
+
 def init_project_handler(
     project_name: str,
     project_type: str = "python",
@@ -277,10 +450,33 @@ def init_project_handler(
     include_docs: bool = True,
     include_config: bool = True,
     include_infrastructure: bool = False,
+    force_recreate: bool = False,
 ) -> str:
-    """Initialize a new project with standard directory structure."""
+    """Initialize a new project with standard directory structure.
+
+    First checks if the project already exists in the generated directory.
+    If it exists and force_recreate is False, returns the existing project info.
+    """
     try:
         base_path = Path(DEFAULT_OUTPUT_DIR) / project_name
+
+        # Check if project already exists
+        if base_path.exists() and base_path.is_dir():
+            if not force_recreate:
+                # Return existing project info instead of recreating
+                existing_info = json.loads(get_project_handler(project_name))
+                return json.dumps({
+                    "success": True,
+                    "already_exists": True,
+                    "project_name": project_name,
+                    "base_path": str(base_path),
+                    "absolute_path": str(base_path.absolute()),
+                    "message": f"Project '{project_name}' already exists. Use force_recreate=True to reinitialize.",
+                    "existing_project": existing_info.get("project", {}),
+                })
+            else:
+                # force_recreate is True - we'll continue to recreate/update the project
+                pass
 
         # Define directory structure based on project type
         directories = ["src"]
@@ -645,9 +841,52 @@ def register_file_tools(registry: ToolRegistry) -> None:
         category="file_operations"
     ))
 
+    # Project management tools
+    registry.register(Tool(
+        name="project_list",
+        description="List all existing projects in the generated/ directory. Use this FIRST to check what projects already exist before creating a new one. Only shows valid projects (with src/, tests/, or project config files) by default.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "output_dir": {
+                    "type": "string",
+                    "description": "Base output directory to search (default: 'generated')"
+                },
+                "include_all": {
+                    "type": "boolean",
+                    "description": "Include all directories, not just valid projects (default: false)"
+                }
+            },
+            "required": []
+        },
+        handler=list_projects_handler,
+        category="file_operations"
+    ))
+
+    registry.register(Tool(
+        name="project_get",
+        description="Get details of a specific project if it exists in the generated/ directory. Returns project structure, file counts, and metadata.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "project_name": {
+                    "type": "string",
+                    "description": "Name of the project to look up"
+                },
+                "output_dir": {
+                    "type": "string",
+                    "description": "Base output directory (default: 'generated')"
+                }
+            },
+            "required": ["project_name"]
+        },
+        handler=get_project_handler,
+        category="file_operations"
+    ))
+
     registry.register(Tool(
         name="project_init",
-        description="Initialize a new project with standard directory structure under generated/<project_name>/. Creates src/, tests/, docs/, config/, and optional infrastructure/ directories with base files.",
+        description="Initialize a new project with standard directory structure under generated/<project_name>/. IMPORTANT: First checks if project already exists - if so, returns existing project info unless force_recreate=True. Creates src/, tests/, docs/, config/, and optional infrastructure/ directories with base files.",
         input_schema={
             "type": "object",
             "properties": {
@@ -675,6 +914,10 @@ def register_file_tools(registry: ToolRegistry) -> None:
                 "include_infrastructure": {
                     "type": "boolean",
                     "description": "Include infrastructure/ directory for IaC (default: false)"
+                },
+                "force_recreate": {
+                    "type": "boolean",
+                    "description": "Force reinitialize even if project exists (default: false). If false and project exists, returns existing project info."
                 }
             },
             "required": ["project_name"]
