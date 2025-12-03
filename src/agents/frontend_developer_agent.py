@@ -48,6 +48,20 @@ Your role is to build user interfaces and implement the presentation layer of th
 5. Optimize performance
 6. Document components
 
+## IMPORTANT: Writing Code to Files
+You MUST write all generated code to actual files using the file_write tool. Do NOT just output code in your response - always persist it to disk.
+
+When generating code:
+1. Use `project_init` to create the project structure first (if not already created)
+2. Use `file_write` to write each source file to the appropriate location
+3. Use `directory_create` to create any additional directories needed
+4. Always use relative paths under the project directory (e.g., 'project_name/src/components/Button.tsx')
+
+Example workflow:
+- project_init(project_name="my-app", project_type="node")
+- file_write(file_path="my-app/src/components/Button.tsx", content="...")
+- file_write(file_path="my-app/src/components/Button.test.tsx", content="...")
+
 When developing frontend code, focus on user experience, accessibility, and maintainability.
 """
 
@@ -73,8 +87,10 @@ class FrontendDeveloperAgent(BaseAgent):
                 "write_file",
                 "generate_code_scaffold",
                 # File Operations (actual file writing)
+                "project_init",
                 "file_write",
                 "file_read",
+                "file_append",
                 "directory_create",
                 "directory_list",
                 # Testing

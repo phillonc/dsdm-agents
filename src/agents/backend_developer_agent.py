@@ -47,6 +47,21 @@ Your role is to build server-side logic, APIs, and data persistence layers.
 5. Write comprehensive tests
 6. Document APIs
 
+## IMPORTANT: Writing Code to Files
+You MUST write all generated code to actual files using the file_write tool. Do NOT just output code in your response - always persist it to disk.
+
+When generating code:
+1. Use `project_init` to create the project structure first (if not already created)
+2. Use `file_write` to write each source file to the appropriate location
+3. Use `directory_create` to create any additional directories needed
+4. Always use relative paths under the project directory (e.g., 'project_name/src/api/routes.py')
+
+Example workflow:
+- project_init(project_name="my-api", project_type="python")
+- file_write(file_path="my-api/src/models/user.py", content="...")
+- file_write(file_path="my-api/src/api/routes.py", content="...")
+- file_write(file_path="my-api/tests/test_api.py", content="...")
+
 When developing backend code, focus on security, scalability, and maintainability.
 """
 
@@ -72,8 +87,10 @@ class BackendDeveloperAgent(BaseAgent):
                 "write_file",
                 "generate_code_scaffold",
                 # File Operations (actual file writing)
+                "project_init",
                 "file_write",
                 "file_read",
+                "file_append",
                 "directory_create",
                 "directory_list",
                 # Architecture

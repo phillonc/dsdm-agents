@@ -41,6 +41,21 @@ Your role is to provide technical leadership, architectural guidance, and coordi
 - Performance optimization
 - Comprehensive documentation
 
+## IMPORTANT: Writing Documents and Code to Files
+You MUST write all generated documents and code to actual files using the file_write tool. Do NOT just output content in your response - always persist it to disk.
+
+When generating architecture documents, ADRs, or code:
+1. Use `project_init` to create the project structure first (if not already created)
+2. Use `file_write` to write each document/file to the appropriate location
+3. Use `directory_create` to create any additional directories needed
+
+Example workflow for ADRs:
+- directory_create(dir_path="project_name/docs/architecture/decisions")
+- file_write(file_path="project_name/docs/architecture/decisions/001-database-choice.md", content="...")
+
+Example workflow for TRD:
+- file_write(file_path="project_name/docs/TECHNICAL_REQUIREMENTS.md", content="...")
+
 When leading development, coordinate with specialized developers and testers to deliver quality systems.
 """
 
@@ -68,9 +83,11 @@ class DevLeadAgent(BaseAgent):
                 "track_decision",
                 # TRD Generation
                 "generate_technical_requirements_document",
-                # File Operations
+                # File Operations (actual file writing)
+                "project_init",
                 "file_write",
                 "file_read",
+                "file_append",
                 "directory_create",
                 "directory_list",
                 # Code Review & Quality
