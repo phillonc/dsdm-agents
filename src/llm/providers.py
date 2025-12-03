@@ -4,6 +4,7 @@ Supports multiple LLM providers: Anthropic, OpenAI, Google Gemini, and Ollama.
 """
 
 import os
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
@@ -560,7 +561,12 @@ class GeminiClient(BaseLLMClient):
                     if isinstance(first_content, str):
                         first_msg["parts"][0] = f"System: {system_prompt}\n\nUser: {first_content}"
 
-        chat = model.start_chat(history=gemini_messages[:-1] if len(gemini_messages) > 1 else [])
+        # Use response_validation=False to allow processing of malformed responses
+        # This prevents Gemini from blocking the entire chat session on MALFORMED_FUNCTION_CALL
+        chat = model.start_chat(
+            history=gemini_messages[:-1] if len(gemini_messages) > 1 else [],
+            enable_automatic_function_calling=False,
+        )
 
         message_content = gemini_messages[-1]["parts"][0] if gemini_messages else ""
 
@@ -569,12 +575,13 @@ class GeminiClient(BaseLLMClient):
             response = chat.send_message(message_content)
         except Exception as e:
             error_type = type(e).__name__
+            error_str = str(e).lower()
             # Handle StopCandidateException (safety blocks, recitation, etc.)
-            if "StopCandidate" in error_type:
+            if "StopCandidate" in error_type or "malformed" in error_str:
                 # Try to extract candidate info from the exception
                 candidate_info = str(e)
                 return {
-                    "content": f"Response blocked by Gemini safety filters: {candidate_info}",
+                    "content": f"Response blocked by Gemini: {candidate_info}",
                     "role": "assistant",
                     "model": self.config.model,
                     "usage": {"input_tokens": 0, "output_tokens": 0},
@@ -584,6 +591,38 @@ class GeminiClient(BaseLLMClient):
                 }
             # Re-raise other exceptions
             raise
+
+        # Check for MALFORMED_FUNCTION_CALL in response candidates
+        if hasattr(response, "candidates") and response.candidates:
+            candidate = response.candidates[0]
+            if hasattr(candidate, "finish_reason"):
+                finish_reason = candidate.finish_reason
+                # Gemini uses numeric enums: MALFORMED_FUNCTION_CALL = 9
+                # Also check string representation
+                finish_reason_str = str(finish_reason)
+                if "MALFORMED" in finish_reason_str or finish_reason == 9:
+                    # Extract any partial content or text from the response
+                    partial_content = ""
+                    if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
+                        for part in candidate.content.parts:
+                            if hasattr(part, "text"):
+                                partial_content += part.text
+
+                    # Log the malformed call for debugging
+                    print(f"[WARN] Gemini MALFORMED_FUNCTION_CALL: {finish_reason_str}", file=sys.stderr)
+
+                    return {
+                        "content": partial_content or f"Gemini returned MALFORMED_FUNCTION_CALL. The function call format was invalid. Please try rephrasing your request or simplifying the parameters.",
+                        "role": "assistant",
+                        "model": self.config.model,
+                        "usage": {
+                            "input_tokens": response.usage_metadata.prompt_token_count if hasattr(response, "usage_metadata") else 0,
+                            "output_tokens": response.usage_metadata.candidates_token_count if hasattr(response, "usage_metadata") else 0,
+                        },
+                        "stop_reason": "malformed_function_call",
+                        "tool_calls": [],
+                        "error": "MALFORMED_FUNCTION_CALL",
+                    }
 
         # Extract tool calls if any
         tool_calls = []
@@ -596,7 +635,6 @@ class GeminiClient(BaseLLMClient):
                 raw_args = part.function_call.args
 
                 # Debug: Log raw args type and value
-                import sys
                 print(f"[DEBUG] Tool: {func_name}, Raw args type: {type(raw_args).__name__}", file=sys.stderr)
 
                 # Convert Protobuf args to native Python dict

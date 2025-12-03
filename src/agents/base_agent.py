@@ -468,6 +468,36 @@ class BaseAgent(ABC):
                 # No content and no stop reason - continue loop
                 continue
 
+            elif stop_reason in ("malformed_function_call", "blocked"):
+                # Handle Gemini-specific errors gracefully
+                # These indicate the model couldn't properly format a function call
+                output = response.get("content", "")
+                error_info = response.get("error", stop_reason)
+
+                self._emit_progress(
+                    ProgressEvent.ERROR,
+                    f"LLM error: {error_info}",
+                    iteration=iterations,
+                    details={"error": error_info, "content": output[:200] if output else None}
+                )
+
+                # If we have content, return it as partial result
+                if output:
+                    result = self._process_output(output)
+                    result.tips = tips
+                    result.workflow_mode = self.config.workflow_mode
+                    # Mark as unsuccessful but include the content
+                    result.success = False
+                    result.artifacts["error"] = error_info
+                    return result
+
+                return AgentResult(
+                    success=False,
+                    output=f"LLM returned error: {error_info}. Please try rephrasing your request.",
+                    workflow_mode=self.config.workflow_mode,
+                    artifacts={"error": error_info},
+                )
+
             else:
                 # Unknown stop reason - try to get content anyway
                 output = response.get("content", "")

@@ -20,6 +20,7 @@ from src.orchestrator.dsdm_orchestrator import (
 from src.agents.base_agent import AgentMode
 from src.agents import (
     FeasibilityAgent,
+    ProductManagerAgent,
     BusinessStudyAgent,
     FunctionalModelAgent,
     DesignBuildAgent,
@@ -96,6 +97,7 @@ def main():
         phases=[
             PhaseConfig(DSDMPhase.FEASIBILITY, FeasibilityAgent, AgentMode(args.mode)),
             PhaseConfig(DSDMPhase.BUSINESS_STUDY, BusinessStudyAgent, AgentMode(args.mode)),
+            PhaseConfig(DSDMPhase.PRD_TRD, ProductManagerAgent, AgentMode(args.mode)),
             PhaseConfig(DSDMPhase.FUNCTIONAL_MODEL, FunctionalModelAgent, AgentMode(args.mode)),
             PhaseConfig(DSDMPhase.DESIGN_BUILD, DesignBuildAgent, AgentMode.HYBRID if args.mode == "automated" else AgentMode(args.mode)),
             PhaseConfig(DSDMPhase.IMPLEMENTATION, ImplementationAgent, AgentMode.MANUAL if args.mode == "automated" else AgentMode(args.mode)),

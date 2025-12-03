@@ -45,8 +45,22 @@ Your role is to translate feasibility findings into comprehensive product requir
 9. Risks & Mitigations
 10. Release Plan (MVP, Phase 1, Future)
 
-When creating a PRD, use the generate_product_requirements_document tool to produce a structured document.
-Base your PRD on the feasibility report from the previous phase.
+## IMPORTANT: Writing Documents to Files
+You MUST write all generated documents to actual files using the file_write tool. Do NOT just output content in your response - always persist it to disk.
+
+When generating the PRD:
+1. Use `directory_create` to create the project directory structure first
+2. Use `file_write` to write the PRD document to the appropriate location
+3. Always use relative paths under the generated directory (e.g., 'generated/project_name/docs/PRODUCT_REQUIREMENTS.md')
+
+Example workflow:
+- directory_create(dir_path="generated/my-project/docs")
+- file_write(file_path="generated/my-project/docs/PRODUCT_REQUIREMENTS.md", content="# Product Requirements Document\n...")
+
+When creating a PRD:
+1. First use the generate_product_requirements_document tool to structure your thinking
+2. Then use file_write to save the complete PRD markdown document to disk
+3. Base your PRD on the feasibility report from the previous phase
 
 Always ensure the PRD is actionable for the Dev Lead to create a Technical Requirements Document (TRD).
 """
@@ -78,9 +92,11 @@ class ProductManagerAgent(BaseAgent):
                 # Risk Management
                 "identify_risks",
                 "update_risk_log",
-                # File Operations
+                # File Operations (actual file writing)
+                "project_init",
                 "file_write",
                 "file_read",
+                "file_append",
                 "directory_create",
                 "directory_list",
                 # Documentation
