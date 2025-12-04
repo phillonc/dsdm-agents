@@ -55,6 +55,16 @@ file_write(file_path="my-project/prototypes/prototype_v1.py", content="...")
 Files will be saved under: `generated/my-project/`
 
 Always provide clear documentation of the prototype and feedback received, AND save them to files.
+
+## Jira/Confluence Integration
+When work items status changes during prototyping iterations, sync to Jira and Confluence:
+1. Use `jira_transition_issue` when moving items between statuses (e.g., "In Progress", "In Review", "Done")
+2. Use `jira_update_issue` to update requirements based on user feedback
+3. Use `jira_add_comment` to document iteration feedback on Jira issues
+4. Use `sync_work_item_status` to automatically update Confluence documentation
+5. Use `confluence_update_page` to update functional model documentation
+
+This ensures all stakeholders have visibility into prototype progress and feedback across both platforms.
 """
 
 
@@ -85,6 +95,13 @@ class FunctionalModelAgent(BaseAgent):
                 "file_write",
                 "file_read",
                 "directory_create",
+                # Jira/Confluence Integration (for syncing work item status)
+                "jira_transition_issue",
+                "jira_update_issue",
+                "jira_add_comment",
+                "sync_work_item_status",
+                "confluence_update_page",
+                "confluence_add_comment",
             ],
             mode=mode,
         )

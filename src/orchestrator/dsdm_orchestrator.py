@@ -120,8 +120,8 @@ class DSDMOrchestrator:
         self,
         config: Optional[OrchestratorConfig] = None,
         include_devops: bool = True,
-        include_confluence: bool = False,
-        include_jira: bool = False,
+        include_confluence: bool = True,
+        include_jira: bool = True,
         show_progress: bool = True,
     ):
         self.config = config or self._default_config()

@@ -47,6 +47,15 @@ file_write(file_path="my-project/docs/FEASIBILITY_REPORT.md", content="# Feasibi
 The file will be saved to: `generated/my-project/docs/FEASIBILITY_REPORT.md`
 
 Always structure your final output as a JSON-formatted feasibility report AND save it to a file.
+
+## Jira/Confluence Integration
+When work items are created or their status changes, sync to Jira and Confluence:
+1. Use `jira_create_issue` to create new work items in Jira
+2. Use `jira_transition_issue` when moving items between statuses
+3. Use `sync_work_item_status` to automatically update Confluence documentation
+4. Use `confluence_create_dsdm_doc` to create feasibility documentation in Confluence
+
+This ensures all stakeholders have visibility into project status across both platforms.
 """
 
 
@@ -73,6 +82,14 @@ class FeasibilityAgent(BaseAgent):
                 "project_init",
                 "file_write",
                 "directory_create",
+                # Jira/Confluence Integration (for syncing work item status)
+                "jira_create_issue",
+                "jira_transition_issue",
+                "jira_add_comment",
+                "jira_enable_confluence_sync",
+                "sync_work_item_status",
+                "confluence_create_page",
+                "confluence_create_dsdm_doc",
             ],
             mode=mode,
         )

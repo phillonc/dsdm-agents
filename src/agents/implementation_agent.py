@@ -64,6 +64,16 @@ file_write(file_path="my-project/docs/HANDOVER_DOCS.md", content="# Operations H
 Files will be saved under: `generated/my-project/docs/`
 
 Always ensure safe deployment with proper rollback procedures, AND save all documentation to files.
+
+## Jira/Confluence Integration
+When work items status changes during deployment, sync to Jira and Confluence:
+1. Use `jira_transition_issue` when moving items between statuses (e.g., "Deploying", "Deployed", "Verified")
+2. Use `jira_add_comment` to document deployment steps and verification results
+3. Use `sync_work_item_status` to automatically update Confluence documentation
+4. Use `confluence_update_page` to update deployment documentation with actual results
+5. Use `confluence_create_dsdm_doc` to create handover and training documentation
+
+This ensures all stakeholders have visibility into deployment progress and system status across both platforms.
 """
 
 
@@ -96,6 +106,15 @@ class ImplementationAgent(BaseAgent):
                 "file_write",
                 "file_read",
                 "directory_create",
+                # Jira/Confluence Integration (for syncing work item status)
+                "jira_transition_issue",
+                "jira_update_issue",
+                "jira_add_comment",
+                "jira_search",
+                "sync_work_item_status",
+                "confluence_update_page",
+                "confluence_add_comment",
+                "confluence_create_dsdm_doc",
             ],
             mode=mode,
         )

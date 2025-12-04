@@ -83,6 +83,16 @@ After you have completed all necessary tool calls (writing files, running tests,
 5. Any recommendations for the next phase
 
 DO NOT continue making tool calls indefinitely. Once you've accomplished the requested task, stop making tool calls and provide your final summary response.
+
+## Jira/Confluence Integration
+When work items status changes during design and build, sync to Jira and Confluence:
+1. Use `jira_transition_issue` when moving items between statuses (e.g., "In Progress", "Code Review", "Testing", "Done")
+2. Use `jira_update_issue` to update task details as implementation progresses
+3. Use `jira_add_comment` to document implementation decisions and progress
+4. Use `sync_work_item_status` to automatically update Confluence documentation
+5. Use `confluence_update_page` to keep technical documentation current
+
+This ensures all stakeholders have visibility into development progress across both platforms.
 """
 
 
@@ -117,6 +127,14 @@ class DesignBuildAgent(BaseAgent):
                 "security_check",
                 # Technical Requirements Document generation
                 "generate_technical_requirements_document",
+                # Jira/Confluence Integration (for syncing work item status)
+                "jira_transition_issue",
+                "jira_update_issue",
+                "jira_add_comment",
+                "jira_search",
+                "sync_work_item_status",
+                "confluence_update_page",
+                "confluence_add_comment",
             ],
             mode=mode,
             max_iterations=100,  # Allow more iterations for complex builds

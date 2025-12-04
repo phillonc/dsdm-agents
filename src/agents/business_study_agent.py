@@ -52,6 +52,16 @@ file_write(file_path="my-project/docs/BUSINESS_STUDY.md", content="# Business St
 The file will be saved to: `generated/my-project/docs/BUSINESS_STUDY.md`
 
 Always structure your final output with clear sections for each deliverable AND save it to a file.
+
+## Jira/Confluence Integration
+When work items are created or their status changes, sync to Jira and Confluence:
+1. Use `jira_create_user_story` to create MoSCoW-prioritized user stories in Jira
+2. Use `jira_bulk_create_requirements` to create multiple requirements at once
+3. Use `jira_transition_issue` when moving items between statuses
+4. Use `sync_work_item_status` to automatically update Confluence documentation
+5. Use `confluence_create_dsdm_doc` to create business study documentation in Confluence
+
+This ensures all stakeholders have visibility into requirements and priorities across both platforms.
 """
 
 
@@ -81,6 +91,16 @@ class BusinessStudyAgent(BaseAgent):
                 "project_init",
                 "file_write",
                 "directory_create",
+                # Jira/Confluence Integration (for syncing work item status)
+                "jira_create_issue",
+                "jira_create_user_story",
+                "jira_transition_issue",
+                "jira_add_comment",
+                "jira_bulk_create_requirements",
+                "sync_work_item_status",
+                "confluence_create_page",
+                "confluence_update_page",
+                "confluence_create_dsdm_doc",
             ],
             mode=mode,
         )
