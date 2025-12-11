@@ -5,6 +5,12 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 from .tool_registry import Tool, ToolRegistry
+from .feasibility_optimizer import (
+    analyze_requirements_enhanced,
+    assess_technical_feasibility_enhanced,
+    identify_risks_enhanced,
+    get_feasibility_cache,
+)
 
 
 def create_dsdm_tool_registry(
@@ -18,9 +24,10 @@ def create_dsdm_tool_registry(
 
     # ==================== FEASIBILITY PHASE TOOLS ====================
 
+    # Enhanced feasibility tools with real analysis
     registry.register(Tool(
         name="analyze_requirements",
-        description="Analyze and document initial project requirements from user input",
+        description="Analyze and document initial project requirements from user input. Returns structured extraction of functional/non-functional requirements, constraints, entities, and ambiguities.",
         input_schema={
             "type": "object",
             "properties": {
@@ -36,18 +43,15 @@ def create_dsdm_tool_registry(
             },
             "required": ["requirements_text"]
         },
-        handler=lambda requirements_text, focus_areas=None: json.dumps({
-            "status": "analyzed",
-            "requirements_count": len(requirements_text.split(".")),
-            "focus_areas": focus_areas or ["general"],
-            "timestamp": datetime.now().isoformat()
-        }),
+        handler=lambda requirements_text, focus_areas=None: json.dumps(
+            analyze_requirements_enhanced(requirements_text, focus_areas)
+        ),
         category="feasibility"
     ))
 
     registry.register(Tool(
         name="assess_technical_feasibility",
-        description="Assess technical feasibility of the project",
+        description="Assess technical feasibility with technology maturity analysis, constraint risk evaluation, and specific recommendations.",
         input_schema={
             "type": "object",
             "properties": {
@@ -69,26 +73,22 @@ def create_dsdm_tool_registry(
             },
             "required": ["technology_stack"]
         },
-        handler=lambda technology_stack, complexity_level="medium", constraints=None: json.dumps({
-            "feasible": True,
-            "technology_stack": technology_stack,
-            "complexity": complexity_level,
-            "constraints": constraints or [],
-            "recommendation": "Proceed with caution" if complexity_level == "high" else "Proceed"
-        }),
+        handler=lambda technology_stack, complexity_level="medium", constraints=None: json.dumps(
+            assess_technical_feasibility_enhanced(technology_stack, complexity_level, constraints)
+        ),
         category="feasibility"
     ))
 
     registry.register(Tool(
         name="identify_risks",
-        description="Identify and document project risks",
+        description="Identify and document project risks with detailed risk templates, mitigation strategies, and severity assessment.",
         input_schema={
             "type": "object",
             "properties": {
                 "risk_areas": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Areas to analyze for risks"
+                    "description": "Areas to analyze for risks (e.g., 'technical', 'security', 'schedule', 'business', 'data', 'infrastructure')"
                 },
                 "severity_threshold": {
                     "type": "string",
@@ -98,12 +98,9 @@ def create_dsdm_tool_registry(
             },
             "required": ["risk_areas"]
         },
-        handler=lambda risk_areas, severity_threshold="medium": json.dumps({
-            "risks_identified": len(risk_areas),
-            "risk_areas": risk_areas,
-            "severity_threshold": severity_threshold,
-            "status": "documented"
-        }),
+        handler=lambda risk_areas, severity_threshold="medium": json.dumps(
+            identify_risks_enhanced(risk_areas, severity_threshold)
+        ),
         category="feasibility"
     ))
 

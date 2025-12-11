@@ -31,6 +31,11 @@ from ..agents.pen_tester_agent import PenTesterAgent
 
 from ..tools.tool_registry import ToolRegistry
 from ..tools.dsdm_tools import create_dsdm_tool_registry
+from ..tools.feasibility_optimizer import (
+    quick_feasibility_check,
+    generate_quick_feasibility_report,
+    get_feasibility_cache,
+)
 
 
 def _moscow_to_jira_priority(moscow: str) -> str:
@@ -372,11 +377,18 @@ class DSDMOrchestrator:
         phase: DSDMPhase,
         user_input: str,
         context: Optional[Dict[str, Any]] = None,
+        skip_fast_path: bool = False,
     ) -> AgentResult:
         """Run a specific phase."""
         # Special handling for PRD_TRD phase - runs both Product Manager and Dev Lead
         if phase == DSDMPhase.PRD_TRD:
             return self._run_prd_trd_phase(user_input, context)
+
+        # Quick feasibility fast-path for FEASIBILITY phase
+        if phase == DSDMPhase.FEASIBILITY and not skip_fast_path:
+            quick_result = self._try_quick_feasibility(user_input)
+            if quick_result is not None:
+                return quick_result
 
         agent = self.agents.get(phase)
         if not agent:
@@ -420,6 +432,87 @@ class DSDMOrchestrator:
             artifacts=result.artifacts if result.artifacts else None,
             tool_calls=agent.tool_call_history if hasattr(agent, 'tool_call_history') else None,
         )
+
+        # Cache the result for future quick lookups
+        if phase == DSDMPhase.FEASIBILITY and result.success:
+            cache = get_feasibility_cache()
+            cache.set(user_input, result.artifacts or {})
+
+        return result
+
+    def _try_quick_feasibility(self, user_input: str) -> Optional[AgentResult]:
+        """
+        Attempt quick feasibility assessment without running full agent.
+
+        Returns AgentResult if quick assessment is confident enough,
+        None if full analysis is needed.
+        """
+        quick_check = quick_feasibility_check(user_input)
+
+        # Only use fast-path if confidence is high enough
+        if not quick_check.is_quick_path or quick_check.confidence < 0.8:
+            return None
+
+        # For "needs_analysis" recommendation, always do full analysis
+        if quick_check.recommendation == "needs_analysis":
+            return None
+
+        self.current_phase = DSDMPhase.FEASIBILITY
+
+        # Display fast-path notification
+        self.console.print("\n[bold cyan]═══ Quick Feasibility Assessment ═══[/bold cyan]")
+        self.console.print(f"[dim]Fast-path activated (confidence: {quick_check.confidence * 100:.0f}%)[/dim]")
+
+        if quick_check.project_type:
+            self.console.print(f"[dim]Detected project type: {quick_check.project_type.replace('_', ' ').title()}[/dim]")
+
+        # Generate the report
+        report = generate_quick_feasibility_report(quick_check, user_input)
+
+        # Build artifacts
+        artifacts = {
+            "phase": "feasibility",
+            "recommendation": quick_check.recommendation,
+            "fast_path": True,
+            "confidence": quick_check.confidence,
+            "project_type": quick_check.project_type,
+        }
+
+        if quick_check.cached_assessment:
+            artifacts.update(quick_check.cached_assessment)
+
+        # Determine if we should proceed to next phase
+        go_recommendation = quick_check.recommendation == "go"
+
+        result = AgentResult(
+            success=True,
+            output=report,
+            artifacts=artifacts,
+            requires_next_phase=go_recommendation,
+            next_phase_input={
+                "feasibility_report": report,
+                "recommendation": quick_check.recommendation,
+                "project_type": quick_check.project_type,
+                "fast_path": True,
+            } if go_recommendation else None,
+        )
+
+        self.results[DSDMPhase.FEASIBILITY] = result
+        self.current_phase = None
+
+        # Display result
+        self.formatter.format_agent_result(
+            phase_or_role="Feasibility (Quick)",
+            success=True,
+            output=report,
+            artifacts=artifacts,
+        )
+
+        # Ask user if they want full analysis in interactive mode
+        if self.config.interactive and quick_check.confidence < 0.95:
+            self.console.print("\n[yellow]Quick assessment complete. Full analysis available if needed.[/yellow]")
+            if Confirm.ask("Run full feasibility analysis instead?"):
+                return None  # Fall through to full analysis
 
         return result
 
@@ -951,6 +1044,55 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
 
         return self.role_results
 
+    def load_trd_from_file(self, file_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Load a TRD file from the directory and parse its content."""
+        import os
+        import json
+        trd_content = None
+        if not file_path:
+            # Try to find a TRD file in the current directory or a known location
+            candidates = [
+                "TRD.md", "trd.md", "TRD.json", "trd.json",
+                "docs/TRD.md", "docs/trd.md", "docs/TRD.json", "docs/trd.json"
+            ]
+            for candidate in candidates:
+                if os.path.exists(candidate):
+                    file_path = candidate
+                    break
+        if not file_path or not os.path.exists(file_path):
+            self.console.print(f"[red]TRD file not found at: {file_path or 'default locations'}[/red]")
+            return None
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                if file_path.endswith(".json"):
+                    trd_content = json.load(f)
+                else:
+                    trd_content = f.read()
+            self.console.print(f"[green]Loaded TRD from {file_path}[/green]")
+            return {"trd_output": trd_content, "trd_file_path": file_path}
+        except Exception as e:
+            self.console.print(f"[red]Failed to load TRD: {e}[/red]")
+            return None
+
+    def design_build_from_trd(self, trd_context: Dict[str, Any]) -> None:
+        """Run Design & Build phase/team using a TRD loaded from file."""
+        self.console.print("\n[bold cyan]Design & Build from TRD[/bold cyan]\n")
+        # Option to run the whole team or a specific role
+        choice = Prompt.ask(
+            "Run (1) Full Design & Build Team or (2) Specific Role?",
+            choices=["1", "2"]
+        )
+        if choice == "1":
+            self.run_design_build_team(user_input="Design & Build from TRD", context=trd_context)
+        else:
+            role_names = [r.value for r in self.DESIGN_BUILD_ROLE_ORDER if r in self.design_build_agents]
+            self.console.print("\nAvailable roles:")
+            for i, name in enumerate(role_names, 1):
+                self.console.print(f"  {i}. {name.replace('_', ' ').title()}")
+            role_choice = Prompt.ask("Select role", choices=[str(i) for i in range(1, len(role_names) + 1)])
+            role = DesignBuildRole(role_names[int(role_choice) - 1])
+            self.run_design_build_role(role, user_input="Design & Build from TRD", context=trd_context)
+
     def interactive_menu(self) -> None:
         """Run an interactive menu for phase selection."""
         while True:
@@ -964,9 +1106,10 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
             self.console.print("4. Configure modes")
             self.console.print("5. Configure workflow modes")
             self.console.print("6. View tools")
-            self.console.print("7. Exit")
+            self.console.print("7. Design & Build from TRD in directory")
+            self.console.print("8. Exit")
 
-            choice = Prompt.ask("Select option", choices=["1", "2", "3", "4", "5", "6", "7"])
+            choice = Prompt.ask("Select option", choices=[str(i) for i in range(1, 9)])
 
             if choice == "1":
                 self._run_specific_phase_menu()
@@ -981,6 +1124,11 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
             elif choice == "6":
                 self._view_tools_menu()
             elif choice == "7":
+                file_path = Prompt.ask("Enter TRD file path (leave blank to auto-detect)", default="")
+                trd_context = self.load_trd_from_file(file_path if file_path else None)
+                if trd_context:
+                    self.design_build_from_trd(trd_context)
+            elif choice == "8":
                 break
 
     def _run_specific_phase_menu(self) -> None:
