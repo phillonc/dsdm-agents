@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Options Flow - Real-time options order flow and unusual activity tracking">
+  <title>Options Flow - OPTIX</title>
+  <link rel="stylesheet" href="../assets/css/optix-design-system.css">
+  <style>
+    /* Flow-specific styles */
+    .flow-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--optix-space-md);
+      margin-bottom: var(--optix-space-lg);
+      padding: var(--optix-space-md);
+      background: var(--optix-bg-card);
+      border-radius: var(--optix-radius-lg);
+      border: 1px solid var(--optix-border);
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-sm);
+    }
+
+    .filter-label {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+      white-space: nowrap;
+    }
+
+    .toggle-group {
+      display: inline-flex;
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-md);
+      border: 1px solid var(--optix-border);
+      overflow: hidden;
+    }
+
+    .toggle-btn {
+      padding: 6px 16px;
+      font-size: var(--optix-font-sm);
+      font-weight: var(--optix-font-medium);
+      background: transparent;
+      border: none;
+      color: var(--optix-text-muted);
+      cursor: pointer;
+      transition: all var(--optix-transition-fast);
+      min-height: 36px;
+    }
+
+    .toggle-btn:not(:last-child) {
+      border-right: 1px solid var(--optix-border);
+    }
+
+    .toggle-btn.active {
+      background: var(--optix-primary);
+      color: white;
+    }
+
+    .toggle-btn.green.active {
+      background: var(--optix-green);
+    }
+
+    .toggle-btn.red.active {
+      background: var(--optix-red);
+    }
+
+    /* Summary Cards */
+    .summary-metric {
+      text-align: center;
+    }
+
+    .metric-label {
+      display: block;
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+      margin-bottom: var(--optix-space-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-value {
+      display: block;
+      font-size: var(--optix-font-2xl);
+      font-weight: var(--optix-font-bold);
+      font-family: var(--optix-font-mono);
+      color: var(--optix-text);
+      margin-bottom: var(--optix-space-xs);
+    }
+
+    .metric-value.large {
+      font-size: var(--optix-font-3xl);
+    }
+
+    .metric-subtext {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-dim);
+    }
+
+    /* Flow Table */
+    .flow-table {
+      font-family: var(--optix-font-mono);
+      font-size: var(--optix-font-sm);
+    }
+
+    .flow-table tbody tr {
+      cursor: pointer;
+      transition: background var(--optix-transition-fast);
+    }
+
+    .flow-table tbody tr:hover {
+      background: var(--optix-bg-hover);
+    }
+
+    .flow-table tbody tr.bullish {
+      border-left: 3px solid var(--optix-green);
+    }
+
+    .flow-table tbody tr.bearish {
+      border-left: 3px solid var(--optix-red);
+    }
+
+    .flow-symbol {
+      font-weight: var(--optix-font-bold);
+      color: var(--optix-primary-light);
+    }
+
+    .flow-type {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: var(--optix-radius-sm);
+      font-size: var(--optix-font-xs);
+      font-weight: var(--optix-font-semibold);
+    }
+
+    .flow-type.call {
+      background: var(--optix-green-bg);
+      color: var(--optix-green);
+    }
+
+    .flow-type.put {
+      background: var(--optix-red-bg);
+      color: var(--optix-red);
+    }
+
+    .flow-side {
+      font-weight: var(--optix-font-semibold);
+    }
+
+    .flow-side.buy {
+      color: var(--optix-green);
+    }
+
+    .flow-side.sell {
+      color: var(--optix-red);
+    }
+
+    .flow-premium {
+      font-weight: var(--optix-font-bold);
+    }
+
+    .flow-premium.large {
+      color: var(--optix-yellow);
+    }
+
+    /* Alerts Section */
+    .alert-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--optix-space-sm);
+      padding: var(--optix-space-md);
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-md);
+      border-left: 4px solid var(--optix-yellow);
+      margin-bottom: var(--optix-space-sm);
+    }
+
+    .alert-icon {
+      flex-shrink: 0;
+      color: var(--optix-yellow);
+    }
+
+    .alert-content {
+      flex: 1;
+    }
+
+    .alert-title {
+      font-size: var(--optix-font-base);
+      font-weight: var(--optix-font-semibold);
+      margin-bottom: 4px;
+    }
+
+    .alert-detail {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+    }
+
+    .alert-time {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-dim);
+      white-space: nowrap;
+    }
+
+    /* Sentiment Indicator */
+    .sentiment-bar {
+      height: 8px;
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-full);
+      overflow: hidden;
+      position: relative;
+      margin-top: var(--optix-space-xs);
+    }
+
+    .sentiment-bar-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--optix-red), var(--optix-yellow), var(--optix-green));
+      transition: width var(--optix-transition-normal);
+    }
+
+    .sentiment-marker {
+      position: absolute;
+      top: -2px;
+      width: 4px;
+      height: 12px;
+      background: white;
+      border-radius: 2px;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+      transition: left var(--optix-transition-normal);
+    }
+
+    /* Auto-refresh indicator */
+    .refresh-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--optix-space-xs);
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-dim);
+    }
+
+    .refresh-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--optix-green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Block Trade Highlight */
+    .block-trade {
+      background: var(--optix-yellow-bg) !important;
+      font-weight: var(--optix-font-semibold);
+    }
+
+    .block-trade-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      background: var(--optix-yellow);
+      color: var(--optix-bg-dark);
+      border-radius: var(--optix-radius-sm);
+      font-size: var(--optix-font-xs);
+      font-weight: var(--optix-font-bold);
+      margin-left: var(--optix-space-xs);
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: var(--optix-space-2xl);
+      color: var(--optix-text-muted);
+    }
+
+    .empty-state svg {
+      margin: 0 auto var(--optix-space-md);
+      opacity: 0.5;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .flow-controls {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .filter-group {
+        width: 100%;
+      }
+
+      .filter-group .form-input {
+        flex: 1;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .metric-value {
+        font-size: var(--optix-font-xl);
+      }
+
+      .metric-value.large {
+        font-size: var(--optix-font-2xl);
+      }
+
+      .flow-table {
+        font-size: var(--optix-font-xs);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Skip to main content for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- App Container -->
+  <div class="app-container">
+    <!-- Header (loaded dynamically) -->
+    <div id="header-container"></div>
+
+    <!-- Sidebar (loaded dynamically) -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+      <div class="page-container">
+        <!-- Page Header -->
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Options Flow</h1>
+            <p class="text-muted">Real-time options order flow and unusual activity</p>
+          </div>
+          <div class="flex gap-sm">
+            <div class="refresh-indicator">
+              <div class="refresh-dot"></div>
+              <span>Live</span>
+            </div>
+            <button id="refresh-btn" class="btn btn-secondary btn-sm" aria-label="Refresh data">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 3a5 5 0 104.546 2.914.5.5 0 01.908-.417A6 6 0 118 2v1z"/>
+                <path d="M8 4.466V.534a.25.25 0 01.41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 018 4.466z"/>
+              </svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Flow Controls -->
+        <div class="flow-controls">
+          <div class="filter-group">
+            <label class="filter-label" for="symbol-filter">Symbol:</label>
+            <input
+              type="text"
+              id="symbol-filter"
+              class="form-input"
+              placeholder="Filter by symbol (e.g., AAPL, SPY)"
+              style="width: 200px; text-transform: uppercase; min-height: 36px;"
+            >
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Type:</label>
+            <div class="toggle-group">
+              <button class="toggle-btn active" data-filter="type" data-value="all">All</button>
+              <button class="toggle-btn green" data-filter="type" data-value="calls">Calls</button>
+              <button class="toggle-btn red" data-filter="type" data-value="puts">Puts</button>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Side:</label>
+            <div class="toggle-group">
+              <button class="toggle-btn active" data-filter="side" data-value="all">All</button>
+              <button class="toggle-btn green" data-filter="side" data-value="buy">Buy</button>
+              <button class="toggle-btn red" data-filter="side" data-value="sell">Sell</button>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label" for="premium-filter">Min Premium:</label>
+            <input
+              type="number"
+              id="premium-filter"
+              class="form-input"
+              placeholder="0"
+              min="0"
+              step="10000"
+              style="width: 120px; min-height: 36px;"
+            >
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label" for="time-filter">Time Range:</label>
+            <select id="time-filter" class="form-input form-select" style="width: 120px; min-height: 36px;">
+              <option value="5">Last 5 min</option>
+              <option value="15" selected>Last 15 min</option>
+              <option value="30">Last 30 min</option>
+              <option value="60">Last 1 hour</option>
+              <option value="240">Last 4 hours</option>
+              <option value="all">All day</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Summary Statistics -->
+        <div class="grid grid-cols-4 mb-lg">
+          <div class="card summary-metric">
+            <span class="metric-label">Total Premium</span>
+            <span id="total-premium" class="metric-value large">$0</span>
+            <span class="metric-subtext">Last 15 minutes</span>
+          </div>
+
+          <div class="card summary-metric">
+            <span class="metric-label">Call / Put Ratio</span>
+            <span id="call-put-ratio" class="metric-value">0.00</span>
+            <span id="call-put-detail" class="metric-subtext">
+              <span class="text-green">Calls: 0</span> / <span class="text-red">Puts: 0</span>
+            </span>
+          </div>
+
+          <div class="card summary-metric">
+            <span class="metric-label">Sentiment</span>
+            <div id="sentiment-value" class="metric-value" style="font-size: var(--optix-font-xl);">Neutral</div>
+            <div class="sentiment-bar">
+              <div class="sentiment-bar-fill" style="width: 100%;"></div>
+              <div id="sentiment-marker" class="sentiment-marker" style="left: 50%;"></div>
+            </div>
+            <span class="metric-subtext">Bullish vs Bearish</span>
+          </div>
+
+          <div class="card summary-metric">
+            <span class="metric-label">Unusual Activity</span>
+            <span id="unusual-count" class="metric-value text-yellow">0</span>
+            <span class="metric-subtext">Alerts today</span>
+          </div>
+        </div>
+
+        <!-- Options Flow Feed -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Live Flow Feed</h3>
+            <div class="flex items-center gap-sm">
+              <span id="flow-count" class="badge badge-primary">0 trades</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="table flow-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Symbol</th>
+                    <th>Strike</th>
+                    <th>Expiry</th>
+                    <th>Type</th>
+                    <th>Side</th>
+                    <th class="table-numeric">Size</th>
+                    <th class="table-numeric">Premium</th>
+                    <th class="table-numeric">Spot</th>
+                  </tr>
+                </thead>
+                <tbody id="flow-table-body">
+                  <tr>
+                    <td colspan="9" style="text-align: center; padding: var(--optix-space-xl); color: var(--optix-text-dim);">
+                      <div class="spinner" style="margin: 0 auto var(--optix-space-md);"></div>
+                      Loading flow data...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Row: Unusual Activity + Large Block Trades -->
+        <div class="grid grid-cols-2 mt-md">
+          <!-- Unusual Activity Alerts -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Unusual Activity</h3>
+              <span class="badge badge-warning">Live</span>
+            </div>
+            <div class="card-body">
+              <div id="unusual-alerts" style="max-height: 400px; overflow-y: auto;">
+                <div class="empty-state">
+                  <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a2 2 0 01-2-2h4a2 2 0 01-2 2z"/>
+                  </svg>
+                  <p>Monitoring for unusual activity...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Large Block Trades -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Large Block Trades</h3>
+              <span class="badge badge-primary">Premium > $100K</span>
+            </div>
+            <div class="card-body">
+              <div id="block-trades" style="max-height: 400px; overflow-y: auto;">
+                <div class="empty-state">
+                  <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"/>
+                  </svg>
+                  <p>Monitoring for large block trades...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/optix-data-bridge.js"></script>
+  <script src="../assets/js/auth.js"></script>
+  <script src="../assets/js/component-loader.js"></script>
+
+  <script>
+    // Options Flow Application
+    (async function() {
+      'use strict';
+
+      // Check authentication
+      if (!OPTIXAuth.isAuthenticated()) {
+        OPTIXAuth.redirectToLogin();
+        return;
+      }
+
+      // Load layout components
+      await OPTIXComponentLoader.loadLayout();
+
+      // State
+      let flowData = [];
+      let filters = {
+        symbol: '',
+        type: 'all',
+        side: 'all',
+        minPremium: 0,
+        timeRange: 15
+      };
+
+      // Initialize
+      initializeFilters();
+      loadFlowData();
+
+      // Auto-refresh every 5 seconds
+      setInterval(() => {
+        loadFlowData();
+      }, 5000);
+
+      // Refresh button
+      document.getElementById('refresh-btn')?.addEventListener('click', () => {
+        loadFlowData();
+      });
+
+      /**
+       * Initialize filter controls
+       */
+      function initializeFilters() {
+        // Symbol filter
+        const symbolInput = document.getElementById('symbol-filter');
+        symbolInput?.addEventListener('input', (e) => {
+          filters.symbol = e.target.value.trim().toUpperCase();
+          applyFilters();
+        });
+
+        // Type filter
+        document.querySelectorAll('[data-filter="type"]').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            document.querySelectorAll('[data-filter="type"]').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            filters.type = e.target.dataset.value;
+            applyFilters();
+          });
+        });
+
+        // Side filter
+        document.querySelectorAll('[data-filter="side"]').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            document.querySelectorAll('[data-filter="side"]').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            filters.side = e.target.dataset.value;
+            applyFilters();
+          });
+        });
+
+        // Premium filter
+        const premiumInput = document.getElementById('premium-filter');
+        premiumInput?.addEventListener('input', (e) => {
+          filters.minPremium = parseFloat(e.target.value) || 0;
+          applyFilters();
+        });
+
+        // Time range filter
+        const timeFilter = document.getElementById('time-filter');
+        timeFilter?.addEventListener('change', (e) => {
+          filters.timeRange = e.target.value;
+          loadFlowData();
+        });
+      }
+
+      /**
+       * Load flow data
+       */
+      async function loadFlowData() {
+        try {
+          // Simulate fetching flow data (replace with actual API call)
+          const data = await OPTIXDataBridge.flow.get(filters.timeRange);
+          flowData = data || generateMockFlowData();
+
+          applyFilters();
+          updateSummaryStats();
+          updateUnusualActivity();
+          updateBlockTrades();
+        } catch (error) {
+          console.error('Failed to load flow data:', error);
+          // Use mock data on error
+          flowData = generateMockFlowData();
+          applyFilters();
+          updateSummaryStats();
+        }
+      }
+
+      /**
+       * Apply filters and render table
+       */
+      function applyFilters() {
+        let filtered = flowData.filter(flow => {
+          // Symbol filter
+          if (filters.symbol && !flow.symbol.includes(filters.symbol)) {
+            return false;
+          }
+
+          // Type filter
+          if (filters.type !== 'all' && flow.type.toLowerCase() !== filters.type.replace('s', '')) {
+            return false;
+          }
+
+          // Side filter
+          if (filters.side !== 'all' && flow.side.toLowerCase() !== filters.side) {
+            return false;
+          }
+
+          // Premium filter
+          if (flow.premium < filters.minPremium) {
+            return false;
+          }
+
+          return true;
+        });
+
+        renderFlowTable(filtered);
+      }
+
+      /**
+       * Render flow table
+       */
+      function renderFlowTable(data) {
+        const tbody = document.getElementById('flow-table-body');
+        const countEl = document.getElementById('flow-count');
+
+        if (!data || data.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="9" class="empty-state">
+                <p>No flow data matching current filters</p>
+              </td>
+            </tr>
+          `;
+          countEl.textContent = '0 trades';
+          return;
+        }
+
+        countEl.textContent = `${data.length} trade${data.length !== 1 ? 's' : ''}`;
+
+        const rows = data.map(flow => {
+          const sentiment = determineSentiment(flow);
+          const isBlockTrade = flow.premium >= 100000;
+          const rowClass = `${sentiment} ${isBlockTrade ? 'block-trade' : ''}`;
+
+          return `
+            <tr class="${rowClass}">
+              <td>${formatTime(flow.timestamp)}</td>
+              <td><span class="flow-symbol">${flow.symbol}</span>${isBlockTrade ? '<span class="block-trade-badge">BLOCK</span>' : ''}</td>
+              <td>$${flow.strike.toFixed(2)}</td>
+              <td>${formatExpiry(flow.expiry)}</td>
+              <td><span class="flow-type ${flow.type.toLowerCase()}">${flow.type}</span></td>
+              <td><span class="flow-side ${flow.side.toLowerCase()}">${flow.side.toUpperCase()}</span></td>
+              <td class="table-numeric">${formatNumber(flow.size)}</td>
+              <td class="table-numeric"><span class="flow-premium ${isBlockTrade ? 'large' : ''}">${formatCurrency(flow.premium)}</span></td>
+              <td class="table-numeric">$${flow.spot.toFixed(2)}</td>
+            </tr>
+          `;
+        }).join('');
+
+        tbody.innerHTML = rows;
+      }
+
+      /**
+       * Update summary statistics
+       */
+      function updateSummaryStats() {
+        // Total Premium
+        const totalPremium = flowData.reduce((sum, flow) => sum + flow.premium, 0);
+        document.getElementById('total-premium').textContent = formatCurrency(totalPremium);
+
+        // Call/Put counts
+        const calls = flowData.filter(f => f.type.toLowerCase() === 'call').length;
+        const puts = flowData.filter(f => f.type.toLowerCase() === 'put').length;
+        const ratio = puts > 0 ? (calls / puts).toFixed(2) : '--';
+
+        document.getElementById('call-put-ratio').textContent = ratio;
+        document.getElementById('call-put-detail').innerHTML = `
+          <span class="text-green">Calls: ${calls}</span> / <span class="text-red">Puts: ${puts}</span>
+        `;
+
+        // Sentiment
+        const bullish = flowData.filter(f => determineSentiment(f) === 'bullish').length;
+        const bearish = flowData.filter(f => determineSentiment(f) === 'bearish').length;
+        const total = bullish + bearish;
+
+        const sentimentScore = total > 0 ? (bullish / total) * 100 : 50;
+        const sentimentMarker = document.getElementById('sentiment-marker');
+        const sentimentValue = document.getElementById('sentiment-value');
+
+        sentimentMarker.style.left = `${sentimentScore}%`;
+
+        if (sentimentScore > 60) {
+          sentimentValue.textContent = 'Bullish';
+          sentimentValue.className = 'metric-value text-green';
+        } else if (sentimentScore < 40) {
+          sentimentValue.textContent = 'Bearish';
+          sentimentValue.className = 'metric-value text-red';
+        } else {
+          sentimentValue.textContent = 'Neutral';
+          sentimentValue.className = 'metric-value text-muted';
+        }
+
+        // Unusual count
+        const unusualCount = flowData.filter(f => f.isUnusual).length;
+        document.getElementById('unusual-count').textContent = unusualCount;
+      }
+
+      /**
+       * Update unusual activity alerts
+       */
+      function updateUnusualActivity() {
+        const unusualFlow = flowData.filter(f => f.isUnusual);
+        const container = document.getElementById('unusual-alerts');
+
+        if (unusualFlow.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a2 2 0 01-2-2h4a2 2 0 01-2 2z"/>
+              </svg>
+              <p>Monitoring for unusual activity...</p>
+            </div>
+          `;
+          return;
+        }
+
+        const alerts = unusualFlow.slice(0, 10).map(flow => {
+          const sentiment = determineSentiment(flow);
+          return `
+            <div class="alert-item">
+              <svg class="alert-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+              </svg>
+              <div class="alert-content">
+                <div class="alert-title">${flow.symbol} - ${flow.type} ${flow.side.toUpperCase()}</div>
+                <div class="alert-detail">
+                  $${flow.strike} strike, ${formatExpiry(flow.expiry)} expiry - ${formatCurrency(flow.premium)} premium (${sentiment})
+                </div>
+              </div>
+              <span class="alert-time">${formatTime(flow.timestamp)}</span>
+            </div>
+          `;
+        }).join('');
+
+        container.innerHTML = alerts;
+      }
+
+      /**
+       * Update block trades
+       */
+      function updateBlockTrades() {
+        const blockTrades = flowData.filter(f => f.premium >= 100000);
+        const container = document.getElementById('block-trades');
+
+        if (blockTrades.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"/>
+              </svg>
+              <p>Monitoring for large block trades...</p>
+            </div>
+          `;
+          return;
+        }
+
+        const blocks = blockTrades.slice(0, 10).map(flow => {
+          const sentiment = determineSentiment(flow);
+          const sentimentColor = sentiment === 'bullish' ? 'text-green' : 'text-red';
+          return `
+            <div class="alert-item" style="border-left-color: var(--optix-primary);">
+              <svg class="alert-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style="color: var(--optix-primary);">
+                <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"/>
+              </svg>
+              <div class="alert-content">
+                <div class="alert-title ${sentimentColor}">${flow.symbol} - ${flow.type} ${flow.side.toUpperCase()}</div>
+                <div class="alert-detail">
+                  $${flow.strike} strike, ${formatExpiry(flow.expiry)} - ${formatNumber(flow.size)} contracts @ ${formatCurrency(flow.premium)}
+                </div>
+              </div>
+              <span class="alert-time">${formatTime(flow.timestamp)}</span>
+            </div>
+          `;
+        }).join('');
+
+        container.innerHTML = blocks;
+      }
+
+      /**
+       * Determine sentiment from flow
+       */
+      function determineSentiment(flow) {
+        const type = flow.type.toLowerCase();
+        const side = flow.side.toLowerCase();
+
+        if ((type === 'call' && side === 'buy') || (type === 'put' && side === 'sell')) {
+          return 'bullish';
+        } else if ((type === 'put' && side === 'buy') || (type === 'call' && side === 'sell')) {
+          return 'bearish';
+        }
+        return 'neutral';
+      }
+
+      /**
+       * Format time
+       */
+      function formatTime(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+      }
+
+      /**
+       * Format expiry date
+       */
+      function formatExpiry(expiry) {
+        const date = new Date(expiry);
+        const now = new Date();
+        const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
+
+        const formatted = date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        });
+
+        return `${formatted} (${diffDays}d)`;
+      }
+
+      /**
+       * Format currency
+       */
+      function formatCurrency(value) {
+        if (value >= 1000000) {
+          return '$' + (value / 1000000).toFixed(2) + 'M';
+        } else if (value >= 1000) {
+          return '$' + (value / 1000).toFixed(1) + 'K';
+        }
+        return '$' + value.toFixed(2);
+      }
+
+      /**
+       * Format number
+       */
+      function formatNumber(value) {
+        if (value >= 1000000) {
+          return (value / 1000000).toFixed(2) + 'M';
+        } else if (value >= 1000) {
+          return (value / 1000).toFixed(1) + 'K';
+        }
+        return value.toLocaleString();
+      }
+
+      /**
+       * Generate mock flow data (for development)
+       */
+      function generateMockFlowData() {
+        const symbols = ['AAPL', 'SPY', 'QQQ', 'TSLA', 'NVDA', 'MSFT', 'AMZN', 'META', 'GOOGL'];
+        const types = ['Call', 'Put'];
+        const sides = ['Buy', 'Sell'];
+        const now = Date.now();
+
+        return Array.from({ length: 50 }, (_, i) => {
+          const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+          const type = types[Math.floor(Math.random() * types.length)];
+          const side = sides[Math.floor(Math.random() * sides.length)];
+          const spot = 150 + Math.random() * 50;
+          const strike = Math.round((spot + (Math.random() - 0.5) * 20) / 5) * 5;
+          const size = Math.floor(Math.random() * 500) + 10;
+          const premium = size * (Math.random() * 500 + 50);
+
+          return {
+            timestamp: now - Math.random() * 900000, // Last 15 min
+            symbol,
+            strike,
+            expiry: new Date(Date.now() + (Math.floor(Math.random() * 60) + 1) * 24 * 60 * 60 * 1000),
+            type,
+            side,
+            size,
+            premium,
+            spot,
+            isUnusual: Math.random() > 0.8
+          };
+        }).sort((a, b) => b.timestamp - a.timestamp);
+      }
+    })();
+  </script>
+</body>
+</html>

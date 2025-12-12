@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Login to OPTIX - Options Trading Intelligence Platform">
+  <title>Login - OPTIX</title>
+  <link rel="stylesheet" href="../../assets/css/optix-design-system.css">
+  <style>
+    .auth-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--optix-space-md);
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--optix-bg-card);
+      border-radius: var(--optix-radius-lg);
+      border: 1px solid var(--optix-border);
+      padding: var(--optix-space-xl);
+    }
+
+    .auth-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--optix-space-sm);
+      margin-bottom: var(--optix-space-xl);
+    }
+
+    .auth-logo-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--optix-primary);
+      border-radius: var(--optix-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: var(--optix-font-bold);
+      font-size: var(--optix-font-xl);
+    }
+
+    .auth-logo-text {
+      font-size: var(--optix-font-2xl);
+      font-weight: var(--optix-font-bold);
+      letter-spacing: 2px;
+    }
+
+    .auth-title {
+      text-align: center;
+      margin-bottom: var(--optix-space-xs);
+    }
+
+    .auth-subtitle {
+      text-align: center;
+      color: var(--optix-text-muted);
+      margin-bottom: var(--optix-space-xl);
+    }
+
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-md);
+    }
+
+    .form-group-icon {
+      position: relative;
+    }
+
+    .form-group-icon .form-input {
+      padding-left: 44px;
+    }
+
+    .form-group-icon svg {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--optix-text-dim);
+    }
+
+    .password-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--optix-text-dim);
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .password-toggle:hover {
+      color: var(--optix-text);
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: var(--optix-space-sm);
+    }
+
+    .forgot-link {
+      font-size: var(--optix-font-sm);
+    }
+
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-md);
+      margin: var(--optix-space-lg) 0;
+      color: var(--optix-text-dim);
+      font-size: var(--optix-font-sm);
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--optix-border);
+    }
+
+    .social-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-sm);
+    }
+
+    .btn-social {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--optix-space-sm);
+      padding: 12px;
+      background: var(--optix-bg-dark);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-md);
+      color: var(--optix-text);
+      font-weight: var(--optix-font-medium);
+      cursor: pointer;
+      transition: all var(--optix-transition-fast);
+    }
+
+    .btn-social:hover {
+      background: var(--optix-bg-elevated);
+      border-color: var(--optix-border-light);
+    }
+
+    .auth-footer {
+      text-align: center;
+      margin-top: var(--optix-space-xl);
+      color: var(--optix-text-muted);
+      font-size: var(--optix-font-sm);
+    }
+
+    .alert {
+      display: none;
+    }
+
+    .alert.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <main class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <span class="auth-logo-icon">O</span>
+        <span class="auth-logo-text">OPTIX</span>
+      </div>
+
+      <h1 class="auth-title">Welcome back</h1>
+      <p class="auth-subtitle">Sign in to your account</p>
+
+      <div id="error-alert" class="alert alert-error">
+        <span id="error-message"></span>
+      </div>
+
+      <form id="login-form" class="auth-form" novalidate>
+        <div class="form-group">
+          <label for="email" class="form-label">Email</label>
+          <div class="form-group-icon">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+              <path d="M2.25 4.5A1.5 1.5 0 013.75 3h10.5a1.5 1.5 0 011.5 1.5v9a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5v-9zm1.5 0v.704l5.25 3.15 5.25-3.15V4.5H3.75zm10.5 2.271l-5.032 3.02a.375.375 0 01-.436 0L3.75 6.771V13.5h10.5V6.771z"/>
+            </svg>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              class="form-input"
+              placeholder="you@example.com"
+              required
+              autocomplete="email"
+            >
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="password" class="form-label">Password</label>
+          <div class="form-group-icon">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+              <path d="M13.5 6h-.75V4.5a3.75 3.75 0 10-7.5 0V6H4.5A1.5 1.5 0 003 7.5v7.5A1.5 1.5 0 004.5 16.5h9a1.5 1.5 0 001.5-1.5V7.5A1.5 1.5 0 0013.5 6zM6.75 4.5a2.25 2.25 0 114.5 0V6h-4.5V4.5zM13.5 15H4.5V7.5h9V15zm-4.5-3.75a.75.75 0 11-1.5 0V9.75a.75.75 0 111.5 0v1.5z"/>
+            </svg>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              class="form-input"
+              placeholder="Enter your password"
+              required
+              autocomplete="current-password"
+            >
+            <button type="button" class="password-toggle" aria-label="Toggle password visibility">
+              <svg id="eye-icon" width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+                <path d="M9 3.75C5.25 3.75 2.11 6.06.75 9c1.36 2.94 4.5 5.25 8.25 5.25s6.89-2.31 8.25-5.25c-1.36-2.94-4.5-5.25-8.25-5.25zm0 8.75a3.5 3.5 0 110-7 3.5 3.5 0 010 7zm0-5.5a2 2 0 100 4 2 2 0 000-4z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <label class="form-check">
+            <input type="checkbox" id="remember" name="remember" class="form-check-input">
+            <span>Remember me</span>
+          </label>
+          <a href="/pages/auth/forgot-password.html" class="forgot-link">Forgot password?</a>
+        </div>
+
+        <button type="submit" id="submit-btn" class="btn btn-primary btn-lg" style="width: 100%;">
+          <span id="btn-text">Sign in</span>
+          <span id="btn-spinner" class="spinner" style="display: none;"></span>
+        </button>
+      </form>
+
+      <div class="auth-divider">or continue with</div>
+
+      <div class="social-buttons">
+        <button type="button" class="btn-social" onclick="handleSocialLogin('google')">
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+            <path fill="#34A853" d="M9.003 18c2.43 0 4.467-.806 5.956-2.184l-2.909-2.258c-.806.54-1.836.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.96v2.332A8.997 8.997 0 009.003 18z"/>
+            <path fill="#FBBC05" d="M3.964 10.712A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.712V4.956H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.044l3.007-2.332z"/>
+            <path fill="#EA4335" d="M9.003 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.464.891 11.428 0 9.002 0A8.997 8.997 0 00.96 4.956l3.006 2.332c.708-2.127 2.692-3.71 5.036-3.71z"/>
+          </svg>
+          Continue with Google
+        </button>
+      </div>
+
+      <p class="auth-footer">
+        Don't have an account? <a href="/pages/auth/register.html">Sign up</a>
+      </p>
+    </div>
+  </main>
+
+  <script src="../../assets/js/optix-data-bridge.js"></script>
+  <script src="../../assets/js/auth.js"></script>
+  <script>
+    // Password visibility toggle
+    const passwordInput = document.getElementById('password');
+    const toggleBtn = document.querySelector('.password-toggle');
+    const eyeIcon = document.getElementById('eye-icon');
+
+    toggleBtn.addEventListener('click', () => {
+      const type = passwordInput.type === 'password' ? 'text' : 'password';
+      passwordInput.type = type;
+      eyeIcon.innerHTML = type === 'password'
+        ? '<path d="M9 3.75C5.25 3.75 2.11 6.06.75 9c1.36 2.94 4.5 5.25 8.25 5.25s6.89-2.31 8.25-5.25c-1.36-2.94-4.5-5.25-8.25-5.25zm0 8.75a3.5 3.5 0 110-7 3.5 3.5 0 010 7zm0-5.5a2 2 0 100 4 2 2 0 000-4z"/>'
+        : '<path d="M2.25 2.25l13.5 13.5M7.58 7.58A2.25 2.25 0 1010.42 10.42M9 3.75c3.91 0 7.2 2.31 8.25 5.25-.39.83-.89 1.58-1.5 2.25M3.75 5.25A9.77 9.77 0 00.75 9c1.05 2.94 4.34 5.25 8.25 5.25.91 0 1.79-.11 2.63-.32"/>';
+    });
+
+    // Form submission
+    const form = document.getElementById('login-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const btnText = document.getElementById('btn-text');
+    const btnSpinner = document.getElementById('btn-spinner');
+    const errorAlert = document.getElementById('error-alert');
+    const errorMessage = document.getElementById('error-message');
+
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorAlert.classList.add('show');
+    }
+
+    function hideError() {
+      errorAlert.classList.remove('show');
+    }
+
+    function setLoading(loading) {
+      submitBtn.disabled = loading;
+      btnText.style.display = loading ? 'none' : 'inline';
+      btnSpinner.style.display = loading ? 'inline-block' : 'none';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      // Validation
+      if (!OPTIXAuth.validateEmail(email)) {
+        showError('Please enter a valid email address');
+        return;
+      }
+
+      if (!password) {
+        showError('Please enter your password');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const result = await OPTIXAuth.login(email, password);
+
+        if (result.success) {
+          // Redirect to return URL or dashboard
+          const returnUrl = OPTIXAuth.getReturnUrl();
+          window.location.href = returnUrl || '/pages/dashboard.html';
+        } else {
+          showError(result.error || 'Login failed. Please check your credentials.');
+        }
+      } catch (error) {
+        showError('An unexpected error occurred. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    // Social login handler
+    function handleSocialLogin(provider) {
+      // Redirect to OAuth endpoint
+      window.location.href = `${OPTIXDataBridge.CONFIG.API_BASE}/auth/${provider}`;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Options Chain - OPTIX Trading Platform">
+  <title>Options Chain - OPTIX</title>
+  <link rel="stylesheet" href="../assets/css/optix-design-system.css">
+  <style>
+    /* Options Chain Specific Styles */
+    .options-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--optix-space-md);
+      margin-bottom: var(--optix-space-lg);
+      align-items: center;
+    }
+
+    .symbol-search-container {
+      flex: 1;
+      min-width: 250px;
+    }
+
+    .symbol-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .symbol-input {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: var(--optix-font-lg);
+      font-weight: var(--optix-font-bold);
+      text-transform: uppercase;
+      font-family: var(--optix-font-mono);
+    }
+
+    .quote-display {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--optix-space-lg);
+      align-items: center;
+      padding: var(--optix-space-lg);
+      background: var(--optix-bg-card);
+      border-radius: var(--optix-radius-lg);
+      border: 1px solid var(--optix-border);
+      margin-bottom: var(--optix-space-lg);
+    }
+
+    .quote-symbol {
+      font-size: var(--optix-font-3xl);
+      font-weight: var(--optix-font-bold);
+      font-family: var(--optix-font-mono);
+    }
+
+    .quote-price {
+      font-size: var(--optix-font-2xl);
+      font-family: var(--optix-font-mono);
+      font-weight: var(--optix-font-bold);
+    }
+
+    .quote-info {
+      display: flex;
+      gap: var(--optix-space-lg);
+      flex-wrap: wrap;
+    }
+
+    .quote-metric {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-xs);
+    }
+
+    .quote-metric-label {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-dim);
+      text-transform: uppercase;
+    }
+
+    .quote-metric-value {
+      font-size: var(--optix-font-md);
+      font-family: var(--optix-font-mono);
+    }
+
+    .expiration-selector {
+      display: flex;
+      gap: var(--optix-space-sm);
+      overflow-x: auto;
+      padding: var(--optix-space-sm);
+      background: var(--optix-bg-card);
+      border-radius: var(--optix-radius-lg);
+      border: 1px solid var(--optix-border);
+      margin-bottom: var(--optix-space-lg);
+    }
+
+    .expiration-tab {
+      padding: var(--optix-space-sm) var(--optix-space-md);
+      background: transparent;
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-md);
+      color: var(--optix-text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all var(--optix-transition-fast);
+      font-size: var(--optix-font-sm);
+      font-family: var(--optix-font-mono);
+    }
+
+    .expiration-tab:hover {
+      background: var(--optix-bg-elevated);
+      border-color: var(--optix-border-light);
+    }
+
+    .expiration-tab.active {
+      background: var(--optix-primary);
+      border-color: var(--optix-primary);
+      color: white;
+    }
+
+    .filters-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--optix-space-md);
+      padding: var(--optix-space-md);
+      background: var(--optix-bg-card);
+      border-radius: var(--optix-radius-lg);
+      border: 1px solid var(--optix-border);
+      margin-bottom: var(--optix-space-lg);
+      align-items: center;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-xs);
+    }
+
+    .filter-label {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-muted);
+      text-transform: uppercase;
+    }
+
+    .moneyness-filter {
+      display: flex;
+      gap: var(--optix-space-xs);
+    }
+
+    .moneyness-btn {
+      padding: 6px 12px;
+      background: var(--optix-bg-elevated);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-sm);
+      color: var(--optix-text-muted);
+      cursor: pointer;
+      font-size: var(--optix-font-sm);
+      transition: all var(--optix-transition-fast);
+    }
+
+    .moneyness-btn:hover {
+      border-color: var(--optix-border-light);
+      color: var(--optix-text);
+    }
+
+    .moneyness-btn.active {
+      background: var(--optix-primary);
+      border-color: var(--optix-primary);
+      color: white;
+    }
+
+    .strike-range-slider {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .strike-range-slider input[type="range"] {
+      width: 100%;
+      height: 6px;
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-full);
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .strike-range-slider input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--optix-primary);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .strike-range-slider input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      background: var(--optix-primary);
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+
+    .iv-rank-gauge {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-md);
+      padding: var(--optix-space-md);
+      background: var(--optix-bg-card);
+      border-radius: var(--optix-radius-lg);
+      border: 1px solid var(--optix-border);
+      margin-bottom: var(--optix-space-lg);
+    }
+
+    .iv-rank-label {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+      min-width: 80px;
+    }
+
+    .iv-rank-bar-container {
+      flex: 1;
+      height: 24px;
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-full);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .iv-rank-bar {
+      height: 100%;
+      background: linear-gradient(to right, var(--optix-green), var(--optix-yellow), var(--optix-red));
+      transition: width var(--optix-transition-normal);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: var(--optix-space-sm);
+    }
+
+    .iv-rank-value {
+      font-size: var(--optix-font-lg);
+      font-weight: var(--optix-font-bold);
+      font-family: var(--optix-font-mono);
+      min-width: 60px;
+      text-align: right;
+    }
+
+    .chain-container {
+      overflow-x: auto;
+      background: var(--optix-bg-card);
+      border-radius: var(--optix-radius-lg);
+      border: 1px solid var(--optix-border);
+    }
+
+    .options-chain-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--optix-font-mono);
+      font-size: var(--optix-font-xs);
+    }
+
+    .options-chain-table th {
+      position: sticky;
+      top: 0;
+      background: var(--optix-bg-card);
+      padding: 12px 8px;
+      text-align: right;
+      border-bottom: 2px solid var(--optix-border);
+      font-weight: var(--optix-font-semibold);
+      color: var(--optix-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      z-index: 10;
+    }
+
+    .options-chain-table th.strike-header {
+      text-align: center;
+      background: var(--optix-bg-elevated);
+    }
+
+    .options-chain-table td {
+      padding: 10px 8px;
+      text-align: right;
+      border-bottom: 1px solid var(--optix-border);
+    }
+
+    .options-chain-table tbody tr:hover {
+      background: var(--optix-bg-hover);
+    }
+
+    .strike-cell {
+      text-align: center;
+      font-weight: var(--optix-font-bold);
+      background: var(--optix-bg-elevated);
+      font-size: var(--optix-font-sm);
+    }
+
+    .call-side {
+      background: var(--optix-green-bg);
+    }
+
+    .put-side {
+      background: var(--optix-red-bg);
+    }
+
+    .itm-call {
+      background: rgba(34, 197, 94, 0.15);
+    }
+
+    .itm-put {
+      background: rgba(239, 68, 68, 0.15);
+    }
+
+    .atm-row td {
+      border-top: 2px solid var(--optix-primary);
+      border-bottom: 2px solid var(--optix-primary);
+    }
+
+    .atm-row .strike-cell {
+      background: var(--optix-primary-alpha);
+      color: var(--optix-primary-light);
+      border-left: 2px solid var(--optix-primary);
+      border-right: 2px solid var(--optix-primary);
+    }
+
+    .loading-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--optix-space-2xl);
+      color: var(--optix-text-muted);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: var(--optix-space-2xl);
+      color: var(--optix-text-muted);
+    }
+
+    .chain-legend {
+      display: flex;
+      gap: var(--optix-space-lg);
+      padding: var(--optix-space-md);
+      background: var(--optix-bg-card);
+      border-radius: var(--optix-radius-lg);
+      border: 1px solid var(--optix-border);
+      margin-top: var(--optix-space-md);
+      font-size: var(--optix-font-sm);
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-xs);
+    }
+
+    .legend-box {
+      width: 20px;
+      height: 20px;
+      border-radius: var(--optix-radius-sm);
+    }
+
+    @media (max-width: 768px) {
+      .quote-display {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .options-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .filters-container {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <div id="header-container"></div>
+
+    <!-- Sidebar -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main class="main-content" id="main-content" role="main">
+      <div class="page-container">
+        <div class="page-header">
+          <h1 class="page-title">Options Chain</h1>
+        </div>
+
+        <!-- Symbol Search -->
+        <div class="options-controls">
+          <div class="symbol-search-container">
+            <label for="symbol-input" class="form-label">Symbol</label>
+            <div class="symbol-input-wrapper">
+              <input
+                type="text"
+                id="symbol-input"
+                class="form-input symbol-input"
+                placeholder="Enter symbol (e.g., AAPL)"
+                autocomplete="off"
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Quote Display -->
+        <div id="quote-display" class="quote-display" style="display: none;">
+          <div>
+            <div class="quote-symbol" id="quote-symbol">-</div>
+          </div>
+          <div>
+            <div class="quote-price" id="quote-price">-</div>
+            <div id="quote-change" class="price-change">-</div>
+          </div>
+          <div class="quote-info">
+            <div class="quote-metric">
+              <span class="quote-metric-label">Volume</span>
+              <span class="quote-metric-value" id="quote-volume">-</span>
+            </div>
+            <div class="quote-metric">
+              <span class="quote-metric-label">Day Range</span>
+              <span class="quote-metric-value" id="quote-range">-</span>
+            </div>
+            <div class="quote-metric">
+              <span class="quote-metric-label">52W Range</span>
+              <span class="quote-metric-value" id="quote-52w">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- IV Rank Gauge -->
+        <div id="iv-rank-container" class="iv-rank-gauge" style="display: none;">
+          <span class="iv-rank-label">IV Rank</span>
+          <div class="iv-rank-bar-container">
+            <div class="iv-rank-bar" id="iv-rank-bar" style="width: 0%;">
+              <span style="color: white; font-size: var(--optix-font-xs); font-weight: var(--optix-font-semibold);"></span>
+            </div>
+          </div>
+          <span class="iv-rank-value" id="iv-rank-value">-</span>
+        </div>
+
+        <!-- Expiration Selector -->
+        <div id="expiration-selector" class="expiration-selector" style="display: none;"></div>
+
+        <!-- Filters -->
+        <div id="filters-container" class="filters-container" style="display: none;">
+          <div class="filter-group">
+            <label class="filter-label">Moneyness</label>
+            <div class="moneyness-filter">
+              <button class="moneyness-btn active" data-filter="all">All</button>
+              <button class="moneyness-btn" data-filter="itm">ITM</button>
+              <button class="moneyness-btn" data-filter="atm">ATM</button>
+              <button class="moneyness-btn" data-filter="otm">OTM</button>
+            </div>
+          </div>
+          <div class="filter-group strike-range-slider">
+            <label class="filter-label">Strike Range: <span id="strike-range-label">±10</span></label>
+            <input type="range" id="strike-range" min="5" max="50" value="10" step="1">
+          </div>
+        </div>
+
+        <!-- Options Chain Table -->
+        <div id="chain-container" class="chain-container">
+          <div class="loading-state" id="loading-state">
+            <div class="spinner"></div>
+            <span style="margin-left: var(--optix-space-md);">Loading options chain...</span>
+          </div>
+
+          <div class="empty-state" id="empty-state" style="display: none;">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="currentColor" style="opacity: 0.3; margin-bottom: var(--optix-space-md);">
+              <path d="M8 12a4 4 0 014-4h40a4 4 0 014 4v40a4 4 0 01-4 4H12a4 4 0 01-4-4V12zm4 0v40h40V12H12z"/>
+              <path d="M24 20h4v24h-4V20zm-8 12h4v12h-4V32zm16 4h4v8h-4v-8zm8-8h4v16h-4V28z"/>
+            </svg>
+            <h3>Enter a symbol to view options chain</h3>
+            <p style="margin-top: var(--optix-space-sm);">Use the search box above to get started</p>
+          </div>
+
+          <table class="options-chain-table" id="chain-table" style="display: none;">
+            <thead>
+              <tr>
+                <th colspan="5" style="text-align: center; background: var(--optix-green-bg); color: var(--optix-green);">CALLS</th>
+                <th class="strike-header">STRIKE</th>
+                <th colspan="5" style="text-align: center; background: var(--optix-red-bg); color: var(--optix-red);">PUTS</th>
+              </tr>
+              <tr>
+                <th>BID</th>
+                <th>ASK</th>
+                <th>VOL</th>
+                <th>OI</th>
+                <th>Δ</th>
+                <th class="strike-header">PRICE</th>
+                <th>Δ</th>
+                <th>OI</th>
+                <th>VOL</th>
+                <th>ASK</th>
+                <th>BID</th>
+              </tr>
+            </thead>
+            <tbody id="chain-body"></tbody>
+          </table>
+        </div>
+
+        <!-- Legend -->
+        <div class="chain-legend" id="chain-legend" style="display: none;">
+          <div class="legend-item">
+            <div class="legend-box" style="background: rgba(34, 197, 94, 0.15);"></div>
+            <span>ITM Call</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-box" style="background: rgba(239, 68, 68, 0.15);"></div>
+            <span>ITM Put</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-box" style="background: var(--optix-primary-alpha); border: 2px solid var(--optix-primary);"></div>
+            <span>ATM Strike</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/optix-data-bridge.js"></script>
+  <script src="../assets/js/auth.js"></script>
+  <script>
+    // Load header and sidebar
+    async function loadComponents() {
+      try {
+        const headerResponse = await fetch('../components/layout/header.html');
+        const headerHtml = await headerResponse.text();
+        document.getElementById('header-container').innerHTML = headerHtml;
+
+        const sidebarResponse = await fetch('../components/layout/sidebar.html');
+        const sidebarHtml = await sidebarResponse.text();
+        document.getElementById('sidebar-container').innerHTML = sidebarHtml;
+
+        // Set active nav
+        const activeLink = document.querySelector('[data-page="options"]');
+        if (activeLink) activeLink.classList.add('active');
+
+        // Initialize sidebar toggle
+        initSidebarToggle();
+
+        // Initialize user dropdown
+        initUserDropdown();
+      } catch (error) {
+        console.error('Error loading components:', error);
+      }
+    }
+
+    function initSidebarToggle() {
+      const toggleBtn = document.getElementById('sidebar-toggle');
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.getElementById('main-content');
+
+      if (toggleBtn && sidebar) {
+        toggleBtn.addEventListener('click', () => {
+          sidebar.classList.toggle('collapsed');
+          mainContent.classList.toggle('sidebar-collapsed');
+        });
+      }
+    }
+
+    function initUserDropdown() {
+      const userMenuBtn = document.getElementById('user-menu');
+      const userDropdown = document.getElementById('user-dropdown');
+      const logoutBtn = document.getElementById('logout-btn');
+
+      if (userMenuBtn && userDropdown) {
+        userMenuBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          userDropdown.classList.toggle('active');
+          userMenuBtn.setAttribute('aria-expanded', userDropdown.classList.contains('active'));
+        });
+
+        document.addEventListener('click', () => {
+          userDropdown.classList.remove('active');
+          userMenuBtn.setAttribute('aria-expanded', 'false');
+        });
+      }
+
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+          await OPTIXAuth.logout();
+        });
+      }
+
+      // Load user info
+      const user = OPTIXAuth.getUser();
+      if (user) {
+        const userName = user.name || user.email?.split('@')[0] || 'User';
+        const userAvatar = userName.charAt(0).toUpperCase();
+
+        const userNameEl = document.getElementById('user-name');
+        const userAvatarEl = document.getElementById('user-avatar');
+        const dropdownNameEl = document.getElementById('dropdown-user-name');
+        const userEmailEl = document.getElementById('user-email');
+
+        if (userNameEl) userNameEl.textContent = userName;
+        if (userAvatarEl) userAvatarEl.textContent = userAvatar;
+        if (dropdownNameEl) dropdownNameEl.textContent = userName;
+        if (userEmailEl) userEmailEl.textContent = user.email || '';
+      }
+    }
+
+    // Options Chain State
+    let currentSymbol = null;
+    let currentExpiration = null;
+    let chainData = null;
+    let currentQuote = null;
+    let moneynessFilter = 'all';
+    let strikeRange = 10;
+
+    // Initialize
+    async function init() {
+      await loadComponents();
+
+      // Check URL params
+      const params = new URLSearchParams(window.location.search);
+      const symbol = params.get('symbol');
+      if (symbol) {
+        document.getElementById('symbol-input').value = symbol;
+        loadSymbol(symbol);
+      } else {
+        document.getElementById('empty-state').style.display = 'block';
+        document.getElementById('loading-state').style.display = 'none';
+      }
+
+      // Setup event listeners
+      setupEventListeners();
+    }
+
+    function setupEventListeners() {
+      const symbolInput = document.getElementById('symbol-input');
+      symbolInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const symbol = e.target.value.trim().toUpperCase();
+          if (symbol) {
+            loadSymbol(symbol);
+            // Update URL
+            const url = new URL(window.location);
+            url.searchParams.set('symbol', symbol);
+            window.history.pushState({}, '', url);
+          }
+        }
+      });
+
+      // Moneyness filter
+      document.querySelectorAll('.moneyness-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.moneyness-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          moneynessFilter = btn.dataset.filter;
+          renderChain();
+        });
+      });
+
+      // Strike range slider
+      const rangeSlider = document.getElementById('strike-range');
+      const rangeLabel = document.getElementById('strike-range-label');
+      rangeSlider.addEventListener('input', (e) => {
+        strikeRange = parseInt(e.target.value);
+        rangeLabel.textContent = `±${strikeRange}`;
+        renderChain();
+      });
+    }
+
+    async function loadSymbol(symbol) {
+      currentSymbol = symbol;
+      showLoading();
+
+      try {
+        // Load quote
+        const quote = await OPTIXDataBridge.quotes.get(symbol);
+        currentQuote = quote;
+        renderQuote(quote);
+
+        // Load expirations
+        const expirations = await OPTIXDataBridge.options.getExpirations(symbol);
+        renderExpirations(expirations);
+
+        // Load first expiration by default
+        if (expirations && expirations.length > 0) {
+          loadChain(symbol, expirations[0]);
+        }
+      } catch (error) {
+        console.error('Error loading symbol:', error);
+        showError('Failed to load options data. Please try again.');
+      }
+    }
+
+    async function loadChain(symbol, expiration) {
+      currentExpiration = expiration;
+      showLoading();
+
+      try {
+        const data = await OPTIXDataBridge.options.getChain(symbol, expiration);
+        chainData = data;
+        renderChain();
+
+        // Update IV Rank if available
+        if (data.iv_rank !== undefined) {
+          renderIVRank(data.iv_rank);
+        }
+
+        hideLoading();
+      } catch (error) {
+        console.error('Error loading chain:', error);
+        showError('Failed to load options chain. Please try again.');
+      }
+    }
+
+    function renderQuote(quote) {
+      document.getElementById('quote-display').style.display = 'flex';
+      document.getElementById('quote-symbol').textContent = quote.symbol || currentSymbol;
+      document.getElementById('quote-price').textContent = formatPrice(quote.price || quote.last);
+
+      const change = quote.change || 0;
+      const changePercent = quote.change_percent || 0;
+      const changeEl = document.getElementById('quote-change');
+      changeEl.textContent = `${change >= 0 ? '+' : ''}${formatPrice(change)} (${change >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`;
+      changeEl.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
+
+      document.getElementById('quote-volume').textContent = formatNumber(quote.volume || 0);
+      document.getElementById('quote-range').textContent = `${formatPrice(quote.low || 0)} - ${formatPrice(quote.high || 0)}`;
+      document.getElementById('quote-52w').textContent = `${formatPrice(quote.fifty_two_week_low || 0)} - ${formatPrice(quote.fifty_two_week_high || 0)}`;
+    }
+
+    function renderExpirations(expirations) {
+      const container = document.getElementById('expiration-selector');
+      container.style.display = 'flex';
+      container.innerHTML = '';
+
+      expirations.forEach((exp, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'expiration-tab' + (index === 0 ? ' active' : '');
+        btn.textContent = formatExpiration(exp);
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.expiration-tab').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          loadChain(currentSymbol, exp);
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function renderIVRank(ivRank) {
+      const container = document.getElementById('iv-rank-container');
+      const bar = document.getElementById('iv-rank-bar');
+      const value = document.getElementById('iv-rank-value');
+
+      container.style.display = 'flex';
+      bar.style.width = `${ivRank}%`;
+      value.textContent = `${ivRank.toFixed(0)}%`;
+    }
+
+    function renderChain() {
+      if (!chainData || !chainData.chain || chainData.chain.length === 0) {
+        showError('No options data available');
+        return;
+      }
+
+      document.getElementById('filters-container').style.display = 'flex';
+      document.getElementById('chain-table').style.display = 'table';
+      document.getElementById('chain-legend').style.display = 'flex';
+
+      const tbody = document.getElementById('chain-body');
+      tbody.innerHTML = '';
+
+      const spotPrice = currentQuote?.price || currentQuote?.last || 0;
+
+      // Filter strikes based on range
+      let filteredChain = chainData.chain;
+      if (strikeRange < 50) {
+        const minStrike = spotPrice - strikeRange;
+        const maxStrike = spotPrice + strikeRange;
+        filteredChain = chainData.chain.filter(row =>
+          row.strike >= minStrike && row.strike <= maxStrike
+        );
+      }
+
+      // Apply moneyness filter
+      if (moneynessFilter !== 'all') {
+        filteredChain = filteredChain.filter(row => {
+          const isCallITM = row.strike < spotPrice;
+          const isPutITM = row.strike > spotPrice;
+          const isATM = Math.abs(row.strike - spotPrice) < 0.5;
+
+          if (moneynessFilter === 'itm') return isCallITM || isPutITM;
+          if (moneynessFilter === 'atm') return isATM;
+          if (moneynessFilter === 'otm') return !isCallITM && !isPutITM && !isATM;
+          return true;
+        });
+      }
+
+      // Render rows
+      filteredChain.forEach(row => {
+        const tr = document.createElement('tr');
+        const isATM = Math.abs(row.strike - spotPrice) < 0.5;
+        const isCallITM = row.strike < spotPrice;
+        const isPutITM = row.strike > spotPrice;
+
+        if (isATM) {
+          tr.className = 'atm-row';
+        }
+
+        tr.innerHTML = `
+          <td class="${isCallITM ? 'itm-call' : ''}">${formatPrice(row.call?.bid || 0)}</td>
+          <td class="${isCallITM ? 'itm-call' : ''}">${formatPrice(row.call?.ask || 0)}</td>
+          <td class="${isCallITM ? 'itm-call' : ''}">${formatNumber(row.call?.volume || 0)}</td>
+          <td class="${isCallITM ? 'itm-call' : ''}">${formatNumber(row.call?.open_interest || 0)}</td>
+          <td class="${isCallITM ? 'itm-call' : ''}">${formatDelta(row.call?.delta || 0)}</td>
+          <td class="strike-cell">${formatPrice(row.strike)}</td>
+          <td class="${isPutITM ? 'itm-put' : ''}">${formatDelta(row.put?.delta || 0)}</td>
+          <td class="${isPutITM ? 'itm-put' : ''}">${formatNumber(row.put?.open_interest || 0)}</td>
+          <td class="${isPutITM ? 'itm-put' : ''}">${formatNumber(row.put?.volume || 0)}</td>
+          <td class="${isPutITM ? 'itm-put' : ''}">${formatPrice(row.put?.ask || 0)}</td>
+          <td class="${isPutITM ? 'itm-put' : ''}">${formatPrice(row.put?.bid || 0)}</td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function showLoading() {
+      document.getElementById('loading-state').style.display = 'flex';
+      document.getElementById('empty-state').style.display = 'none';
+      document.getElementById('chain-table').style.display = 'none';
+    }
+
+    function hideLoading() {
+      document.getElementById('loading-state').style.display = 'none';
+    }
+
+    function showError(message) {
+      hideLoading();
+      document.getElementById('empty-state').style.display = 'block';
+      document.getElementById('empty-state').innerHTML = `
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="currentColor" style="opacity: 0.3; margin-bottom: var(--optix-space-md); color: var(--optix-red);">
+          <path d="M32 8a24 24 0 1024 24A24 24 0 0032 8zm0 44a20 20 0 1120-20 20 20 0 01-20 20z"/>
+          <path d="M32 16a2 2 0 00-2 2v16a2 2 0 004 0V18a2 2 0 00-2-2zm0 24a2 2 0 102 2 2 2 0 00-2-2z"/>
+        </svg>
+        <h3>Error</h3>
+        <p style="margin-top: var(--optix-space-sm);">${message}</p>
+      `;
+    }
+
+    // Formatters
+    function formatPrice(value) {
+      if (value === null || value === undefined) return '-';
+      return parseFloat(value).toFixed(2);
+    }
+
+    function formatNumber(value) {
+      if (value === null || value === undefined || value === 0) return '-';
+      if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+      if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
+      return value.toString();
+    }
+
+    function formatDelta(value) {
+      if (value === null || value === undefined) return '-';
+      return parseFloat(value).toFixed(2);
+    }
+
+    function formatExpiration(dateStr) {
+      const date = new Date(dateStr);
+      const today = new Date();
+      const diffTime = date - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      const month = date.toLocaleDateString('en-US', { month: 'short' });
+      const day = date.getDate();
+
+      if (diffDays <= 7) {
+        return `${month} ${day} (${diffDays}d)`;
+      }
+      return `${month} ${day}`;
+    }
+
+    // Start the app
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>

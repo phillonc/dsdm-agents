@@ -307,8 +307,12 @@ show_status() {
     # Check PostgreSQL
     if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "optix-postgres"; then
         print_status "PostgreSQL (Docker)" "running" "5433"
+    elif pgrep -f "Postgres.app" > /dev/null 2>&1; then
+        print_status "PostgreSQL (Postgres.app)" "running" "5432"
     elif brew services list 2>/dev/null | grep -q "postgresql.*started"; then
         print_status "PostgreSQL (Homebrew)" "running" "5432"
+    elif lsof -ti:5432 > /dev/null 2>&1; then
+        print_status "PostgreSQL" "running" "5432"
     else
         print_status "PostgreSQL" "stopped" "5432/5433"
     fi

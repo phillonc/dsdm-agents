@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="View and manage your open positions - OPTIX Options Trading Platform">
+  <title>Positions - OPTIX</title>
+
+  <!-- Design System -->
+  <link rel="stylesheet" href="../assets/css/optix-design-system.css">
+
+  <!-- Preload critical assets -->
+  <link rel="preload" href="../assets/js/optix-data-bridge.js" as="script">
+  <link rel="preload" href="../assets/js/auth.js" as="script">
+  <link rel="preload" href="../assets/js/component-loader.js" as="script">
+
+  <style>
+    /* Portfolio Summary Cards */
+    .portfolio-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--optix-space-md);
+      margin-bottom: var(--optix-space-lg);
+    }
+
+    .summary-card {
+      background: var(--optix-bg-card);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-lg);
+      padding: var(--optix-space-lg);
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-sm);
+    }
+
+    .summary-label {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: var(--optix-font-medium);
+    }
+
+    .summary-value {
+      font-size: var(--optix-font-2xl);
+      font-weight: var(--optix-font-bold);
+      font-family: var(--optix-font-mono);
+      color: var(--optix-text);
+    }
+
+    .summary-value.positive {
+      color: var(--optix-green);
+    }
+
+    .summary-value.negative {
+      color: var(--optix-red);
+    }
+
+    .summary-subtext {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-dim);
+      font-family: var(--optix-font-mono);
+    }
+
+    /* Filters & Controls */
+    .positions-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--optix-space-md);
+      gap: var(--optix-space-md);
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: var(--optix-space-sm);
+      align-items: center;
+    }
+
+    .filter-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--optix-border);
+      color: var(--optix-text-muted);
+      cursor: pointer;
+      border-radius: var(--optix-radius-md);
+      font-size: var(--optix-font-sm);
+      transition: all var(--optix-transition-fast);
+    }
+
+    .filter-btn:hover {
+      background: var(--optix-bg-elevated);
+      border-color: var(--optix-border-light);
+    }
+
+    .filter-btn.active {
+      background: var(--optix-primary);
+      border-color: var(--optix-primary);
+      color: white;
+    }
+
+    /* Position Groups */
+    .position-group {
+      margin-bottom: var(--optix-space-lg);
+    }
+
+    .group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--optix-space-md);
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-md);
+      margin-bottom: var(--optix-space-sm);
+      cursor: pointer;
+      transition: all var(--optix-transition-fast);
+    }
+
+    .group-header:hover {
+      background: var(--optix-bg-hover);
+    }
+
+    .group-header-left {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-md);
+    }
+
+    .group-symbol {
+      font-size: var(--optix-font-lg);
+      font-weight: var(--optix-font-bold);
+      font-family: var(--optix-font-mono);
+    }
+
+    .group-stats {
+      display: flex;
+      gap: var(--optix-space-lg);
+      font-size: var(--optix-font-sm);
+    }
+
+    .group-stat-label {
+      color: var(--optix-text-dim);
+      margin-right: var(--optix-space-xs);
+    }
+
+    .group-toggle {
+      transition: transform var(--optix-transition-fast);
+    }
+
+    .group-header.collapsed .group-toggle {
+      transform: rotate(-90deg);
+    }
+
+    /* Position Row */
+    .position-row {
+      border-bottom: 1px solid var(--optix-border);
+    }
+
+    .position-row:hover {
+      background: var(--optix-bg-hover);
+    }
+
+    .position-main {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 120px;
+      align-items: center;
+      padding: var(--optix-space-md);
+      gap: var(--optix-space-md);
+      cursor: pointer;
+    }
+
+    .position-type-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--optix-radius-sm);
+      font-size: var(--optix-font-xs);
+      font-weight: var(--optix-font-medium);
+    }
+
+    .position-type-badge.stock {
+      background: var(--optix-blue-bg);
+      color: var(--optix-blue);
+    }
+
+    .position-type-badge.option {
+      background: var(--optix-primary-alpha);
+      color: var(--optix-primary-light);
+    }
+
+    /* Position Details (Expandable) */
+    .position-details {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height var(--optix-transition-normal);
+      background: var(--optix-bg-dark);
+    }
+
+    .position-details.expanded {
+      max-height: 400px;
+      border-top: 1px solid var(--optix-border);
+    }
+
+    .details-content {
+      padding: var(--optix-space-lg);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--optix-space-lg);
+    }
+
+    .detail-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-sm);
+    }
+
+    .detail-title {
+      font-size: var(--optix-font-sm);
+      font-weight: var(--optix-font-semibold);
+      color: var(--optix-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: var(--optix-font-sm);
+    }
+
+    .detail-label {
+      color: var(--optix-text-dim);
+    }
+
+    .detail-value {
+      font-family: var(--optix-font-mono);
+      font-weight: var(--optix-font-medium);
+    }
+
+    /* Action Buttons */
+    .position-actions {
+      display: flex;
+      gap: var(--optix-space-xs);
+      justify-content: flex-end;
+    }
+
+    .action-btn-sm {
+      padding: 6px 12px;
+      font-size: var(--optix-font-xs);
+      border-radius: var(--optix-radius-sm);
+      min-height: 32px;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: var(--optix-space-2xl);
+      color: var(--optix-text-muted);
+    }
+
+    .empty-state-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto var(--optix-space-lg);
+      opacity: 0.5;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .portfolio-summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .position-main {
+        grid-template-columns: 2fr 1fr 1fr 1fr 100px;
+      }
+
+      .position-main > div:nth-child(5),
+      .position-main > div:nth-child(6),
+      .position-main > div:nth-child(7) {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .portfolio-summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .positions-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .position-main {
+        grid-template-columns: 1fr 1fr 80px;
+        font-size: var(--optix-font-xs);
+      }
+
+      .position-main > div:nth-child(3),
+      .position-main > div:nth-child(4),
+      .position-main > div:nth-child(8) {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Skip to main content for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- App Container -->
+  <div class="app-container">
+    <!-- Header (loaded dynamically) -->
+    <div id="header-container"></div>
+
+    <!-- Sidebar (loaded dynamically) -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+      <div class="page-container">
+        <!-- Page Header -->
+        <div class="page-header">
+          <h1 class="page-title">Positions</h1>
+          <div class="flex gap-sm">
+            <button id="refresh-btn" class="btn btn-secondary btn-sm" aria-label="Refresh positions">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 3a5 5 0 104.546 2.914.5.5 0 01.908-.417A6 6 0 118 2v1z"/>
+                <path d="M8 4.466V.534a.25.25 0 01.41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 018 4.466z"/>
+              </svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Portfolio Summary Cards -->
+        <div class="portfolio-summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Total Value</div>
+            <div id="total-value" class="summary-value skeleton" style="height: 32px; width: 150px;">$0.00</div>
+            <div class="summary-subtext">Portfolio value</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Day P&L</div>
+            <div id="day-pnl" class="summary-value skeleton" style="height: 32px; width: 120px;">$0.00</div>
+            <div id="day-pnl-pct" class="summary-subtext">0.00%</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Total P&L</div>
+            <div id="total-pnl" class="summary-value skeleton" style="height: 32px; width: 120px;">$0.00</div>
+            <div id="total-pnl-pct" class="summary-subtext">0.00%</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Buying Power</div>
+            <div id="buying-power" class="summary-value skeleton" style="height: 32px; width: 150px;">$0.00</div>
+            <div class="summary-subtext">Available cash</div>
+          </div>
+        </div>
+
+        <!-- Positions Controls -->
+        <div class="card">
+          <div class="positions-controls">
+            <div class="filter-group">
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="stocks">Stocks</button>
+              <button class="filter-btn" data-filter="options">Options</button>
+              <span style="margin: 0 var(--optix-space-sm); color: var(--optix-border);">|</span>
+              <button class="filter-btn" data-filter="profitable">Profitable</button>
+              <button class="filter-btn" data-filter="losing">Losing</button>
+            </div>
+
+            <div class="filter-group">
+              <label for="sort-select" class="form-label" style="margin: 0; white-space: nowrap;">Sort by:</label>
+              <select id="sort-select" class="form-input form-select" style="width: auto; padding: 8px 40px 8px 12px; min-height: 36px;">
+                <option value="symbol">Symbol</option>
+                <option value="value">Market Value</option>
+                <option value="pnl">Total P&L</option>
+                <option value="pnl_percent">P&L %</option>
+                <option value="day_change">Day Change</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Positions List -->
+          <div id="positions-container">
+            <div class="empty-state">
+              <div class="spinner"></div>
+              <p>Loading positions...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Close Position Modal -->
+  <div id="close-position-modal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Close Position</h3>
+        <button class="btn btn-ghost btn-icon" id="close-modal-btn" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to close this position?</p>
+        <div class="card" style="margin-top: var(--optix-space-md); padding: var(--optix-space-md); background: var(--optix-bg-dark);">
+          <div id="close-position-details">
+            <div class="flex justify-between mb-sm">
+              <span class="text-muted">Symbol:</span>
+              <span id="close-symbol" class="text-mono">-</span>
+            </div>
+            <div class="flex justify-between mb-sm">
+              <span class="text-muted">Quantity:</span>
+              <span id="close-quantity" class="text-mono">-</span>
+            </div>
+            <div class="flex justify-between mb-sm">
+              <span class="text-muted">Market Value:</span>
+              <span id="close-value" class="text-mono">-</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted">P&L:</span>
+              <span id="close-pnl" class="text-mono">-</span>
+            </div>
+          </div>
+        </div>
+        <div class="alert alert-warning mt-md">
+          This action will create a market order to close the entire position.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancel-close-btn">Cancel</button>
+        <button class="btn btn-danger" id="confirm-close-btn">Close Position</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/optix-data-bridge.js"></script>
+  <script src="../assets/js/auth.js"></script>
+  <script src="../assets/js/component-loader.js"></script>
+
+  <script>
+    // Positions Application
+    (async function() {
+      'use strict';
+
+      // State
+      let positions = [];
+      let activeFilter = 'all';
+      let activeSort = 'symbol';
+      let selectedPosition = null;
+
+      // Load layout components
+      await OPTIXComponentLoader.loadLayout();
+
+      // Initialize positions
+      initPositions();
+
+      /**
+       * Initialize positions page
+       */
+      function initPositions() {
+        loadPositionsData();
+
+        // Refresh button
+        document.getElementById('refresh-btn')?.addEventListener('click', () => {
+          loadPositionsData();
+        });
+
+        // Filter buttons
+        document.querySelectorAll('[data-filter]').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            activeFilter = e.target.dataset.filter;
+            renderPositions();
+          });
+        });
+
+        // Sort select
+        document.getElementById('sort-select')?.addEventListener('change', (e) => {
+          activeSort = e.target.value;
+          renderPositions();
+        });
+
+        // Auto refresh every 30 seconds
+        setInterval(loadPositionsData, 30000);
+      }
+
+      /**
+       * Load positions data
+       */
+      async function loadPositionsData() {
+        try {
+          const [positionsData, portfolio] = await Promise.all([
+            OPTIXDataBridge.positions.getAll(),
+            OPTIXDataBridge.portfolio.get()
+          ]);
+
+          positions = positionsData || [];
+
+          // Update summary cards
+          updateSummaryCards(portfolio);
+
+          // Render positions
+          renderPositions();
+        } catch (error) {
+          console.error('Failed to load positions:', error);
+          document.getElementById('positions-container').innerHTML = `
+            <div class="alert alert-error">
+              <strong>Failed to load positions</strong>
+              <p class="text-muted mt-sm">${error.message}</p>
+              <button class="btn btn-secondary mt-md" onclick="location.reload()">Retry</button>
+            </div>
+          `;
+        }
+      }
+
+      /**
+       * Update summary cards
+       */
+      function updateSummaryCards(portfolio) {
+        // Total Value
+        const totalValueEl = document.getElementById('total-value');
+        totalValueEl.textContent = OPTIXComponentLoader.formatPrice(portfolio.total_value || 0);
+        totalValueEl.classList.remove('skeleton');
+
+        // Day P&L
+        const dayPnl = portfolio.day_pnl || 0;
+        const dayPnlPct = portfolio.day_pnl_percent || 0;
+        const dayPnlEl = document.getElementById('day-pnl');
+        dayPnlEl.textContent = OPTIXComponentLoader.formatChange(dayPnl);
+        dayPnlEl.classList.remove('skeleton');
+        dayPnlEl.classList.toggle('positive', dayPnl >= 0);
+        dayPnlEl.classList.toggle('negative', dayPnl < 0);
+
+        const dayPnlPctEl = document.getElementById('day-pnl-pct');
+        dayPnlPctEl.textContent = OPTIXComponentLoader.formatPercent(dayPnlPct);
+        dayPnlPctEl.style.color = dayPnl >= 0 ? 'var(--optix-green)' : 'var(--optix-red)';
+
+        // Total P&L
+        const totalPnl = portfolio.total_pnl || 0;
+        const totalPnlPct = portfolio.total_pnl_percent || 0;
+        const totalPnlEl = document.getElementById('total-pnl');
+        totalPnlEl.textContent = OPTIXComponentLoader.formatChange(totalPnl);
+        totalPnlEl.classList.remove('skeleton');
+        totalPnlEl.classList.toggle('positive', totalPnl >= 0);
+        totalPnlEl.classList.toggle('negative', totalPnl < 0);
+
+        const totalPnlPctEl = document.getElementById('total-pnl-pct');
+        totalPnlPctEl.textContent = OPTIXComponentLoader.formatPercent(totalPnlPct);
+        totalPnlPctEl.style.color = totalPnl >= 0 ? 'var(--optix-green)' : 'var(--optix-red)';
+
+        // Buying Power
+        const buyingPowerEl = document.getElementById('buying-power');
+        buyingPowerEl.textContent = OPTIXComponentLoader.formatPrice(portfolio.buying_power || 0);
+        buyingPowerEl.classList.remove('skeleton');
+      }
+
+      /**
+       * Filter positions
+       */
+      function filterPositions(positions) {
+        let filtered = [...positions];
+
+        // Type filter
+        if (activeFilter === 'stocks') {
+          filtered = filtered.filter(p => p.type === 'stock' || !p.option_type);
+        } else if (activeFilter === 'options') {
+          filtered = filtered.filter(p => p.type === 'option' || p.option_type);
+        } else if (activeFilter === 'profitable') {
+          filtered = filtered.filter(p => (p.total_pnl || 0) >= 0);
+        } else if (activeFilter === 'losing') {
+          filtered = filtered.filter(p => (p.total_pnl || 0) < 0);
+        }
+
+        return filtered;
+      }
+
+      /**
+       * Sort positions
+       */
+      function sortPositions(positions) {
+        const sorted = [...positions];
+
+        sorted.sort((a, b) => {
+          switch(activeSort) {
+            case 'symbol':
+              return (a.symbol || '').localeCompare(b.symbol || '');
+            case 'value':
+              return (b.market_value || 0) - (a.market_value || 0);
+            case 'pnl':
+              return (b.total_pnl || 0) - (a.total_pnl || 0);
+            case 'pnl_percent':
+              return (b.total_pnl_percent || 0) - (a.total_pnl_percent || 0);
+            case 'day_change':
+              return (b.day_change || 0) - (a.day_change || 0);
+            default:
+              return 0;
+          }
+        });
+
+        return sorted;
+      }
+
+      /**
+       * Group positions by underlying symbol
+       */
+      function groupPositions(positions) {
+        const groups = {};
+
+        positions.forEach(position => {
+          const underlying = position.underlying_symbol || position.symbol;
+          if (!groups[underlying]) {
+            groups[underlying] = [];
+          }
+          groups[underlying].push(position);
+        });
+
+        return groups;
+      }
+
+      /**
+       * Render positions
+       */
+      function renderPositions() {
+        const container = document.getElementById('positions-container');
+
+        if (!positions || positions.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <svg class="empty-state-icon" viewBox="0 0 80 80" fill="currentColor">
+                <path d="M40 10L20 30h15v30h10V30h15L40 10zm-30 50h60v10H10V60z"/>
+              </svg>
+              <h3>No positions</h3>
+              <p class="text-muted">You don't have any open positions</p>
+              <a href="/pages/options.html" class="btn btn-primary mt-lg">Explore Options</a>
+            </div>
+          `;
+          return;
+        }
+
+        // Filter and sort
+        let filtered = filterPositions(positions);
+        filtered = sortPositions(filtered);
+
+        if (filtered.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <p>No positions match the current filter</p>
+            </div>
+          `;
+          return;
+        }
+
+        // Group by underlying
+        const groups = groupPositions(filtered);
+
+        // Render groups
+        let html = '';
+        Object.keys(groups).forEach(symbol => {
+          html += renderPositionGroup(symbol, groups[symbol]);
+        });
+
+        container.innerHTML = html;
+
+        // Attach event listeners
+        attachPositionListeners();
+      }
+
+      /**
+       * Render position group
+       */
+      function renderPositionGroup(symbol, positions) {
+        const totalValue = positions.reduce((sum, p) => sum + (p.market_value || 0), 0);
+        const totalPnl = positions.reduce((sum, p) => sum + (p.total_pnl || 0), 0);
+        const pnlClass = totalPnl >= 0 ? 'positive' : 'negative';
+
+        return `
+          <div class="position-group">
+            <div class="group-header" data-group="${symbol}">
+              <div class="group-header-left">
+                <svg class="group-toggle" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M4.646 5.646a.5.5 0 01.708 0L8 8.293l2.646-2.647a.5.5 0 01.708.708l-3 3a.5.5 0 01-.708 0l-3-3a.5.5 0 010-.708z"/>
+                </svg>
+                <span class="group-symbol">${symbol}</span>
+                <span class="badge">${positions.length} position${positions.length > 1 ? 's' : ''}</span>
+              </div>
+              <div class="group-stats">
+                <div>
+                  <span class="group-stat-label">Value:</span>
+                  <span class="text-mono">${OPTIXComponentLoader.formatPrice(totalValue)}</span>
+                </div>
+                <div>
+                  <span class="group-stat-label">P&L:</span>
+                  <span class="text-mono price-change ${pnlClass}">${OPTIXComponentLoader.formatChange(totalPnl)}</span>
+                </div>
+              </div>
+            </div>
+            <div class="group-content" data-group-content="${symbol}">
+              ${positions.map(p => renderPosition(p)).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      /**
+       * Render individual position
+       */
+      function renderPosition(position) {
+        const isOption = position.type === 'option' || position.option_type;
+        const dayChange = position.day_change || 0;
+        const dayChangeClass = dayChange >= 0 ? 'positive' : 'negative';
+        const totalPnl = position.total_pnl || 0;
+        const totalPnlPct = position.total_pnl_percent || 0;
+        const pnlClass = totalPnl >= 0 ? 'positive' : 'negative';
+
+        const positionId = position.id || `${position.symbol}-${Math.random()}`;
+
+        return `
+          <div class="position-row" data-position-id="${positionId}">
+            <div class="position-main" data-toggle-position="${positionId}">
+              <div>
+                <div style="font-weight: var(--optix-font-semibold);">${position.symbol}</div>
+                <div class="text-muted text-sm">${isOption ? formatOptionDescription(position) : 'Stock'}</div>
+              </div>
+              <div class="text-center">
+                <span class="position-type-badge ${isOption ? 'option' : 'stock'}">
+                  ${isOption ? 'Option' : 'Stock'}
+                </span>
+              </div>
+              <div class="table-numeric">
+                <div class="text-mono">${position.quantity || 0}</div>
+                <div class="text-muted text-sm">qty</div>
+              </div>
+              <div class="table-numeric">
+                <div class="text-mono">${OPTIXComponentLoader.formatPrice(position.avg_cost || 0)}</div>
+                <div class="text-muted text-sm">avg cost</div>
+              </div>
+              <div class="table-numeric">
+                <div class="text-mono">${OPTIXComponentLoader.formatPrice(position.current_price || 0)}</div>
+                <div class="text-muted text-sm">current</div>
+              </div>
+              <div class="table-numeric">
+                <div class="text-mono">${OPTIXComponentLoader.formatPrice(position.market_value || 0)}</div>
+                <div class="text-muted text-sm">value</div>
+              </div>
+              <div class="table-numeric">
+                <div class="price-change ${dayChangeClass}">${OPTIXComponentLoader.formatChange(dayChange)}</div>
+                <div class="text-muted text-sm">day</div>
+              </div>
+              <div class="table-numeric">
+                <div class="price-change ${pnlClass}">${OPTIXComponentLoader.formatChange(totalPnl)}</div>
+                <div class="text-muted text-sm">${OPTIXComponentLoader.formatPercent(totalPnlPct)}</div>
+              </div>
+              <div class="position-actions">
+                <button class="btn btn-ghost action-btn-sm">Details</button>
+                <button class="btn btn-danger action-btn-sm" data-close-position="${positionId}">Close</button>
+              </div>
+            </div>
+            <div class="position-details" data-details="${positionId}">
+              ${renderPositionDetails(position)}
+            </div>
+          </div>
+        `;
+      }
+
+      /**
+       * Format option description
+       */
+      function formatOptionDescription(position) {
+        const type = position.option_type || 'Call';
+        const strike = position.strike_price || position.strike || 0;
+        const expiry = position.expiration_date || position.expiry || '';
+        return `${type} $${strike} exp ${expiry}`;
+      }
+
+      /**
+       * Render position details
+       */
+      function renderPositionDetails(position) {
+        const isOption = position.type === 'option' || position.option_type;
+
+        if (isOption) {
+          return `
+            <div class="details-content">
+              <div class="detail-section">
+                <div class="detail-title">Option Details</div>
+                <div class="detail-item">
+                  <span class="detail-label">Strike Price:</span>
+                  <span class="detail-value">${OPTIXComponentLoader.formatPrice(position.strike_price || position.strike || 0)}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Expiration:</span>
+                  <span class="detail-value">${position.expiration_date || position.expiry || '-'}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Type:</span>
+                  <span class="detail-value">${position.option_type || 'Call'}</span>
+                </div>
+              </div>
+              <div class="detail-section">
+                <div class="detail-title">Greeks</div>
+                <div class="detail-item">
+                  <span class="detail-label">Delta:</span>
+                  <span class="detail-value">${formatGreek(position.delta)}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Gamma:</span>
+                  <span class="detail-value">${formatGreek(position.gamma)}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Theta:</span>
+                  <span class="detail-value">${formatGreek(position.theta)}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Vega:</span>
+                  <span class="detail-value">${formatGreek(position.vega)}</span>
+                </div>
+              </div>
+              <div class="detail-section">
+                <div class="detail-title">Additional Info</div>
+                <div class="detail-item">
+                  <span class="detail-label">IV:</span>
+                  <span class="detail-value">${position.implied_volatility ? (position.implied_volatility * 100).toFixed(2) + '%' : '-'}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Break Even:</span>
+                  <span class="detail-value">${position.break_even ? OPTIXComponentLoader.formatPrice(position.break_even) : '-'}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="details-content">
+              <div class="detail-section">
+                <div class="detail-title">Stock Details</div>
+                <div class="detail-item">
+                  <span class="detail-label">Dividend Yield:</span>
+                  <span class="detail-value">${position.dividend_yield ? (position.dividend_yield * 100).toFixed(2) + '%' : '-'}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Annual Dividend:</span>
+                  <span class="detail-value">${position.annual_dividend ? OPTIXComponentLoader.formatPrice(position.annual_dividend) : '-'}</span>
+                </div>
+              </div>
+              <div class="detail-section">
+                <div class="detail-title">52-Week Range</div>
+                <div class="detail-item">
+                  <span class="detail-label">Low:</span>
+                  <span class="detail-value">${position.week_52_low ? OPTIXComponentLoader.formatPrice(position.week_52_low) : '-'}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">High:</span>
+                  <span class="detail-value">${position.week_52_high ? OPTIXComponentLoader.formatPrice(position.week_52_high) : '-'}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Current vs Range:</span>
+                  <span class="detail-value">${calculateRangePosition(position)}%</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      /**
+       * Format Greek value
+       */
+      function formatGreek(value) {
+        if (value === undefined || value === null) return '-';
+        return value.toFixed(4);
+      }
+
+      /**
+       * Calculate position in 52-week range
+       */
+      function calculateRangePosition(position) {
+        if (!position.week_52_low || !position.week_52_high || !position.current_price) {
+          return '-';
+        }
+        const range = position.week_52_high - position.week_52_low;
+        const position_in_range = position.current_price - position.week_52_low;
+        return ((position_in_range / range) * 100).toFixed(1);
+      }
+
+      /**
+       * Attach event listeners to positions
+       */
+      function attachPositionListeners() {
+        // Group toggle
+        document.querySelectorAll('[data-group]').forEach(el => {
+          el.addEventListener('click', (e) => {
+            const group = e.currentTarget.dataset.group;
+            const content = document.querySelector(`[data-group-content="${group}"]`);
+            e.currentTarget.classList.toggle('collapsed');
+            content.style.display = content.style.display === 'none' ? 'block' : 'none';
+          });
+        });
+
+        // Position details toggle
+        document.querySelectorAll('[data-toggle-position]').forEach(el => {
+          el.addEventListener('click', (e) => {
+            // Don't toggle if clicking close button
+            if (e.target.closest('[data-close-position]')) return;
+
+            const positionId = e.currentTarget.dataset.togglePosition;
+            const details = document.querySelector(`[data-details="${positionId}"]`);
+            details.classList.toggle('expanded');
+          });
+        });
+
+        // Close position buttons
+        document.querySelectorAll('[data-close-position]').forEach(el => {
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const positionId = e.currentTarget.dataset.closePosition;
+            const position = positions.find(p => (p.id || `${p.symbol}-${Math.random()}`) === positionId) || positions[0];
+            openClosePositionModal(position);
+          });
+        });
+      }
+
+      /**
+       * Open close position modal
+       */
+      function openClosePositionModal(position) {
+        selectedPosition = position;
+
+        document.getElementById('close-symbol').textContent = position.symbol;
+        document.getElementById('close-quantity').textContent = position.quantity || 0;
+        document.getElementById('close-value').textContent = OPTIXComponentLoader.formatPrice(position.market_value || 0);
+
+        const pnl = position.total_pnl || 0;
+        const pnlEl = document.getElementById('close-pnl');
+        pnlEl.textContent = OPTIXComponentLoader.formatChange(pnl);
+        pnlEl.style.color = pnl >= 0 ? 'var(--optix-green)' : 'var(--optix-red)';
+
+        document.getElementById('close-position-modal').classList.add('active');
+      }
+
+      /**
+       * Close position modal handlers
+       */
+      document.getElementById('close-modal-btn')?.addEventListener('click', () => {
+        document.getElementById('close-position-modal').classList.remove('active');
+      });
+
+      document.getElementById('cancel-close-btn')?.addEventListener('click', () => {
+        document.getElementById('close-position-modal').classList.remove('active');
+      });
+
+      document.getElementById('confirm-close-btn')?.addEventListener('click', async () => {
+        if (!selectedPosition) return;
+
+        const btn = document.getElementById('confirm-close-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px;"></div> Closing...';
+
+        try {
+          await OPTIXDataBridge.positions.close(selectedPosition.id);
+          document.getElementById('close-position-modal').classList.remove('active');
+          showToast('Position closed successfully', 'success');
+          loadPositionsData();
+        } catch (error) {
+          showToast('Failed to close position: ' + error.message, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = 'Close Position';
+        }
+      });
+
+      // Close modal on overlay click
+      document.getElementById('close-position-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'close-position-modal') {
+          document.getElementById('close-position-modal').classList.remove('active');
+        }
+      });
+
+      // Close modal on escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          document.getElementById('close-position-modal').classList.remove('active');
+        }
+      });
+
+      /**
+       * Show toast notification
+       */
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type}`;
+        toast.style.cssText = 'position: fixed; top: 80px; right: 24px; z-index: 1000; min-width: 300px; animation: slideIn 0.3s ease;';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.style.animation = 'slideOut 0.3s ease';
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+    })();
+  </script>
+</body>
+</html>

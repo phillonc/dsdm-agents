@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Manage your watchlists - OPTIX Options Trading Platform">
+  <title>Watchlist - OPTIX</title>
+  <link rel="stylesheet" href="../assets/css/optix-design-system.css">
+  <style>
+    .watchlist-tabs {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-sm);
+      margin-bottom: var(--optix-space-lg);
+      border-bottom: 1px solid var(--optix-border);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .watchlist-tab {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-sm);
+      padding: var(--optix-space-sm) var(--optix-space-md);
+      background: transparent;
+      border: none;
+      color: var(--optix-text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: all var(--optix-transition-fast);
+      font-size: var(--optix-font-base);
+    }
+
+    .watchlist-tab:hover {
+      color: var(--optix-text);
+      background: var(--optix-bg-elevated);
+    }
+
+    .watchlist-tab.active {
+      color: var(--optix-primary-light);
+      border-bottom-color: var(--optix-primary);
+    }
+
+    .watchlist-tab-close {
+      padding: 2px;
+      opacity: 0;
+      transition: opacity var(--optix-transition-fast);
+    }
+
+    .watchlist-tab:hover .watchlist-tab-close {
+      opacity: 1;
+    }
+
+    .watchlist-tab-close:hover {
+      color: var(--optix-red);
+    }
+
+    .add-watchlist-btn {
+      padding: var(--optix-space-sm);
+      background: transparent;
+      border: 1px dashed var(--optix-border);
+      color: var(--optix-text-dim);
+      cursor: pointer;
+      border-radius: var(--optix-radius-md);
+      transition: all var(--optix-transition-fast);
+      flex-shrink: 0;
+    }
+
+    .add-watchlist-btn:hover {
+      border-color: var(--optix-primary);
+      color: var(--optix-primary);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: var(--optix-space-2xl);
+      color: var(--optix-text-muted);
+    }
+
+    .empty-state-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto var(--optix-space-lg);
+      opacity: 0.5;
+    }
+
+    .symbol-row {
+      position: relative;
+    }
+
+    .symbol-row:hover .row-actions {
+      opacity: 1;
+    }
+
+    .row-actions {
+      display: flex;
+      gap: var(--optix-space-sm);
+      opacity: 0;
+      transition: opacity var(--optix-transition-fast);
+    }
+
+    .action-btn {
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid var(--optix-border);
+      color: var(--optix-text-muted);
+      cursor: pointer;
+      border-radius: var(--optix-radius-sm);
+      font-size: var(--optix-font-sm);
+      transition: all var(--optix-transition-fast);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .action-btn:hover {
+      background: var(--optix-bg-elevated);
+      border-color: var(--optix-border-light);
+      color: var(--optix-text);
+    }
+
+    .action-btn-danger:hover {
+      background: var(--optix-red-bg);
+      border-color: var(--optix-red);
+      color: var(--optix-red);
+    }
+
+    @media (max-width: 768px) {
+      .row-actions {
+        opacity: 1;
+      }
+
+      .table th:nth-child(5),
+      .table td:nth-child(5),
+      .table th:nth-child(6),
+      .table td:nth-child(6) {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div id="sidebar-container"></div>
+
+    <main class="main-content">
+      <div id="header-container"></div>
+
+      <div class="page-container">
+        <div class="page-header">
+          <h1 class="page-title">Watchlist</h1>
+          <button id="add-symbol-btn" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 4a.5.5 0 01.5.5v3h3a.5.5 0 010 1h-3v3a.5.5 0 01-1 0v-3h-3a.5.5 0 010-1h3v-3A.5.5 0 018 4z"/>
+            </svg>
+            Add Symbol
+          </button>
+        </div>
+
+        <div class="watchlist-tabs" id="watchlist-tabs">
+          <button class="add-watchlist-btn" id="create-watchlist-btn" title="Create new watchlist">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 4a.5.5 0 01.5.5v3h3a.5.5 0 010 1h-3v3a.5.5 0 01-1 0v-3h-3a.5.5 0 010-1h3v-3A.5.5 0 018 4z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="card">
+          <div id="watchlist-content">
+            <div class="empty-state">
+              <div class="spinner"></div>
+              <p>Loading watchlists...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Add Symbol Modal -->
+  <div id="add-symbol-modal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Add Symbol</h3>
+        <button class="btn btn-ghost btn-icon" id="close-symbol-modal" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="symbol-input" class="form-label">Symbol</label>
+          <input
+            type="text"
+            id="symbol-input"
+            class="form-input"
+            placeholder="e.g., AAPL, TSLA, SPY"
+            autocomplete="off"
+            style="text-transform: uppercase;"
+          >
+          <div class="form-hint">Enter a stock or ETF symbol</div>
+          <div id="symbol-error" class="form-error" style="display: none;"></div>
+        </div>
+        <div id="symbol-preview" style="display: none; margin-top: var(--optix-space-md);">
+          <div class="card" style="padding: var(--optix-space-md); background: var(--optix-bg-dark);">
+            <div class="flex justify-between items-center">
+              <div>
+                <div style="font-weight: var(--optix-font-semibold);" id="preview-symbol"></div>
+                <div class="text-muted text-sm" id="preview-name"></div>
+              </div>
+              <div style="text-align: right;">
+                <div class="price-display" id="preview-price">$0.00</div>
+                <div class="price-change" id="preview-change">+$0.00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancel-symbol-btn">Cancel</button>
+        <button class="btn btn-primary" id="confirm-symbol-btn" disabled>Add to Watchlist</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Watchlist Modal -->
+  <div id="create-watchlist-modal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Create Watchlist</h3>
+        <button class="btn btn-ghost btn-icon" id="close-watchlist-modal" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="watchlist-name" class="form-label">Watchlist Name</label>
+          <input
+            type="text"
+            id="watchlist-name"
+            class="form-input"
+            placeholder="e.g., Tech Stocks, Energy Sector"
+            autocomplete="off"
+          >
+          <div id="watchlist-error" class="form-error" style="display: none;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancel-watchlist-btn">Cancel</button>
+        <button class="btn btn-primary" id="confirm-watchlist-btn">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/optix-data-bridge.js"></script>
+  <script src="../assets/js/auth.js"></script>
+  <script src="../assets/js/component-loader.js"></script>
+  <script>
+    // State management
+    let watchlists = [];
+    let activeWatchlistId = null;
+    let realtimeSubscription = null;
+
+    // Initialize page
+    async function init() {
+      // Load layout
+      await OPTIXComponentLoader.loadLayout();
+
+      // Load watchlists
+      await loadWatchlists();
+    }
+
+    // Load all watchlists
+    async function loadWatchlists() {
+      try {
+        watchlists = await OPTIXDataBridge.watchlists.getAll();
+
+        if (watchlists.length === 0) {
+          showEmptyState();
+        } else {
+          renderWatchlistTabs();
+          // Select first watchlist by default
+          if (!activeWatchlistId) {
+            selectWatchlist(watchlists[0].id);
+          } else {
+            selectWatchlist(activeWatchlistId);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load watchlists:', error);
+        document.getElementById('watchlist-content').innerHTML = `
+          <div class="alert alert-error">
+            <strong>Failed to load watchlists</strong>
+            <p class="text-muted mt-sm">${error.message}</p>
+            <button class="btn btn-secondary mt-md" onclick="loadWatchlists()">Retry</button>
+          </div>
+        `;
+      }
+    }
+
+    // Render watchlist tabs
+    function renderWatchlistTabs() {
+      const tabsContainer = document.getElementById('watchlist-tabs');
+      const addBtn = document.getElementById('create-watchlist-btn');
+
+      // Clear existing tabs (except add button)
+      const existingTabs = tabsContainer.querySelectorAll('.watchlist-tab');
+      existingTabs.forEach(tab => tab.remove());
+
+      // Add tabs for each watchlist
+      watchlists.forEach(watchlist => {
+        const tab = document.createElement('button');
+        tab.className = 'watchlist-tab';
+        tab.dataset.id = watchlist.id;
+        tab.innerHTML = `
+          <span>${watchlist.name}</span>
+          <span class="badge">${watchlist.symbols?.length || 0}</span>
+          <span class="watchlist-tab-close" onclick="event.stopPropagation(); deleteWatchlist('${watchlist.id}')">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M3.646 3.646a.5.5 0 01.708 0L6 5.293l1.646-1.647a.5.5 0 01.708.708L6.707 6l1.647 1.646a.5.5 0 01-.708.708L6 6.707 4.354 8.354a.5.5 0 01-.708-.708L5.293 6 3.646 4.354a.5.5 0 010-.708z"/>
+            </svg>
+          </span>
+        `;
+        tab.onclick = () => selectWatchlist(watchlist.id);
+        tabsContainer.insertBefore(tab, addBtn);
+      });
+    }
+
+    // Select a watchlist
+    async function selectWatchlist(id) {
+      activeWatchlistId = id;
+
+      // Update active tab
+      document.querySelectorAll('.watchlist-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.id === id);
+      });
+
+      // Unsubscribe from previous realtime updates
+      if (realtimeSubscription) {
+        realtimeSubscription();
+        realtimeSubscription = null;
+      }
+
+      // Load watchlist data
+      await loadWatchlistContent(id);
+    }
+
+    // Load watchlist content
+    async function loadWatchlistContent(id) {
+      const container = document.getElementById('watchlist-content');
+      container.innerHTML = '<div class="spinner"></div>';
+
+      try {
+        const watchlist = await OPTIXDataBridge.watchlists.get(id);
+
+        if (!watchlist.symbols || watchlist.symbols.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <svg class="empty-state-icon" viewBox="0 0 80 80" fill="currentColor">
+                <path d="M40 10l8 24h24l-20 16 8 24-20-16-20 16 8-24-20-16h24z"/>
+              </svg>
+              <h3>No symbols in this watchlist</h3>
+              <p class="text-muted">Add symbols to track their prices and options</p>
+              <button class="btn btn-primary mt-lg" onclick="openAddSymbolModal()">Add Symbol</button>
+            </div>
+          `;
+          return;
+        }
+
+        // Fetch quotes for all symbols
+        const quotes = await OPTIXDataBridge.quotes.getBatch(watchlist.symbols);
+
+        // Render table
+        renderWatchlistTable(watchlist.symbols, quotes);
+
+        // Subscribe to realtime updates
+        realtimeSubscription = OPTIXDataBridge.quotes.subscribeRealtime(
+          watchlist.symbols,
+          handleRealtimeUpdate
+        );
+      } catch (error) {
+        console.error('Failed to load watchlist:', error);
+        container.innerHTML = `
+          <div class="alert alert-error">
+            <strong>Failed to load watchlist</strong>
+            <p class="text-muted mt-sm">${error.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    // Render watchlist table
+    function renderWatchlistTable(symbols, quotes) {
+      const container = document.getElementById('watchlist-content');
+
+      const html = `
+        <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th class="table-numeric">Price</th>
+                <th class="table-numeric">Change</th>
+                <th class="table-numeric">Change %</th>
+                <th class="table-numeric">Volume</th>
+                <th class="table-numeric">Market Cap</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${symbols.map(symbol => renderSymbolRow(symbol, quotes[symbol])).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    // Render symbol row
+    function renderSymbolRow(symbol, quote) {
+      const price = quote?.price || 0;
+      const change = quote?.change || 0;
+      const changePercent = quote?.changePercent || 0;
+      const volume = quote?.volume || 0;
+      const marketCap = quote?.marketCap || 0;
+      const changeClass = change >= 0 ? 'positive' : 'negative';
+
+      return `
+        <tr class="symbol-row" data-symbol="${symbol}">
+          <td>
+            <a href="/pages/options.html?symbol=${symbol}" style="font-weight: var(--optix-font-semibold);">
+              ${symbol}
+            </a>
+          </td>
+          <td class="table-numeric price-display" data-field="price">
+            ${OPTIXComponentLoader.formatPrice(price)}
+          </td>
+          <td class="table-numeric">
+            <span class="price-change ${changeClass}" data-field="change">
+              ${OPTIXComponentLoader.formatChange(change)}
+            </span>
+          </td>
+          <td class="table-numeric">
+            <span class="price-change ${changeClass}" data-field="changePercent">
+              ${OPTIXComponentLoader.formatPercent(changePercent)}
+            </span>
+          </td>
+          <td class="table-numeric text-muted" data-field="volume">
+            ${OPTIXComponentLoader.formatNumber(volume)}
+          </td>
+          <td class="table-numeric text-muted" data-field="marketCap">
+            ${marketCap ? OPTIXComponentLoader.formatNumber(marketCap) : '-'}
+          </td>
+          <td style="text-align: right;">
+            <div class="row-actions">
+              <a href="/pages/options.html?symbol=${symbol}" class="action-btn">View Options</a>
+              <button class="action-btn action-btn-danger" onclick="removeSymbol('${symbol}')">Remove</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    // Handle realtime updates
+    function handleRealtimeUpdate(data) {
+      if (!data.symbol) return;
+
+      const row = document.querySelector(`[data-symbol="${data.symbol}"]`);
+      if (!row) return;
+
+      // Update price
+      const priceEl = row.querySelector('[data-field="price"]');
+      if (priceEl && data.price !== undefined) {
+        priceEl.textContent = OPTIXComponentLoader.formatPrice(data.price);
+      }
+
+      // Update change
+      const changeEl = row.querySelector('[data-field="change"]');
+      if (changeEl && data.change !== undefined) {
+        changeEl.textContent = OPTIXComponentLoader.formatChange(data.change);
+        changeEl.className = `price-change ${data.change >= 0 ? 'positive' : 'negative'}`;
+      }
+
+      // Update change percent
+      const changePercentEl = row.querySelector('[data-field="changePercent"]');
+      if (changePercentEl && data.changePercent !== undefined) {
+        changePercentEl.textContent = OPTIXComponentLoader.formatPercent(data.changePercent);
+        changePercentEl.className = `price-change ${data.changePercent >= 0 ? 'positive' : 'negative'}`;
+      }
+
+      // Update volume
+      const volumeEl = row.querySelector('[data-field="volume"]');
+      if (volumeEl && data.volume !== undefined) {
+        volumeEl.textContent = OPTIXComponentLoader.formatNumber(data.volume);
+      }
+    }
+
+    // Show empty state
+    function showEmptyState() {
+      document.getElementById('watchlist-content').innerHTML = `
+        <div class="empty-state">
+          <svg class="empty-state-icon" viewBox="0 0 80 80" fill="currentColor">
+            <path d="M40 10l8 24h24l-20 16 8 24-20-16-20 16 8-24-20-16h24z"/>
+          </svg>
+          <h3>No watchlists yet</h3>
+          <p class="text-muted">Create your first watchlist to start tracking symbols</p>
+          <button class="btn btn-primary mt-lg" onclick="openCreateWatchlistModal()">Create Watchlist</button>
+        </div>
+      `;
+    }
+
+    // Remove symbol from watchlist
+    async function removeSymbol(symbol) {
+      if (!confirm(`Remove ${symbol} from watchlist?`)) return;
+
+      try {
+        await OPTIXDataBridge.watchlists.removeSymbol(activeWatchlistId, symbol);
+        await loadWatchlists();
+        selectWatchlist(activeWatchlistId);
+      } catch (error) {
+        alert('Failed to remove symbol: ' + error.message);
+      }
+    }
+
+    // Delete watchlist
+    async function deleteWatchlist(id) {
+      const watchlist = watchlists.find(w => w.id === id);
+      if (!confirm(`Delete watchlist "${watchlist?.name}"?`)) return;
+
+      try {
+        await OPTIXDataBridge.watchlists.delete(id);
+        activeWatchlistId = null;
+        await loadWatchlists();
+      } catch (error) {
+        alert('Failed to delete watchlist: ' + error.message);
+      }
+    }
+
+    // Modal: Add Symbol
+    const addSymbolModal = document.getElementById('add-symbol-modal');
+    const symbolInput = document.getElementById('symbol-input');
+    const symbolError = document.getElementById('symbol-error');
+    const symbolPreview = document.getElementById('symbol-preview');
+    const confirmSymbolBtn = document.getElementById('confirm-symbol-btn');
+    let validatedSymbol = null;
+
+    function openAddSymbolModal() {
+      if (!activeWatchlistId) {
+        alert('Please create a watchlist first');
+        return;
+      }
+      addSymbolModal.classList.add('active');
+      symbolInput.focus();
+    }
+
+    function closeAddSymbolModal() {
+      addSymbolModal.classList.remove('active');
+      symbolInput.value = '';
+      symbolError.style.display = 'none';
+      symbolPreview.style.display = 'none';
+      validatedSymbol = null;
+      confirmSymbolBtn.disabled = true;
+    }
+
+    document.getElementById('add-symbol-btn').onclick = openAddSymbolModal;
+    document.getElementById('close-symbol-modal').onclick = closeAddSymbolModal;
+    document.getElementById('cancel-symbol-btn').onclick = closeAddSymbolModal;
+
+    // Validate symbol on input
+    let validateTimeout;
+    symbolInput.addEventListener('input', (e) => {
+      const symbol = e.target.value.trim().toUpperCase();
+      e.target.value = symbol;
+
+      clearTimeout(validateTimeout);
+      symbolError.style.display = 'none';
+      symbolPreview.style.display = 'none';
+      confirmSymbolBtn.disabled = true;
+      validatedSymbol = null;
+
+      if (symbol.length < 1) return;
+
+      validateTimeout = setTimeout(async () => {
+        try {
+          const quote = await OPTIXDataBridge.quotes.get(symbol);
+
+          // Update preview
+          document.getElementById('preview-symbol').textContent = symbol;
+          document.getElementById('preview-name').textContent = quote.name || '';
+          document.getElementById('preview-price').textContent = OPTIXComponentLoader.formatPrice(quote.price || 0);
+
+          const changeEl = document.getElementById('preview-change');
+          const change = quote.change || 0;
+          changeEl.textContent = OPTIXComponentLoader.formatChange(change);
+          changeEl.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
+
+          symbolPreview.style.display = 'block';
+          confirmSymbolBtn.disabled = false;
+          validatedSymbol = symbol;
+        } catch (error) {
+          symbolError.textContent = 'Symbol not found or invalid';
+          symbolError.style.display = 'block';
+        }
+      }, 500);
+    });
+
+    // Confirm add symbol
+    confirmSymbolBtn.addEventListener('click', async () => {
+      if (!validatedSymbol) return;
+
+      try {
+        confirmSymbolBtn.disabled = true;
+        confirmSymbolBtn.innerHTML = '<span class="spinner"></span>';
+
+        await OPTIXDataBridge.watchlists.addSymbol(activeWatchlistId, validatedSymbol);
+        closeAddSymbolModal();
+        await loadWatchlists();
+        selectWatchlist(activeWatchlistId);
+      } catch (error) {
+        alert('Failed to add symbol: ' + error.message);
+        confirmSymbolBtn.disabled = false;
+        confirmSymbolBtn.textContent = 'Add to Watchlist';
+      }
+    });
+
+    // Modal: Create Watchlist
+    const createWatchlistModal = document.getElementById('create-watchlist-modal');
+    const watchlistNameInput = document.getElementById('watchlist-name');
+    const watchlistError = document.getElementById('watchlist-error');
+
+    function openCreateWatchlistModal() {
+      createWatchlistModal.classList.add('active');
+      watchlistNameInput.focus();
+    }
+
+    function closeCreateWatchlistModal() {
+      createWatchlistModal.classList.remove('active');
+      watchlistNameInput.value = '';
+      watchlistError.style.display = 'none';
+    }
+
+    document.getElementById('create-watchlist-btn').onclick = openCreateWatchlistModal;
+    document.getElementById('close-watchlist-modal').onclick = closeCreateWatchlistModal;
+    document.getElementById('cancel-watchlist-btn').onclick = closeCreateWatchlistModal;
+
+    document.getElementById('confirm-watchlist-btn').addEventListener('click', async () => {
+      const name = watchlistNameInput.value.trim();
+
+      if (!name) {
+        watchlistError.textContent = 'Please enter a name';
+        watchlistError.style.display = 'block';
+        return;
+      }
+
+      try {
+        const btn = document.getElementById('confirm-watchlist-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>';
+
+        const newWatchlist = await OPTIXDataBridge.watchlists.create(name);
+        closeCreateWatchlistModal();
+        await loadWatchlists();
+        selectWatchlist(newWatchlist.id);
+      } catch (error) {
+        watchlistError.textContent = error.message;
+        watchlistError.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Create';
+      }
+    });
+
+    // Close modals on overlay click
+    [addSymbolModal, createWatchlistModal].forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.remove('active');
+        }
+      });
+    });
+
+    // Close modals on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeAddSymbolModal();
+        closeCreateWatchlistModal();
+      }
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (realtimeSubscription) {
+        realtimeSubscription();
+      }
+    });
+
+    // Initialize
+    init();
+  </script>
+</body>
+</html>

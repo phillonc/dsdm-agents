@@ -170,7 +170,7 @@ class RequirementParser:
         }
         # Symbol pattern (stock tickers)
         self._symbol_pattern = re.compile(
-            r'\b([A-Z]{1,5})\b(?!\s*(calls?|puts?|options?|chain|greeks?))',
+            r'\b([A-Z]{1,5})\b(?!\s*(?:calls?|puts?|options?|chain|greeks?))',
             re.IGNORECASE
         )
         # Common non-ticker words to exclude
@@ -279,6 +279,9 @@ class RequirementParser:
         # Extract from query using pattern
         potential_symbols = self._symbol_pattern.findall(query)
         for sym in potential_symbols:
+            # Handle case where findall returns tuple (from capture groups)
+            if isinstance(sym, tuple):
+                sym = sym[0]
             sym_upper = sym.upper()
             if sym_upper not in self._non_tickers and len(sym_upper) <= 5:
                 # Basic validation - real implementation would check against

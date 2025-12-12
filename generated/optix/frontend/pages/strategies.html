@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Options Strategies - OPTIX Trading Platform">
+  <title>Options Strategies - OPTIX</title>
+
+  <!-- Design System -->
+  <link rel="stylesheet" href="../assets/css/optix-design-system.css">
+
+  <!-- Preload critical assets -->
+  <link rel="preload" href="../assets/js/optix-data-bridge.js" as="script">
+  <link rel="preload" href="../assets/js/auth.js" as="script">
+  <link rel="preload" href="../assets/js/component-loader.js" as="script">
+
+  <style>
+    /* Strategy Builder Specific Styles */
+    .strategies-container {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: var(--optix-space-lg);
+    }
+
+    .strategy-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-md);
+    }
+
+    .strategy-templates {
+      background: var(--optix-bg-card);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-lg);
+      padding: var(--optix-space-md);
+    }
+
+    .strategy-templates h3 {
+      font-size: var(--optix-font-md);
+      font-weight: var(--optix-font-semibold);
+      margin-bottom: var(--optix-space-md);
+      color: var(--optix-text);
+    }
+
+    .strategy-template-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-xs);
+    }
+
+    .strategy-template-item {
+      padding: var(--optix-space-sm);
+      background: var(--optix-bg-elevated);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-md);
+      cursor: pointer;
+      transition: all var(--optix-transition-fast);
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-sm);
+    }
+
+    .strategy-template-item:hover {
+      background: var(--optix-bg-hover);
+      border-color: var(--optix-primary);
+    }
+
+    .strategy-template-item.active {
+      border-color: var(--optix-primary);
+      background: var(--optix-primary-alpha);
+    }
+
+    .strategy-template-icon {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--optix-bg-card);
+      border-radius: var(--optix-radius-sm);
+      flex-shrink: 0;
+    }
+
+    .strategy-template-info {
+      flex: 1;
+    }
+
+    .strategy-template-name {
+      font-size: var(--optix-font-sm);
+      font-weight: var(--optix-font-medium);
+      color: var(--optix-text);
+    }
+
+    .strategy-template-type {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-dim);
+    }
+
+    .strategy-builder-main {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-lg);
+    }
+
+    .strategy-header-card {
+      background: var(--optix-bg-card);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-lg);
+      padding: var(--optix-space-lg);
+    }
+
+    .strategy-name-input {
+      font-size: var(--optix-font-xl);
+      font-weight: var(--optix-font-bold);
+      background: transparent;
+      border: none;
+      color: var(--optix-text);
+      width: 100%;
+      padding: var(--optix-space-sm);
+      border-bottom: 2px solid transparent;
+      transition: border-color var(--optix-transition-fast);
+    }
+
+    .strategy-name-input:focus {
+      outline: none;
+      border-bottom-color: var(--optix-primary);
+    }
+
+    .strategy-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: var(--optix-space-md);
+      margin-top: var(--optix-space-lg);
+    }
+
+    .strategy-metric {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-xs);
+    }
+
+    .strategy-metric-label {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .strategy-metric-value {
+      font-size: var(--optix-font-xl);
+      font-weight: var(--optix-font-bold);
+      font-family: var(--optix-font-mono);
+    }
+
+    .strategy-metric-value.profit {
+      color: var(--optix-green);
+    }
+
+    .strategy-metric-value.loss {
+      color: var(--optix-red);
+    }
+
+    .strategy-metric-value.neutral {
+      color: var(--optix-text-muted);
+    }
+
+    .legs-container {
+      background: var(--optix-bg-card);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-lg);
+      padding: var(--optix-space-lg);
+    }
+
+    .legs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--optix-space-lg);
+    }
+
+    .legs-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-md);
+    }
+
+    .leg-card {
+      background: var(--optix-bg-elevated);
+      border: 2px solid var(--optix-border);
+      border-radius: var(--optix-radius-md);
+      padding: var(--optix-space-md);
+      transition: all var(--optix-transition-fast);
+    }
+
+    .leg-card.call {
+      border-left: 4px solid var(--optix-green);
+    }
+
+    .leg-card.put {
+      border-left: 4px solid var(--optix-red);
+    }
+
+    .leg-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--optix-space-md);
+    }
+
+    .leg-title {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-sm);
+      font-weight: var(--optix-font-semibold);
+    }
+
+    .leg-badge {
+      padding: 2px 8px;
+      border-radius: var(--optix-radius-full);
+      font-size: var(--optix-font-xs);
+      font-weight: var(--optix-font-semibold);
+    }
+
+    .leg-badge.buy {
+      background: var(--optix-green-bg);
+      color: var(--optix-green);
+    }
+
+    .leg-badge.sell {
+      background: var(--optix-red-bg);
+      color: var(--optix-red);
+    }
+
+    .leg-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: var(--optix-space-md);
+    }
+
+    .leg-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-xs);
+    }
+
+    .leg-input-label {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-muted);
+      text-transform: uppercase;
+    }
+
+    .leg-input {
+      background: var(--optix-bg-card);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-sm);
+      padding: var(--optix-space-sm);
+      color: var(--optix-text);
+      font-family: var(--optix-font-mono);
+    }
+
+    .leg-input:focus {
+      outline: none;
+      border-color: var(--optix-primary);
+    }
+
+    .risk-reward-chart {
+      background: var(--optix-bg-card);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-lg);
+      padding: var(--optix-space-lg);
+      height: 400px;
+      position: relative;
+    }
+
+    .chart-title {
+      font-size: var(--optix-font-md);
+      font-weight: var(--optix-font-semibold);
+      margin-bottom: var(--optix-space-lg);
+    }
+
+    .chart-canvas {
+      width: 100%;
+      height: calc(100% - 40px);
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-md);
+      position: relative;
+    }
+
+    .chart-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .breakeven-indicators {
+      display: flex;
+      gap: var(--optix-space-md);
+      margin-top: var(--optix-space-md);
+      flex-wrap: wrap;
+    }
+
+    .breakeven-point {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-xs);
+      font-size: var(--optix-font-sm);
+      font-family: var(--optix-font-mono);
+    }
+
+    .breakeven-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--optix-yellow);
+    }
+
+    .pnl-calculator {
+      background: var(--optix-bg-card);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-lg);
+      padding: var(--optix-space-lg);
+    }
+
+    .calculator-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: var(--optix-space-md);
+      align-items: end;
+    }
+
+    .calculator-result {
+      margin-top: var(--optix-space-lg);
+      padding: var(--optix-space-lg);
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-md);
+      text-align: center;
+    }
+
+    .calculator-result-label {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+      margin-bottom: var(--optix-space-xs);
+    }
+
+    .calculator-result-value {
+      font-size: var(--optix-font-3xl);
+      font-weight: var(--optix-font-bold);
+      font-family: var(--optix-font-mono);
+    }
+
+    .saved-strategies {
+      background: var(--optix-bg-card);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-lg);
+      padding: var(--optix-space-lg);
+    }
+
+    .saved-strategy-item {
+      padding: var(--optix-space-md);
+      background: var(--optix-bg-elevated);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-md);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: all var(--optix-transition-fast);
+    }
+
+    .saved-strategy-item:hover {
+      background: var(--optix-bg-hover);
+      border-color: var(--optix-primary);
+    }
+
+    .saved-strategy-info h4 {
+      font-size: var(--optix-font-md);
+      font-weight: var(--optix-font-semibold);
+      margin-bottom: var(--optix-space-xs);
+    }
+
+    .saved-strategy-details {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+    }
+
+    .saved-strategy-actions {
+      display: flex;
+      gap: var(--optix-space-sm);
+    }
+
+    @media (max-width: 1024px) {
+      .strategies-container {
+        grid-template-columns: 1fr;
+      }
+
+      .strategy-sidebar {
+        order: 2;
+      }
+
+      .strategy-builder-main {
+        order: 1;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .strategy-metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .calculator-inputs {
+        grid-template-columns: 1fr;
+      }
+
+      .leg-controls {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Skip to main content for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- App Container -->
+  <div class="app-container">
+    <!-- Header (loaded dynamically) -->
+    <div id="header-container"></div>
+
+    <!-- Sidebar (loaded dynamically) -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+      <div class="page-container">
+        <!-- Page Header -->
+        <div class="page-header">
+          <h1 class="page-title">Options Strategies</h1>
+          <div class="flex gap-sm">
+            <button id="clear-strategy-btn" class="btn btn-secondary btn-sm">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+              </svg>
+              Clear
+            </button>
+            <button id="save-strategy-btn" class="btn btn-primary btn-sm">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1H2z"/>
+              </svg>
+              Save Strategy
+            </button>
+          </div>
+        </div>
+
+        <!-- Strategies Container -->
+        <div class="strategies-container">
+          <!-- Strategy Sidebar -->
+          <div class="strategy-sidebar">
+            <!-- Strategy Templates -->
+            <div class="strategy-templates">
+              <h3>Strategy Templates</h3>
+              <div class="strategy-template-list">
+                <div class="strategy-template-item" data-strategy="covered-call">
+                  <div class="strategy-template-icon">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="var(--optix-green)">
+                      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                      <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                    </svg>
+                  </div>
+                  <div class="strategy-template-info">
+                    <div class="strategy-template-name">Covered Call</div>
+                    <div class="strategy-template-type">Neutral/Bullish</div>
+                  </div>
+                </div>
+
+                <div class="strategy-template-item" data-strategy="iron-condor">
+                  <div class="strategy-template-icon">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="var(--optix-blue)">
+                      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    </svg>
+                  </div>
+                  <div class="strategy-template-info">
+                    <div class="strategy-template-name">Iron Condor</div>
+                    <div class="strategy-template-type">Neutral</div>
+                  </div>
+                </div>
+
+                <div class="strategy-template-item" data-strategy="bull-call-spread">
+                  <div class="strategy-template-icon">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="var(--optix-green)">
+                      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-7.5 3.5a.5.5 0 0 1-1 0V5.707L5.354 7.854a.5.5 0 1 1-.708-.708l3-3a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 5.707V11.5z"/>
+                    </svg>
+                  </div>
+                  <div class="strategy-template-info">
+                    <div class="strategy-template-name">Bull Call Spread</div>
+                    <div class="strategy-template-type">Bullish</div>
+                  </div>
+                </div>
+
+                <div class="strategy-template-item" data-strategy="bear-put-spread">
+                  <div class="strategy-template-icon">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="var(--optix-red)">
+                      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8.5 4.5a.5.5 0 0 0-1 0v5.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V4.5z"/>
+                    </svg>
+                  </div>
+                  <div class="strategy-template-info">
+                    <div class="strategy-template-name">Bear Put Spread</div>
+                    <div class="strategy-template-type">Bearish</div>
+                  </div>
+                </div>
+
+                <div class="strategy-template-item" data-strategy="straddle">
+                  <div class="strategy-template-icon">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="var(--optix-yellow)">
+                      <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zM8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                    </svg>
+                  </div>
+                  <div class="strategy-template-info">
+                    <div class="strategy-template-name">Long Straddle</div>
+                    <div class="strategy-template-type">Volatile</div>
+                  </div>
+                </div>
+
+                <div class="strategy-template-item" data-strategy="strangle">
+                  <div class="strategy-template-icon">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="var(--optix-yellow)">
+                      <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.5-12.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3a.5.5 0 0 1 1 0z"/>
+                    </svg>
+                  </div>
+                  <div class="strategy-template-info">
+                    <div class="strategy-template-name">Long Strangle</div>
+                    <div class="strategy-template-type">Volatile</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Saved Strategies -->
+            <div class="saved-strategies">
+              <h3 style="font-size: var(--optix-font-md); font-weight: var(--optix-font-semibold); margin-bottom: var(--optix-space-md);">Saved Strategies</h3>
+              <div id="saved-strategies-list" class="flex flex-col gap-sm">
+                <div class="empty-state" style="padding: var(--optix-space-lg); text-align: center;">
+                  <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor" style="opacity: 0.3; margin: 0 auto var(--optix-space-sm);">
+                    <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H2z"/>
+                  </svg>
+                  <p class="text-muted" style="font-size: var(--optix-font-sm);">No saved strategies</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Strategy Builder Main -->
+          <div class="strategy-builder-main">
+            <!-- Strategy Header -->
+            <div class="strategy-header-card">
+              <input
+                type="text"
+                id="strategy-name"
+                class="strategy-name-input"
+                placeholder="My Strategy"
+                value="Custom Strategy"
+              >
+
+              <div class="strategy-metrics">
+                <div class="strategy-metric">
+                  <div class="strategy-metric-label">Max Profit</div>
+                  <div id="max-profit" class="strategy-metric-value profit">$0.00</div>
+                </div>
+                <div class="strategy-metric">
+                  <div class="strategy-metric-label">Max Loss</div>
+                  <div id="max-loss" class="strategy-metric-value loss">$0.00</div>
+                </div>
+                <div class="strategy-metric">
+                  <div class="strategy-metric-label">Net Premium</div>
+                  <div id="net-premium" class="strategy-metric-value neutral">$0.00</div>
+                </div>
+                <div class="strategy-metric">
+                  <div class="strategy-metric-label">Risk/Reward</div>
+                  <div id="risk-reward" class="strategy-metric-value neutral">0.00</div>
+                </div>
+              </div>
+
+              <div class="breakeven-indicators" id="breakeven-container">
+                <!-- Breakeven points will be added dynamically -->
+              </div>
+            </div>
+
+            <!-- Risk/Reward Chart -->
+            <div class="risk-reward-chart">
+              <div class="chart-title">Profit/Loss Diagram</div>
+              <div class="chart-canvas">
+                <svg id="pnl-chart" class="chart-svg" viewBox="0 0 800 300">
+                  <!-- Chart grid -->
+                  <defs>
+                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--optix-border)" stroke-width="0.5"/>
+                    </pattern>
+                  </defs>
+                  <rect width="800" height="300" fill="url(#grid)" />
+
+                  <!-- Axes -->
+                  <line x1="40" y1="260" x2="760" y2="260" stroke="var(--optix-text-dim)" stroke-width="2"/>
+                  <line x1="40" y1="20" x2="40" y2="260" stroke="var(--optix-text-dim)" stroke-width="2"/>
+
+                  <!-- Zero line -->
+                  <line x1="40" y1="150" x2="760" y2="150" stroke="var(--optix-text-muted)" stroke-width="1" stroke-dasharray="5,5"/>
+
+                  <!-- P&L curve will be drawn here -->
+                  <path id="pnl-curve" d="" fill="none" stroke="var(--optix-primary)" stroke-width="3"/>
+
+                  <!-- Labels -->
+                  <text x="400" y="285" text-anchor="middle" fill="var(--optix-text-muted)" font-size="12">Stock Price</text>
+                  <text x="15" y="150" text-anchor="middle" fill="var(--optix-text-muted)" font-size="12" transform="rotate(-90 15 150)">Profit/Loss</text>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Legs Container -->
+            <div class="legs-container">
+              <div class="legs-header">
+                <h2 style="font-size: var(--optix-font-lg); font-weight: var(--optix-font-semibold);">Strategy Legs</h2>
+                <button id="add-leg-btn" class="btn btn-primary btn-sm">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                  </svg>
+                  Add Leg
+                </button>
+              </div>
+
+              <div id="legs-list" class="legs-list">
+                <!-- Legs will be added dynamically -->
+                <div class="empty-state" style="padding: var(--optix-space-xl); text-align: center;">
+                  <svg width="64" height="64" viewBox="0 0 16 16" fill="currentColor" style="opacity: 0.3; margin: 0 auto var(--optix-space-md);">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                  </svg>
+                  <h3 style="margin-bottom: var(--optix-space-xs);">No legs added</h3>
+                  <p class="text-muted">Select a template or add a leg to get started</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- P&L Calculator -->
+            <div class="pnl-calculator">
+              <h2 style="font-size: var(--optix-font-lg); font-weight: var(--optix-font-semibold); margin-bottom: var(--optix-space-lg);">P&L Calculator</h2>
+
+              <div class="calculator-inputs">
+                <div class="form-group" style="margin: 0;">
+                  <label class="form-label">Stock Price</label>
+                  <input type="number" id="calc-stock-price" class="form-input" placeholder="0.00" step="0.01">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label class="form-label">Days to Expiration</label>
+                  <input type="number" id="calc-days" class="form-input" placeholder="0" step="1">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label class="form-label">IV Change (%)</label>
+                  <input type="number" id="calc-iv-change" class="form-input" placeholder="0" step="0.1">
+                </div>
+                <button id="calculate-btn" class="btn btn-primary">Calculate</button>
+              </div>
+
+              <div id="calculator-result" class="calculator-result" style="display: none;">
+                <div class="calculator-result-label">Estimated P&L</div>
+                <div id="calculator-result-value" class="calculator-result-value profit">$0.00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/optix-data-bridge.js"></script>
+  <script src="../assets/js/auth.js"></script>
+  <script src="../assets/js/component-loader.js"></script>
+
+  <script>
+    // Options Strategy Builder Application
+    (async function() {
+      'use strict';
+
+      // Load layout components
+      await OPTIXComponentLoader.loadLayout();
+
+      // Strategy state
+      let currentStrategy = {
+        name: 'Custom Strategy',
+        legs: [],
+        underlyingPrice: 100
+      };
+
+      let savedStrategies = JSON.parse(localStorage.getItem('optix_saved_strategies') || '[]');
+
+      // Strategy templates
+      const strategyTemplates = {
+        'covered-call': {
+          name: 'Covered Call',
+          legs: [
+            { action: 'buy', type: 'stock', quantity: 100, price: 100 },
+            { action: 'sell', type: 'call', strike: 105, expiration: '2024-02-16', premium: 2.50, quantity: 1 }
+          ]
+        },
+        'iron-condor': {
+          name: 'Iron Condor',
+          legs: [
+            { action: 'buy', type: 'put', strike: 90, expiration: '2024-02-16', premium: 1.00, quantity: 1 },
+            { action: 'sell', type: 'put', strike: 95, expiration: '2024-02-16', premium: 2.50, quantity: 1 },
+            { action: 'sell', type: 'call', strike: 105, expiration: '2024-02-16', premium: 2.50, quantity: 1 },
+            { action: 'buy', type: 'call', strike: 110, expiration: '2024-02-16', premium: 1.00, quantity: 1 }
+          ]
+        },
+        'bull-call-spread': {
+          name: 'Bull Call Spread',
+          legs: [
+            { action: 'buy', type: 'call', strike: 100, expiration: '2024-02-16', premium: 5.00, quantity: 1 },
+            { action: 'sell', type: 'call', strike: 105, expiration: '2024-02-16', premium: 2.50, quantity: 1 }
+          ]
+        },
+        'bear-put-spread': {
+          name: 'Bear Put Spread',
+          legs: [
+            { action: 'buy', type: 'put', strike: 100, expiration: '2024-02-16', premium: 5.00, quantity: 1 },
+            { action: 'sell', type: 'put', strike: 95, expiration: '2024-02-16', premium: 2.50, quantity: 1 }
+          ]
+        },
+        'straddle': {
+          name: 'Long Straddle',
+          legs: [
+            { action: 'buy', type: 'call', strike: 100, expiration: '2024-02-16', premium: 5.00, quantity: 1 },
+            { action: 'buy', type: 'put', strike: 100, expiration: '2024-02-16', premium: 5.00, quantity: 1 }
+          ]
+        },
+        'strangle': {
+          name: 'Long Strangle',
+          legs: [
+            { action: 'buy', type: 'call', strike: 105, expiration: '2024-02-16', premium: 3.00, quantity: 1 },
+            { action: 'buy', type: 'put', strike: 95, expiration: '2024-02-16', premium: 3.00, quantity: 1 }
+          ]
+        }
+      };
+
+      // Initialize
+      initStrategies();
+
+      // Event listeners
+      document.getElementById('add-leg-btn').addEventListener('click', addLeg);
+      document.getElementById('clear-strategy-btn').addEventListener('click', clearStrategy);
+      document.getElementById('save-strategy-btn').addEventListener('click', saveStrategy);
+      document.getElementById('calculate-btn').addEventListener('click', calculatePnL);
+      document.getElementById('strategy-name').addEventListener('input', (e) => {
+        currentStrategy.name = e.target.value;
+      });
+
+      // Template selection
+      document.querySelectorAll('.strategy-template-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const strategyKey = item.dataset.strategy;
+          loadTemplate(strategyKey);
+
+          // Update active state
+          document.querySelectorAll('.strategy-template-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+        });
+      });
+
+      function initStrategies() {
+        renderLegs();
+        updateMetrics();
+        updateChart();
+        renderSavedStrategies();
+      }
+
+      function loadTemplate(templateKey) {
+        const template = strategyTemplates[templateKey];
+        if (!template) return;
+
+        currentStrategy.name = template.name;
+        currentStrategy.legs = JSON.parse(JSON.stringify(template.legs));
+        document.getElementById('strategy-name').value = template.name;
+
+        renderLegs();
+        updateMetrics();
+        updateChart();
+      }
+
+      function addLeg() {
+        const newLeg = {
+          action: 'buy',
+          type: 'call',
+          strike: currentStrategy.underlyingPrice,
+          expiration: getDefaultExpiration(),
+          premium: 2.50,
+          quantity: 1
+        };
+
+        currentStrategy.legs.push(newLeg);
+        renderLegs();
+        updateMetrics();
+        updateChart();
+      }
+
+      function removeLeg(index) {
+        currentStrategy.legs.splice(index, 1);
+        renderLegs();
+        updateMetrics();
+        updateChart();
+      }
+
+      function updateLeg(index, field, value) {
+        if (field === 'strike' || field === 'premium' || field === 'quantity') {
+          currentStrategy.legs[index][field] = parseFloat(value) || 0;
+        } else {
+          currentStrategy.legs[index][field] = value;
+        }
+        updateMetrics();
+        updateChart();
+      }
+
+      function renderLegs() {
+        const legsList = document.getElementById('legs-list');
+
+        if (currentStrategy.legs.length === 0) {
+          legsList.innerHTML = `
+            <div class="empty-state" style="padding: var(--optix-space-xl); text-align: center;">
+              <svg width="64" height="64" viewBox="0 0 16 16" fill="currentColor" style="opacity: 0.3; margin: 0 auto var(--optix-space-md);">
+                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+              </svg>
+              <h3 style="margin-bottom: var(--optix-space-xs);">No legs added</h3>
+              <p class="text-muted">Select a template or add a leg to get started</p>
+            </div>
+          `;
+          return;
+        }
+
+        legsList.innerHTML = currentStrategy.legs.map((leg, index) => `
+          <div class="leg-card ${leg.type}">
+            <div class="leg-header">
+              <div class="leg-title">
+                <span class="leg-badge ${leg.action}">${leg.action.toUpperCase()}</span>
+                <span>${leg.type === 'stock' ? 'Stock' : leg.type.toUpperCase()}</span>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="removeLeg(${index})" aria-label="Remove leg">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                  <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="leg-controls">
+              <div class="leg-input-group">
+                <label class="leg-input-label">Action</label>
+                <select class="leg-input" onchange="updateLeg(${index}, 'action', this.value)">
+                  <option value="buy" ${leg.action === 'buy' ? 'selected' : ''}>Buy</option>
+                  <option value="sell" ${leg.action === 'sell' ? 'selected' : ''}>Sell</option>
+                </select>
+              </div>
+              <div class="leg-input-group">
+                <label class="leg-input-label">Type</label>
+                <select class="leg-input" onchange="updateLeg(${index}, 'type', this.value)">
+                  <option value="call" ${leg.type === 'call' ? 'selected' : ''}>Call</option>
+                  <option value="put" ${leg.type === 'put' ? 'selected' : ''}>Put</option>
+                  ${leg.type === 'stock' ? '<option value="stock" selected>Stock</option>' : ''}
+                </select>
+              </div>
+              ${leg.type !== 'stock' ? `
+                <div class="leg-input-group">
+                  <label class="leg-input-label">Strike</label>
+                  <input type="number" class="leg-input" value="${leg.strike}" step="0.01" onchange="updateLeg(${index}, 'strike', this.value)">
+                </div>
+                <div class="leg-input-group">
+                  <label class="leg-input-label">Expiration</label>
+                  <input type="date" class="leg-input" value="${leg.expiration}" onchange="updateLeg(${index}, 'expiration', this.value)">
+                </div>
+                <div class="leg-input-group">
+                  <label class="leg-input-label">Premium</label>
+                  <input type="number" class="leg-input" value="${leg.premium}" step="0.01" onchange="updateLeg(${index}, 'premium', this.value)">
+                </div>
+              ` : `
+                <div class="leg-input-group">
+                  <label class="leg-input-label">Price</label>
+                  <input type="number" class="leg-input" value="${leg.price || 0}" step="0.01" onchange="updateLeg(${index}, 'price', this.value)">
+                </div>
+              `}
+              <div class="leg-input-group">
+                <label class="leg-input-label">Quantity</label>
+                <input type="number" class="leg-input" value="${leg.quantity}" step="1" onchange="updateLeg(${index}, 'quantity', this.value)">
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function updateMetrics() {
+        const metrics = calculateMetrics();
+
+        document.getElementById('max-profit').textContent = formatCurrency(metrics.maxProfit);
+        document.getElementById('max-loss').textContent = formatCurrency(metrics.maxLoss);
+        document.getElementById('net-premium').textContent = formatCurrency(metrics.netPremium);
+        document.getElementById('risk-reward').textContent = metrics.riskReward.toFixed(2);
+
+        // Update breakeven points
+        const breakevenContainer = document.getElementById('breakeven-container');
+        if (metrics.breakevenPoints.length > 0) {
+          breakevenContainer.innerHTML = metrics.breakevenPoints.map(point => `
+            <div class="breakeven-point">
+              <div class="breakeven-dot"></div>
+              <span>Breakeven: ${formatCurrency(point)}</span>
+            </div>
+          `).join('');
+        } else {
+          breakevenContainer.innerHTML = '';
+        }
+      }
+
+      function calculateMetrics() {
+        let netPremium = 0;
+        let maxProfit = 0;
+        let maxLoss = 0;
+        const breakevenPoints = [];
+
+        // Calculate net premium
+        currentStrategy.legs.forEach(leg => {
+          if (leg.type !== 'stock') {
+            const premium = leg.premium * leg.quantity * 100; // Options are per 100 shares
+            netPremium += leg.action === 'sell' ? premium : -premium;
+          }
+        });
+
+        // Simplified P&L calculation
+        // This is a basic implementation - real options pricing would use Black-Scholes
+        const priceRange = { min: 80, max: 120 };
+        let pnlAtMin = calculatePnLAtPrice(priceRange.min);
+        let pnlAtMax = calculatePnLAtPrice(priceRange.max);
+
+        maxProfit = Math.max(pnlAtMin, pnlAtMax, netPremium);
+        maxLoss = Math.min(pnlAtMin, pnlAtMax, netPremium);
+
+        // Find approximate breakeven points
+        for (let price = priceRange.min; price <= priceRange.max; price += 0.5) {
+          const pnl = calculatePnLAtPrice(price);
+          if (Math.abs(pnl) < 50) { // Within $50 of breakeven
+            breakevenPoints.push(price);
+          }
+        }
+
+        const riskReward = maxLoss !== 0 ? Math.abs(maxProfit / maxLoss) : 0;
+
+        return {
+          netPremium,
+          maxProfit,
+          maxLoss,
+          riskReward,
+          breakevenPoints: [...new Set(breakevenPoints)].slice(0, 2) // Remove duplicates, max 2
+        };
+      }
+
+      function calculatePnLAtPrice(stockPrice) {
+        let totalPnL = 0;
+
+        currentStrategy.legs.forEach(leg => {
+          if (leg.type === 'stock') {
+            const priceDiff = stockPrice - (leg.price || currentStrategy.underlyingPrice);
+            totalPnL += priceDiff * leg.quantity * (leg.action === 'buy' ? 1 : -1);
+          } else {
+            const premium = leg.premium * leg.quantity * 100;
+            let intrinsicValue = 0;
+
+            if (leg.type === 'call') {
+              intrinsicValue = Math.max(0, stockPrice - leg.strike) * leg.quantity * 100;
+            } else if (leg.type === 'put') {
+              intrinsicValue = Math.max(0, leg.strike - stockPrice) * leg.quantity * 100;
+            }
+
+            if (leg.action === 'buy') {
+              totalPnL += intrinsicValue - premium;
+            } else {
+              totalPnL += premium - intrinsicValue;
+            }
+          }
+        });
+
+        return totalPnL;
+      }
+
+      function updateChart() {
+        const curve = document.getElementById('pnl-curve');
+        const priceRange = { min: 80, max: 120 };
+        const points = [];
+
+        // Generate P&L curve points
+        for (let price = priceRange.min; price <= priceRange.max; price += 1) {
+          const pnl = calculatePnLAtPrice(price);
+          points.push({ price, pnl });
+        }
+
+        // Find min/max PnL for scaling
+        const minPnL = Math.min(...points.map(p => p.pnl));
+        const maxPnL = Math.max(...points.map(p => p.pnl));
+
+        // Convert to SVG coordinates
+        const svgPoints = points.map(p => {
+          const x = 40 + ((p.price - priceRange.min) / (priceRange.max - priceRange.min)) * 720;
+          const y = 260 - ((p.pnl - minPnL) / (maxPnL - minPnL || 1)) * 240;
+          return `${x},${y}`;
+        });
+
+        // Update curve path
+        if (svgPoints.length > 0) {
+          curve.setAttribute('d', `M ${svgPoints.join(' L ')}`);
+        }
+      }
+
+      function clearStrategy() {
+        if (confirm('Clear current strategy?')) {
+          currentStrategy = {
+            name: 'Custom Strategy',
+            legs: [],
+            underlyingPrice: 100
+          };
+          document.getElementById('strategy-name').value = 'Custom Strategy';
+          document.querySelectorAll('.strategy-template-item').forEach(i => i.classList.remove('active'));
+          renderLegs();
+          updateMetrics();
+          updateChart();
+        }
+      }
+
+      function saveStrategy() {
+        if (currentStrategy.legs.length === 0) {
+          alert('Add at least one leg before saving');
+          return;
+        }
+
+        const strategy = {
+          id: Date.now(),
+          name: currentStrategy.name,
+          legs: JSON.parse(JSON.stringify(currentStrategy.legs)),
+          savedAt: new Date().toISOString()
+        };
+
+        savedStrategies.push(strategy);
+        localStorage.setItem('optix_saved_strategies', JSON.stringify(savedStrategies));
+        renderSavedStrategies();
+
+        showToast('Strategy saved successfully', 'success');
+      }
+
+      function renderSavedStrategies() {
+        const container = document.getElementById('saved-strategies-list');
+
+        if (savedStrategies.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state" style="padding: var(--optix-space-lg); text-align: center;">
+              <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor" style="opacity: 0.3; margin: 0 auto var(--optix-space-sm);">
+                <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H2z"/>
+              </svg>
+              <p class="text-muted" style="font-size: var(--optix-font-sm);">No saved strategies</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = savedStrategies.map((strategy, index) => `
+          <div class="saved-strategy-item" onclick="loadSavedStrategy(${index})">
+            <div class="saved-strategy-info">
+              <h4>${escapeHtml(strategy.name)}</h4>
+              <div class="saved-strategy-details">${strategy.legs.length} legs • ${new Date(strategy.savedAt).toLocaleDateString()}</div>
+            </div>
+            <div class="saved-strategy-actions">
+              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); deleteSavedStrategy(${index})" aria-label="Delete strategy">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                  <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function loadSavedStrategy(index) {
+        const strategy = savedStrategies[index];
+        currentStrategy = {
+          name: strategy.name,
+          legs: JSON.parse(JSON.stringify(strategy.legs)),
+          underlyingPrice: 100
+        };
+        document.getElementById('strategy-name').value = strategy.name;
+        document.querySelectorAll('.strategy-template-item').forEach(i => i.classList.remove('active'));
+        renderLegs();
+        updateMetrics();
+        updateChart();
+      }
+
+      function deleteSavedStrategy(index) {
+        if (confirm('Delete this saved strategy?')) {
+          savedStrategies.splice(index, 1);
+          localStorage.setItem('optix_saved_strategies', JSON.stringify(savedStrategies));
+          renderSavedStrategies();
+          showToast('Strategy deleted', 'info');
+        }
+      }
+
+      function calculatePnL() {
+        const stockPrice = parseFloat(document.getElementById('calc-stock-price').value) || 0;
+        const days = parseInt(document.getElementById('calc-days').value) || 0;
+        const ivChange = parseFloat(document.getElementById('calc-iv-change').value) || 0;
+
+        if (stockPrice === 0) {
+          alert('Please enter a stock price');
+          return;
+        }
+
+        // Calculate P&L at the given price
+        const pnl = calculatePnLAtPrice(stockPrice);
+
+        // Show result
+        const resultContainer = document.getElementById('calculator-result');
+        const resultValue = document.getElementById('calculator-result-value');
+
+        resultValue.textContent = formatCurrency(pnl);
+        resultValue.className = 'calculator-result-value ' + (pnl >= 0 ? 'profit' : 'loss');
+        resultContainer.style.display = 'block';
+      }
+
+      function getDefaultExpiration() {
+        const date = new Date();
+        date.setDate(date.getDate() + 30); // 30 days from now
+        return date.toISOString().split('T')[0];
+      }
+
+      function formatCurrency(value) {
+        const formatted = Math.abs(value).toFixed(2);
+        return value >= 0 ? `$${formatted}` : `-$${formatted}`;
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type}`;
+        toast.style.cssText = 'position: fixed; top: 80px; right: 24px; z-index: 1000; min-width: 300px; animation: slideIn 0.3s ease;';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.style.animation = 'slideOut 0.3s ease';
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+
+      // Make functions globally available
+      window.removeLeg = removeLeg;
+      window.updateLeg = updateLeg;
+      window.loadSavedStrategy = loadSavedStrategy;
+      window.deleteSavedStrategy = deleteSavedStrategy;
+    })();
+  </script>
+</body>
+</html>

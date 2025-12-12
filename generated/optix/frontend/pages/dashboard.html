@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="OPTIX Trading Platform Dashboard - Portfolio overview and market insights">
+  <title>Dashboard - OPTIX</title>
+
+  <!-- Design System -->
+  <link rel="stylesheet" href="../assets/css/optix-design-system.css">
+
+  <!-- Preload critical assets -->
+  <link rel="preload" href="../assets/js/optix-data-bridge.js" as="script">
+  <link rel="preload" href="../assets/js/auth.js" as="script">
+  <link rel="preload" href="../assets/js/component-loader.js" as="script">
+</head>
+<body>
+  <!-- Skip to main content for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- App Container -->
+  <div class="app-container">
+    <!-- Header (loaded dynamically) -->
+    <div id="header-container"></div>
+
+    <!-- Sidebar (loaded dynamically) -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+      <div class="page-container">
+        <!-- Page Header -->
+        <div class="page-header">
+          <h1 class="page-title">Dashboard</h1>
+          <div class="flex gap-sm">
+            <button id="refresh-btn" class="btn btn-secondary btn-sm" aria-label="Refresh data">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 3a5 5 0 104.546 2.914.5.5 0 01.908-.417A6 6 0 118 2v1z"/>
+                <path d="M8 4.466V.534a.25.25 0 01.41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 018 4.466z"/>
+              </svg>
+              Refresh
+            </button>
+            <button id="sync-portfolio-btn" class="btn btn-primary btn-sm">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M11.534 7h3.932a.25.25 0 01.192.41l-1.966 2.36a.25.25 0 01-.384 0l-1.966-2.36a.25.25 0 01.192-.41zm-11 2h3.932a.25.25 0 00.192-.41L2.692 6.23a.25.25 0 00-.384 0L.342 8.59A.25.25 0 00.534 9z"/>
+                <path d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 11-.771-.636A6.002 6.002 0 0113.917 7H12.9A5.002 5.002 0 008 3zM3.1 9a5.002 5.002 0 008.757 2.182.5.5 0 11.771.636A6.002 6.002 0 012.083 9H3.1z"/>
+              </svg>
+              Sync Portfolio
+            </button>
+          </div>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div id="dashboard-grid" class="grid grid-cols-4">
+          <!-- Portfolio Summary Card -->
+          <div class="card portfolio-summary-card">
+            <div class="card-header">
+              <h2 class="card-title">Portfolio Summary</h2>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" class="text-muted">
+                <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"/>
+              </svg>
+            </div>
+            <div class="card-body">
+              <div class="portfolio-stat-group">
+                <div class="portfolio-stat">
+                  <div class="stat-label">Total Value</div>
+                  <div id="portfolio-value" class="stat-value skeleton" style="height: 36px; width: 160px;">$0.00</div>
+                </div>
+                <div class="portfolio-stat">
+                  <div class="stat-label">Day P&L</div>
+                  <div id="portfolio-day-pnl" class="stat-value-change skeleton" style="height: 24px; width: 120px;">$0.00</div>
+                </div>
+                <div class="portfolio-stat">
+                  <div class="stat-label">Total P&L</div>
+                  <div id="portfolio-total-pnl" class="stat-value-change skeleton" style="height: 24px; width: 120px;">$0.00</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Market Status Card -->
+          <div class="card market-status-card">
+            <div class="card-header">
+              <h2 class="card-title">Market Status</h2>
+              <span id="market-time" class="text-muted text-mono" style="font-size: 12px;">--:-- ET</span>
+            </div>
+            <div class="card-body">
+              <div class="market-status-indicator">
+                <div class="status-main">
+                  <span id="market-status-dot" class="status-dot-large status-closed"></span>
+                  <div>
+                    <div id="market-status-text" class="market-status-label">Market Closed</div>
+                    <div id="market-status-detail" class="market-status-sublabel text-muted">Opens at 9:30 AM ET</div>
+                  </div>
+                </div>
+                <div class="market-indices">
+                  <div class="index-item">
+                    <span class="index-label">S&P 500</span>
+                    <span id="spx-price" class="index-value skeleton" style="height: 18px; width: 80px;">--</span>
+                  </div>
+                  <div class="index-item">
+                    <span class="index-label">Nasdaq</span>
+                    <span id="ndx-price" class="index-value skeleton" style="height: 18px; width: 80px;">--</span>
+                  </div>
+                  <div class="index-item">
+                    <span class="index-label">Dow Jones</span>
+                    <span id="dji-price" class="index-value skeleton" style="height: 18px; width: 80px;">--</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Quotes - AAPL -->
+          <div class="card quote-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="text-muted">
+                  <path d="M8 16A8 8 0 108 0a8 8 0 000 16zM7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zM4.285 9.567a.5.5 0 01.683.183A3.498 3.498 0 008 11.5a3.498 3.498 0 003.032-1.75.5.5 0 11.866.5A4.498 4.498 0 018 12.5a4.498 4.498 0 01-3.898-2.25.5.5 0 01.183-.683zM10 8c-.552 0-1-.672-1-1.5S9.448 5 10 5s1 .672 1 1.5S10.552 8 10 8z"/>
+                </svg>
+                <span id="quote-aapl-symbol">AAPL</span>
+              </h2>
+              <a href="/pages/options.html?symbol=AAPL" class="btn btn-ghost btn-sm">View</a>
+            </div>
+            <div class="card-body">
+              <div class="quote-price-display">
+                <div id="quote-aapl-price" class="price-display price-large skeleton" style="height: 32px; width: 100px;">$0.00</div>
+                <div id="quote-aapl-change" class="price-change skeleton" style="height: 24px; width: 80px;">+$0.00 (0.00%)</div>
+              </div>
+              <div class="quote-details">
+                <div class="quote-detail-item">
+                  <span class="text-muted">Open</span>
+                  <span id="quote-aapl-open" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">High</span>
+                  <span id="quote-aapl-high" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">Low</span>
+                  <span id="quote-aapl-low" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">Volume</span>
+                  <span id="quote-aapl-volume" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Quotes - SPY -->
+          <div class="card quote-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="text-muted">
+                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                </svg>
+                <span id="quote-spy-symbol">SPY</span>
+              </h2>
+              <a href="/pages/options.html?symbol=SPY" class="btn btn-ghost btn-sm">View</a>
+            </div>
+            <div class="card-body">
+              <div class="quote-price-display">
+                <div id="quote-spy-price" class="price-display price-large skeleton" style="height: 32px; width: 100px;">$0.00</div>
+                <div id="quote-spy-change" class="price-change skeleton" style="height: 24px; width: 80px;">+$0.00 (0.00%)</div>
+              </div>
+              <div class="quote-details">
+                <div class="quote-detail-item">
+                  <span class="text-muted">Open</span>
+                  <span id="quote-spy-open" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">High</span>
+                  <span id="quote-spy-high" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">Low</span>
+                  <span id="quote-spy-low" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">Volume</span>
+                  <span id="quote-spy-volume" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Quotes - QQQ -->
+          <div class="card quote-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="text-muted">
+                  <path d="M8 16A8 8 0 108 0a8 8 0 000 16zm.5-13v6.5H14a6.5 6.5 0 11-5.5-6.5z"/>
+                </svg>
+                <span id="quote-qqq-symbol">QQQ</span>
+              </h2>
+              <a href="/pages/options.html?symbol=QQQ" class="btn btn-ghost btn-sm">View</a>
+            </div>
+            <div class="card-body">
+              <div class="quote-price-display">
+                <div id="quote-qqq-price" class="price-display price-large skeleton" style="height: 32px; width: 100px;">$0.00</div>
+                <div id="quote-qqq-change" class="price-change skeleton" style="height: 24px; width: 80px;">+$0.00 (0.00%)</div>
+              </div>
+              <div class="quote-details">
+                <div class="quote-detail-item">
+                  <span class="text-muted">Open</span>
+                  <span id="quote-qqq-open" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">High</span>
+                  <span id="quote-qqq-high" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">Low</span>
+                  <span id="quote-qqq-low" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">Volume</span>
+                  <span id="quote-qqq-volume" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Quotes - TSLA -->
+          <div class="card quote-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="text-muted">
+                  <path d="M12.854.146a.5.5 0 00-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 000-.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 01.5.5v.5h.5a.5.5 0 01.5.5v.5h.5a.5.5 0 01.5.5v.5h.5a.5.5 0 01.5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 016 13.5V13h-.5a.5.5 0 01-.5-.5V12h-.5a.5.5 0 01-.5-.5V11h-.5a.5.5 0 01-.5-.5V10h-.5a.499.499 0 01-.175-.032l-.179.178a.5.5 0 00-.11.168l-2 5a.5.5 0 00.65.65l5-2a.5.5 0 00.168-.11l.178-.178z"/>
+                </svg>
+                <span id="quote-tsla-symbol">TSLA</span>
+              </h2>
+              <a href="/pages/options.html?symbol=TSLA" class="btn btn-ghost btn-sm">View</a>
+            </div>
+            <div class="card-body">
+              <div class="quote-price-display">
+                <div id="quote-tsla-price" class="price-display price-large skeleton" style="height: 32px; width: 100px;">$0.00</div>
+                <div id="quote-tsla-change" class="price-change skeleton" style="height: 24px; width: 80px;">+$0.00 (0.00%)</div>
+              </div>
+              <div class="quote-details">
+                <div class="quote-detail-item">
+                  <span class="text-muted">Open</span>
+                  <span id="quote-tsla-open" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">High</span>
+                  <span id="quote-tsla-high" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">Low</span>
+                  <span id="quote-tsla-low" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+                <div class="quote-detail-item">
+                  <span class="text-muted">Volume</span>
+                  <span id="quote-tsla-volume" class="skeleton" style="height: 16px; width: 60px;">--</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Alerts Card (spans 2 columns) -->
+          <div class="card alerts-card" style="grid-column: span 2;">
+            <div class="card-header">
+              <h2 class="card-title">Recent Alerts</h2>
+              <a href="/pages/alerts.html" class="btn btn-ghost btn-sm">View All</a>
+            </div>
+            <div class="card-body">
+              <div id="alerts-list" class="alerts-list">
+                <div class="alert-item skeleton" style="height: 48px; margin-bottom: 8px;"></div>
+                <div class="alert-item skeleton" style="height: 48px; margin-bottom: 8px;"></div>
+                <div class="alert-item skeleton" style="height: 48px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Dashboard-specific styles -->
+  <style>
+    /* Portfolio Summary Card */
+    .portfolio-summary-card {
+      grid-column: span 2;
+    }
+
+    .portfolio-stat-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-lg);
+    }
+
+    .portfolio-stat {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-xs);
+    }
+
+    .stat-label {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: var(--optix-font-medium);
+    }
+
+    .stat-value {
+      font-size: var(--optix-font-3xl);
+      font-weight: var(--optix-font-bold);
+      font-family: var(--optix-font-mono);
+      color: var(--optix-text);
+    }
+
+    .stat-value-change {
+      font-size: var(--optix-font-xl);
+      font-weight: var(--optix-font-semibold);
+      font-family: var(--optix-font-mono);
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-xs);
+    }
+
+    .stat-value-change.positive {
+      color: var(--optix-green);
+    }
+
+    .stat-value-change.negative {
+      color: var(--optix-red);
+    }
+
+    /* Market Status Card */
+    .market-status-indicator {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-lg);
+    }
+
+    .status-main {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-md);
+    }
+
+    .status-dot-large {
+      width: 16px;
+      height: 16px;
+      border-radius: var(--optix-radius-full);
+      flex-shrink: 0;
+    }
+
+    .status-dot-large.status-open {
+      background: var(--optix-green);
+      box-shadow: 0 0 12px var(--optix-green);
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot-large.status-premarket,
+    .status-dot-large.status-afterhours {
+      background: var(--optix-yellow);
+    }
+
+    .status-dot-large.status-closed {
+      background: var(--optix-text-dim);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .market-status-label {
+      font-size: var(--optix-font-md);
+      font-weight: var(--optix-font-semibold);
+    }
+
+    .market-status-sublabel {
+      font-size: var(--optix-font-sm);
+    }
+
+    .market-indices {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-sm);
+      padding-top: var(--optix-space-sm);
+      border-top: 1px solid var(--optix-border);
+    }
+
+    .index-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .index-label {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+    }
+
+    .index-value {
+      font-family: var(--optix-font-mono);
+      font-size: var(--optix-font-sm);
+      font-weight: var(--optix-font-medium);
+    }
+
+    /* Quote Cards */
+    .quote-price-display {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-sm);
+      margin-bottom: var(--optix-space-md);
+      padding-bottom: var(--optix-space-md);
+      border-bottom: 1px solid var(--optix-border);
+    }
+
+    .quote-details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--optix-space-sm);
+    }
+
+    .quote-detail-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: var(--optix-font-sm);
+    }
+
+    .quote-detail-item span:last-child {
+      font-family: var(--optix-font-mono);
+      font-weight: var(--optix-font-medium);
+    }
+
+    /* Alerts Card */
+    .alerts-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-sm);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .alert-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--optix-space-sm);
+      padding: var(--optix-space-sm);
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-md);
+      border-left: 3px solid var(--optix-border);
+    }
+
+    .alert-item.alert-triggered {
+      border-left-color: var(--optix-red);
+      background: var(--optix-red-bg);
+    }
+
+    .alert-item.alert-info {
+      border-left-color: var(--optix-blue);
+    }
+
+    .alert-icon {
+      flex-shrink: 0;
+      color: var(--optix-text-dim);
+    }
+
+    .alert-content {
+      flex: 1;
+    }
+
+    .alert-title {
+      font-size: var(--optix-font-sm);
+      font-weight: var(--optix-font-medium);
+      margin-bottom: 2px;
+    }
+
+    .alert-detail {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-muted);
+    }
+
+    .alert-time {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-dim);
+      white-space: nowrap;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: var(--optix-space-xl);
+      color: var(--optix-text-muted);
+    }
+
+    .empty-state svg {
+      margin: 0 auto var(--optix-space-md);
+      opacity: 0.5;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .portfolio-summary-card {
+        grid-column: span 2;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .portfolio-summary-card,
+      .alerts-card {
+        grid-column: span 1;
+      }
+    }
+  </style>
+
+  <!-- Scripts -->
+  <script src="../assets/js/optix-data-bridge.js"></script>
+  <script src="../assets/js/auth.js"></script>
+  <script src="../assets/js/component-loader.js"></script>
+
+  <script>
+    // Dashboard Application
+    (async function() {
+      'use strict';
+
+      // Load layout components
+      await OPTIXComponentLoader.loadLayout();
+
+      // Initialize dashboard
+      initDashboard();
+
+      // Refresh button
+      document.getElementById('refresh-btn')?.addEventListener('click', () => {
+        loadDashboardData();
+      });
+
+      // Sync portfolio button
+      document.getElementById('sync-portfolio-btn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('sync-portfolio-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px;"></div> Syncing...';
+
+        try {
+          await OPTIXDataBridge.portfolio.sync();
+          await loadPortfolio();
+          showToast('Portfolio synced successfully', 'success');
+        } catch (error) {
+          showToast('Failed to sync portfolio: ' + error.message, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.534 7h3.932a.25.25 0 01.192.41l-1.966 2.36a.25.25 0 01-.384 0l-1.966-2.36a.25.25 0 01.192-.41zm-11 2h3.932a.25.25 0 00.192-.41L2.692 6.23a.25.25 0 00-.384 0L.342 8.59A.25.25 0 00.534 9z"/><path d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 11-.771-.636A6.002 6.002 0 0113.917 7H12.9A5.002 5.002 0 008 3zM3.1 9a5.002 5.002 0 008.757 2.182.5.5 0 11.771.636A6.002 6.002 0 012.083 9H3.1z"/></svg> Sync Portfolio';
+        }
+      });
+
+      /**
+       * Initialize dashboard
+       */
+      function initDashboard() {
+        updateMarketStatus();
+        loadDashboardData();
+
+        // Update market status every minute
+        setInterval(updateMarketStatus, 60000);
+
+        // Refresh data every 30 seconds
+        setInterval(loadDashboardData, 30000);
+      }
+
+      /**
+       * Load all dashboard data
+       */
+      async function loadDashboardData() {
+        await Promise.all([
+          loadPortfolio(),
+          loadQuotes(),
+          loadAlerts(),
+        ]);
+      }
+
+      /**
+       * Load portfolio data
+       */
+      async function loadPortfolio() {
+        try {
+          const portfolio = await OPTIXDataBridge.portfolio.get();
+
+          // Update portfolio value
+          const valueEl = document.getElementById('portfolio-value');
+          valueEl.textContent = OPTIXComponentLoader.formatPrice(portfolio.total_value || 0);
+          valueEl.classList.remove('skeleton');
+
+          // Update day P&L
+          const dayPnlEl = document.getElementById('portfolio-day-pnl');
+          const dayPnl = portfolio.day_pnl || 0;
+          const dayPnlPct = portfolio.day_pnl_percent || 0;
+          dayPnlEl.textContent = `${OPTIXComponentLoader.formatChange(dayPnl)} (${OPTIXComponentLoader.formatPercent(dayPnlPct)})`;
+          dayPnlEl.classList.remove('skeleton');
+          dayPnlEl.classList.toggle('positive', dayPnl >= 0);
+          dayPnlEl.classList.toggle('negative', dayPnl < 0);
+
+          // Update total P&L
+          const totalPnlEl = document.getElementById('portfolio-total-pnl');
+          const totalPnl = portfolio.total_pnl || 0;
+          const totalPnlPct = portfolio.total_pnl_percent || 0;
+          totalPnlEl.textContent = `${OPTIXComponentLoader.formatChange(totalPnl)} (${OPTIXComponentLoader.formatPercent(totalPnlPct)})`;
+          totalPnlEl.classList.remove('skeleton');
+          totalPnlEl.classList.toggle('positive', totalPnl >= 0);
+          totalPnlEl.classList.toggle('negative', totalPnl < 0);
+        } catch (error) {
+          console.error('Failed to load portfolio:', error);
+          // Show default values on error
+          document.getElementById('portfolio-value').textContent = '$0.00';
+          document.getElementById('portfolio-day-pnl').textContent = '$0.00 (0.00%)';
+          document.getElementById('portfolio-total-pnl').textContent = '$0.00 (0.00%)';
+        }
+      }
+
+      /**
+       * Load quote data for watchlist symbols
+       */
+      async function loadQuotes() {
+        const symbols = ['AAPL', 'SPY', 'QQQ', 'TSLA'];
+
+        try {
+          const quotes = await OPTIXDataBridge.quotes.getBatch(symbols);
+
+          symbols.forEach(symbol => {
+            const quote = quotes[symbol] || quotes.find(q => q.symbol === symbol);
+            if (quote) {
+              updateQuoteCard(symbol.toLowerCase(), quote);
+            }
+          });
+        } catch (error) {
+          console.error('Failed to load quotes:', error);
+        }
+      }
+
+      /**
+       * Update quote card with data
+       */
+      function updateQuoteCard(symbol, quote) {
+        const price = quote.price || quote.last || 0;
+        const change = quote.change || 0;
+        const changePct = quote.change_percent || quote.changePercent || 0;
+        const open = quote.open || 0;
+        const high = quote.high || 0;
+        const low = quote.low || 0;
+        const volume = quote.volume || 0;
+
+        // Price
+        const priceEl = document.getElementById(`quote-${symbol}-price`);
+        if (priceEl) {
+          priceEl.textContent = OPTIXComponentLoader.formatPrice(price);
+          priceEl.classList.remove('skeleton');
+        }
+
+        // Change
+        const changeEl = document.getElementById(`quote-${symbol}-change`);
+        if (changeEl) {
+          changeEl.textContent = `${OPTIXComponentLoader.formatChange(change)} (${OPTIXComponentLoader.formatPercent(changePct)})`;
+          changeEl.classList.remove('skeleton');
+          changeEl.classList.toggle('positive', change >= 0);
+          changeEl.classList.toggle('negative', change < 0);
+        }
+
+        // Details
+        const openEl = document.getElementById(`quote-${symbol}-open`);
+        if (openEl) {
+          openEl.textContent = OPTIXComponentLoader.formatPrice(open);
+          openEl.classList.remove('skeleton');
+        }
+
+        const highEl = document.getElementById(`quote-${symbol}-high`);
+        if (highEl) {
+          highEl.textContent = OPTIXComponentLoader.formatPrice(high);
+          highEl.classList.remove('skeleton');
+        }
+
+        const lowEl = document.getElementById(`quote-${symbol}-low`);
+        if (lowEl) {
+          lowEl.textContent = OPTIXComponentLoader.formatPrice(low);
+          lowEl.classList.remove('skeleton');
+        }
+
+        const volumeEl = document.getElementById(`quote-${symbol}-volume`);
+        if (volumeEl) {
+          volumeEl.textContent = OPTIXComponentLoader.formatNumber(volume);
+          volumeEl.classList.remove('skeleton');
+        }
+      }
+
+      /**
+       * Load recent alerts
+       */
+      async function loadAlerts() {
+        try {
+          const alerts = await OPTIXDataBridge.alerts.getAll();
+          const alertsList = document.getElementById('alerts-list');
+
+          if (!alerts || alerts.length === 0) {
+            alertsList.innerHTML = `
+              <div class="empty-state">
+                <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a2 2 0 01-2-2h4a2 2 0 01-2 2z"/>
+                </svg>
+                <p>No alerts yet</p>
+              </div>
+            `;
+            return;
+          }
+
+          // Show recent 5 alerts
+          const recentAlerts = alerts.slice(0, 5);
+          alertsList.innerHTML = recentAlerts.map(alert => {
+            const time = formatAlertTime(alert.created_at || alert.timestamp);
+            const className = alert.triggered ? 'alert-triggered' : 'alert-info';
+
+            return `
+              <div class="alert-item ${className}">
+                <svg class="alert-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M8 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 002 14h12a1 1 0 00.707-1.707L14 11.586V8a6 6 0 00-6-6zm0 16a2 2 0 01-2-2h4a2 2 0 01-2 2z"/>
+                </svg>
+                <div class="alert-content">
+                  <div class="alert-title">${escapeHtml(alert.title || alert.name || 'Alert')}</div>
+                  <div class="alert-detail">${escapeHtml(alert.message || alert.description || '')}</div>
+                </div>
+                <span class="alert-time">${time}</span>
+              </div>
+            `;
+          }).join('');
+        } catch (error) {
+          console.error('Failed to load alerts:', error);
+          document.getElementById('alerts-list').innerHTML = `
+            <div class="empty-state">
+              <p class="text-muted">Failed to load alerts</p>
+            </div>
+          `;
+        }
+      }
+
+      /**
+       * Update market status indicator
+       */
+      function updateMarketStatus() {
+        const now = new Date();
+        const nyTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const hours = nyTime.getHours();
+        const minutes = nyTime.getMinutes();
+        const day = nyTime.getDay();
+        const time = hours * 60 + minutes;
+
+        const dot = document.getElementById('market-status-dot');
+        const text = document.getElementById('market-status-text');
+        const detail = document.getElementById('market-status-detail');
+        const timeEl = document.getElementById('market-time');
+
+        // Update time
+        if (timeEl) {
+          const timeStr = nyTime.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: 'America/New_York'
+          });
+          timeEl.textContent = `${timeStr} ET`;
+        }
+
+        // Weekend check
+        if (day === 0 || day === 6) {
+          dot.className = 'status-dot-large status-closed';
+          text.textContent = 'Market Closed';
+          detail.textContent = 'Opens Monday at 9:30 AM ET';
+          return;
+        }
+
+        // Market hours: 9:30 AM - 4:00 PM ET
+        const preMarketStart = 4 * 60; // 4:00 AM
+        const marketOpen = 9 * 60 + 30; // 9:30 AM
+        const marketClose = 16 * 60; // 4:00 PM
+        const afterHoursEnd = 20 * 60; // 8:00 PM
+
+        if (time >= marketOpen && time < marketClose) {
+          dot.className = 'status-dot-large status-open';
+          text.textContent = 'Market Open';
+          detail.textContent = 'Closes at 4:00 PM ET';
+        } else if (time >= preMarketStart && time < marketOpen) {
+          dot.className = 'status-dot-large status-premarket';
+          text.textContent = 'Pre-Market';
+          detail.textContent = 'Market opens at 9:30 AM ET';
+        } else if (time >= marketClose && time < afterHoursEnd) {
+          dot.className = 'status-dot-large status-afterhours';
+          text.textContent = 'After Hours';
+          detail.textContent = 'Closes at 8:00 PM ET';
+        } else {
+          dot.className = 'status-dot-large status-closed';
+          text.textContent = 'Market Closed';
+          detail.textContent = 'Opens at 9:30 AM ET';
+        }
+      }
+
+      /**
+       * Format alert time
+       */
+      function formatAlertTime(timestamp) {
+        if (!timestamp) return '';
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        if (days < 7) return `${days}d ago`;
+        return date.toLocaleDateString();
+      }
+
+      /**
+       * Escape HTML
+       */
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      /**
+       * Show toast notification
+       */
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type}`;
+        toast.style.cssText = 'position: fixed; top: 80px; right: 24px; z-index: 1000; min-width: 300px; animation: slideIn 0.3s ease;';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.style.animation = 'slideOut 0.3s ease';
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -184,6 +184,56 @@ def push_devops_tools_docs():
     return create_or_update_page(client, title, html_content)
 
 
+def push_optix_service_endpoints():
+    """Push OPTIX Service Endpoints documentation to Confluence."""
+    client = get_confluence_client()
+
+    if not client.is_configured:
+        return None
+
+    # Read OPTIX Service Endpoints documentation
+    optix_doc_path = project_root / "docs" / "OPTIX_Service_Endpoints.md"
+    if not optix_doc_path.exists():
+        print(f"ERROR: OPTIX Service Endpoints doc not found at {optix_doc_path}")
+        return None
+
+    optix_content = optix_doc_path.read_text()
+    html_content = markdown_to_confluence(optix_content)
+
+    # Add update timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    html_content = f'<p><em>Last synced from repository: {timestamp}</em></p><hr/>' + html_content
+
+    title = f"{PROJECT_NAME} - OPTIX Service Endpoints"
+    print(f"\nPushing OPTIX Service Endpoints documentation to Confluence...")
+    return create_or_update_page(client, title, html_content)
+
+
+def push_optix_frontend_readme():
+    """Push OPTIX Frontend README to Confluence."""
+    client = get_confluence_client()
+
+    if not client.is_configured:
+        return None
+
+    # Read OPTIX Frontend README
+    frontend_doc_path = project_root / "generated" / "optix" / "frontend" / "README.md"
+    if not frontend_doc_path.exists():
+        print(f"ERROR: OPTIX Frontend README not found at {frontend_doc_path}")
+        return None
+
+    frontend_content = frontend_doc_path.read_text()
+    html_content = markdown_to_confluence(frontend_content)
+
+    # Add update timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    html_content = f'<p><em>Last synced from repository: {timestamp}</em></p><hr/>' + html_content
+
+    title = f"{PROJECT_NAME} - OPTIX Frontend Documentation"
+    print(f"\nPushing OPTIX Frontend documentation to Confluence...")
+    return create_or_update_page(client, title, html_content)
+
+
 def push_sync_feature_announcement():
     """Push a page announcing the new Jira-Confluence sync feature."""
     client = get_confluence_client()
@@ -279,6 +329,8 @@ def main():
     results.append(("README", push_readme()))
     results.append(("TRD", push_trd()))
     results.append(("DevOps Tools", push_devops_tools_docs()))
+    results.append(("OPTIX Service Endpoints", push_optix_service_endpoints()))
+    results.append(("OPTIX Frontend", push_optix_frontend_readme()))
     results.append(("Sync Feature", push_sync_feature_announcement()))
 
     # Summary

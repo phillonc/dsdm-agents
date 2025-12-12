@@ -8,18 +8,26 @@ from datetime import datetime
 from .models import User, UserProfile
 
 
+# Singleton storage - persists across requests (in-memory for demo)
+# In production, this would be replaced with PostgreSQL database
+_user_storage: Dict[uuid.UUID, User] = {}
+_profile_storage: Dict[uuid.UUID, UserProfile] = {}
+_email_index: Dict[str, uuid.UUID] = {}
+
+
 class UserRepository:
     """
     User repository for database operations
     In production, this would interact with PostgreSQL
+    Uses module-level singleton storage for persistence across requests
     """
-    
+
     def __init__(self):
-        # In-memory storage for demonstration
-        # In production, use SQLAlchemy or similar ORM
-        self._users: Dict[uuid.UUID, User] = {}
-        self._profiles: Dict[uuid.UUID, UserProfile] = {}
-        self._email_index: Dict[str, uuid.UUID] = {}
+        # Use module-level singleton storage for persistence across requests
+        # This ensures registered users persist until server restart
+        self._users = _user_storage
+        self._profiles = _profile_storage
+        self._email_index = _email_index
     
     def create_user(self, user: User) -> User:
         """Create new user"""

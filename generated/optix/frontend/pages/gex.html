@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="GEX Analysis - Gamma Exposure Analysis for Options Trading">
+  <title>GEX Analysis - OPTIX</title>
+  <link rel="stylesheet" href="../assets/css/optix-design-system.css">
+  <style>
+    /* GEX-specific styles */
+    .symbol-selector-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-md);
+      margin-bottom: var(--optix-space-lg);
+      padding: var(--optix-space-md);
+      background: var(--optix-bg-card);
+      border-radius: var(--optix-radius-lg);
+      border: 1px solid var(--optix-border);
+    }
+
+    .symbol-input-group {
+      flex: 1;
+      max-width: 300px;
+      display: flex;
+      gap: var(--optix-space-sm);
+    }
+
+    .metric-card {
+      text-align: center;
+    }
+
+    .metric-label {
+      display: block;
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+      margin-bottom: var(--optix-space-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-value {
+      display: block;
+      font-size: var(--optix-font-2xl);
+      font-weight: var(--optix-font-bold);
+      font-family: var(--optix-font-mono);
+      color: var(--optix-text);
+      margin-bottom: var(--optix-space-xs);
+    }
+
+    .metric-value.large {
+      font-size: var(--optix-font-3xl);
+    }
+
+    .metric-detail {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-dim);
+    }
+
+    .sentiment-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--optix-space-xs);
+      padding: 4px 12px;
+      border-radius: var(--optix-radius-full);
+      font-size: var(--optix-font-sm);
+      font-weight: var(--optix-font-semibold);
+    }
+
+    .sentiment-indicator.bullish {
+      background: var(--optix-green-bg);
+      color: var(--optix-green);
+    }
+
+    .sentiment-indicator.bearish {
+      background: var(--optix-red-bg);
+      color: var(--optix-red);
+    }
+
+    .sentiment-indicator.neutral {
+      background: var(--optix-bg-elevated);
+      color: var(--optix-text-muted);
+    }
+
+    /* GEX Heatmap */
+    .gex-heatmap {
+      margin-top: var(--optix-space-md);
+    }
+
+    .heatmap-row {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-sm);
+      margin-bottom: var(--optix-space-xs);
+      position: relative;
+    }
+
+    .heatmap-strike {
+      min-width: 80px;
+      text-align: right;
+      font-family: var(--optix-font-mono);
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+    }
+
+    .heatmap-strike.current-price {
+      color: var(--optix-primary);
+      font-weight: var(--optix-font-bold);
+    }
+
+    .heatmap-strike.gamma-flip {
+      color: var(--optix-yellow);
+      font-weight: var(--optix-font-bold);
+    }
+
+    .heatmap-bar-container {
+      flex: 1;
+      height: 24px;
+      position: relative;
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-sm);
+      overflow: hidden;
+    }
+
+    .heatmap-bar {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      transition: width var(--optix-transition-normal);
+      display: flex;
+      align-items: center;
+      padding: 0 var(--optix-space-sm);
+    }
+
+    .heatmap-bar.positive {
+      background: linear-gradient(90deg, var(--optix-green-bg), var(--optix-green));
+      left: 0;
+    }
+
+    .heatmap-bar.negative {
+      background: linear-gradient(90deg, var(--optix-red), var(--optix-red-bg));
+      right: 0;
+    }
+
+    .heatmap-value {
+      font-family: var(--optix-font-mono);
+      font-size: var(--optix-font-xs);
+      font-weight: var(--optix-font-semibold);
+      color: var(--optix-text);
+      white-space: nowrap;
+    }
+
+    .heatmap-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--optix-primary);
+      z-index: 10;
+    }
+
+    .heatmap-marker.gamma-flip-marker {
+      background: var(--optix-yellow);
+      width: 3px;
+    }
+
+    .heatmap-marker-label {
+      position: absolute;
+      top: -20px;
+      font-size: var(--optix-font-xs);
+      white-space: nowrap;
+      color: var(--optix-primary);
+      font-weight: var(--optix-font-semibold);
+    }
+
+    .heatmap-legend {
+      display: flex;
+      justify-content: center;
+      gap: var(--optix-space-lg);
+      margin-top: var(--optix-space-md);
+      padding-top: var(--optix-space-md);
+      border-top: 1px solid var(--optix-border);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-sm);
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+    }
+
+    .legend-color {
+      width: 20px;
+      height: 12px;
+      border-radius: var(--optix-radius-sm);
+    }
+
+    .legend-color.positive {
+      background: var(--optix-green);
+    }
+
+    .legend-color.negative {
+      background: var(--optix-red);
+    }
+
+    .legend-color.current {
+      background: var(--optix-primary);
+      width: 2px;
+      height: 20px;
+    }
+
+    .legend-color.flip {
+      background: var(--optix-yellow);
+      width: 3px;
+      height: 20px;
+    }
+
+    /* Historical Chart */
+    .chart-container {
+      margin-top: var(--optix-space-md);
+      height: 300px;
+      position: relative;
+    }
+
+    .chart-placeholder {
+      height: 100%;
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--optix-text-dim);
+      border: 1px dashed var(--optix-border);
+    }
+
+    /* Loading states */
+    .skeleton-metric {
+      height: 40px;
+      margin-bottom: var(--optix-space-sm);
+    }
+
+    .skeleton-bar {
+      height: 24px;
+      margin-bottom: var(--optix-space-xs);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .metric-value {
+        font-size: var(--optix-font-xl);
+      }
+
+      .metric-value.large {
+        font-size: var(--optix-font-2xl);
+      }
+
+      .heatmap-strike {
+        min-width: 60px;
+        font-size: var(--optix-font-xs);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <div id="header-container"></div>
+
+    <!-- Sidebar -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-container">
+        <!-- Page Header -->
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">GEX Analysis</h1>
+            <p class="text-muted">Gamma Exposure analysis for market positioning</p>
+          </div>
+        </div>
+
+        <!-- Symbol Selector -->
+        <div class="symbol-selector-bar">
+          <div class="symbol-input-group">
+            <input
+              type="text"
+              id="symbol-input"
+              class="form-input"
+              placeholder="Enter symbol (e.g., SPY)"
+              value="SPY"
+              style="text-transform: uppercase;"
+            >
+            <button id="load-symbol-btn" class="btn btn-primary">Load</button>
+          </div>
+          <div class="flex items-center gap-md">
+            <button id="refresh-btn" class="btn btn-secondary btn-sm">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 3a5 5 0 104.546 2.914.5.5 0 01.908-.417A6 6 0 118 2v1z"/>
+                <path d="M8 4.466V.534a.25.25 0 01.41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 018 4.466z"/>
+              </svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Error Alert -->
+        <div id="error-alert" class="alert alert-error" style="display: none;">
+          <strong>Error</strong>
+          <p id="error-message" class="text-muted mt-sm"></p>
+        </div>
+
+        <!-- GEX Summary Cards -->
+        <div class="grid grid-cols-4 mb-lg">
+          <div class="card metric-card">
+            <span class="metric-label">Total GEX</span>
+            <span id="total-gex" class="metric-value large">--</span>
+            <span id="total-gex-detail" class="metric-detail">--</span>
+          </div>
+
+          <div class="card metric-card">
+            <span class="metric-label">Gamma Flip</span>
+            <span id="gamma-flip" class="metric-value">--</span>
+            <span id="gamma-flip-detail" class="metric-detail">--</span>
+          </div>
+
+          <div class="card metric-card">
+            <span class="metric-label">Market Sentiment</span>
+            <div id="market-sentiment" class="metric-value" style="font-size: var(--optix-font-lg);">
+              <span class="sentiment-indicator neutral">--</span>
+            </div>
+            <span id="sentiment-detail" class="metric-detail">--</span>
+          </div>
+
+          <div class="card metric-card">
+            <span class="metric-label">Call / Put Ratio</span>
+            <span id="call-put-ratio" class="metric-value">--</span>
+            <span id="call-put-detail" class="metric-detail">
+              <span class="text-green">Calls: --</span> / <span class="text-red">Puts: --</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- GEX Heatmap -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">GEX by Strike</h3>
+            <div class="flex items-center gap-sm">
+              <span class="badge badge-primary" id="current-price-badge">Current: --</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="gex-heatmap" class="gex-heatmap">
+              <!-- Loading skeleton -->
+              <div class="skeleton skeleton-bar"></div>
+              <div class="skeleton skeleton-bar"></div>
+              <div class="skeleton skeleton-bar"></div>
+              <div class="skeleton skeleton-bar"></div>
+              <div class="skeleton skeleton-bar"></div>
+            </div>
+            <div class="heatmap-legend">
+              <div class="legend-item">
+                <div class="legend-color positive"></div>
+                <span>Positive GEX (Calls)</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color negative"></div>
+                <span>Negative GEX (Puts)</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color current"></div>
+                <span>Current Price</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color flip"></div>
+                <span>Gamma Flip</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Row: GEX by Expiration + Market Maker Positioning -->
+        <div class="grid grid-cols-2 mt-md">
+          <!-- GEX by Expiration -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">GEX by Expiration</h3>
+            </div>
+            <div class="card-body">
+              <div class="table-container">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Expiration</th>
+                      <th class="table-numeric">Total GEX</th>
+                      <th class="table-numeric">Call GEX</th>
+                      <th class="table-numeric">Put GEX</th>
+                      <th class="table-numeric">Net GEX</th>
+                    </tr>
+                  </thead>
+                  <tbody id="expiration-table-body">
+                    <tr>
+                      <td colspan="5" style="text-align: center; padding: var(--optix-space-lg); color: var(--optix-text-dim);">
+                        Loading...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Market Maker Positioning -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Market Maker Positioning</h3>
+            </div>
+            <div class="card-body">
+              <div class="flex flex-col gap-md">
+                <div>
+                  <div class="flex justify-between mb-xs">
+                    <span class="text-muted">Net Gamma Position</span>
+                    <span id="mm-gamma" class="text-mono">--</span>
+                  </div>
+                  <div class="greek-gauge">
+                    <div id="mm-gamma-gauge" class="greek-gauge-fill" style="width: 50%"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between mb-xs">
+                    <span class="text-muted">Hedging Pressure</span>
+                    <span id="mm-pressure" class="text-mono">--</span>
+                  </div>
+                  <div class="greek-gauge">
+                    <div id="mm-pressure-gauge" class="greek-gauge-fill" style="width: 50%"></div>
+                  </div>
+                </div>
+
+                <div class="mt-md p-md" style="background: var(--optix-bg-elevated); border-radius: var(--optix-radius-md);">
+                  <h4 class="mb-sm" style="font-size: var(--optix-font-base);">Interpretation</h4>
+                  <p id="mm-interpretation" class="text-muted" style="font-size: var(--optix-font-sm); line-height: 1.6;">
+                    Loading market maker positioning data...
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Historical GEX Chart -->
+        <div class="card mt-md">
+          <div class="card-header">
+            <h3 class="card-title">Historical GEX</h3>
+            <div class="flex gap-sm">
+              <button class="btn btn-ghost btn-sm gex-period-btn active" data-period="7">7D</button>
+              <button class="btn btn-ghost btn-sm gex-period-btn" data-period="30">30D</button>
+              <button class="btn btn-ghost btn-sm gex-period-btn" data-period="90">90D</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="historical-chart" class="chart-container">
+              <div class="chart-placeholder">
+                <span>Historical GEX chart (implement with charting library)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/optix-data-bridge.js"></script>
+  <script src="../assets/js/auth.js"></script>
+  <script src="../assets/js/component-loader.js"></script>
+  <script>
+    // Initialize page
+    let currentSymbol = 'SPY';
+    let currentPeriod = 7;
+
+    // Load layout components
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Check authentication
+      if (!OPTIXAuth.isAuthenticated()) {
+        OPTIXAuth.redirectToLogin();
+        return;
+      }
+
+      // Load header and sidebar
+      await OPTIXComponentLoader.loadLayout();
+
+      // Load initial data
+      loadGEXData(currentSymbol);
+    });
+
+    // Symbol input handling
+    const symbolInput = document.getElementById('symbol-input');
+    const loadSymbolBtn = document.getElementById('load-symbol-btn');
+    const refreshBtn = document.getElementById('refresh-btn');
+
+    symbolInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        loadSymbolFromInput();
+      }
+    });
+
+    loadSymbolBtn.addEventListener('click', loadSymbolFromInput);
+    refreshBtn.addEventListener('click', () => {
+      OPTIXDataBridge.clearCache();
+      loadGEXData(currentSymbol);
+    });
+
+    function loadSymbolFromInput() {
+      const symbol = symbolInput.value.trim().toUpperCase();
+      if (symbol) {
+        currentSymbol = symbol;
+        loadGEXData(symbol);
+      }
+    }
+
+    // Period selection
+    document.querySelectorAll('.gex-period-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.gex-period-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentPeriod = parseInt(e.target.dataset.period);
+        loadHistoricalData(currentSymbol, currentPeriod);
+      });
+    });
+
+    // Load GEX data
+    async function loadGEXData(symbol) {
+      hideError();
+      showLoading(true);
+
+      try {
+        // Load data in parallel
+        const [gexData, heatmapData, gammaFlipData] = await Promise.all([
+          OPTIXDataBridge.gex.calculate(symbol),
+          OPTIXDataBridge.gex.getHeatmap(symbol),
+          OPTIXDataBridge.gex.getGammaFlip(symbol)
+        ]);
+
+        // Update summary cards
+        updateSummaryCards(gexData, gammaFlipData);
+
+        // Update heatmap
+        updateHeatmap(heatmapData, gexData.current_price, gammaFlipData.gamma_flip_level);
+
+        // Update expiration table
+        updateExpirationTable(gexData.by_expiration || []);
+
+        // Update market maker positioning
+        updateMarketMakerPositioning(gexData);
+
+        // Load historical data
+        loadHistoricalData(symbol, currentPeriod);
+
+      } catch (error) {
+        console.error('Failed to load GEX data:', error);
+        showError(error.message || 'Failed to load GEX data. Please try again.');
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    // Update summary cards
+    function updateSummaryCards(gexData, gammaFlipData) {
+      // Total GEX
+      const totalGex = gexData.total_gex || 0;
+      document.getElementById('total-gex').textContent = formatGEX(totalGex);
+      document.getElementById('total-gex-detail').textContent = totalGex >= 0 ? 'Net Positive' : 'Net Negative';
+
+      // Gamma Flip
+      const gammaFlip = gammaFlipData.gamma_flip_level || 0;
+      const currentPrice = gexData.current_price || 0;
+      document.getElementById('gamma-flip').textContent = '$' + gammaFlip.toFixed(2);
+
+      const distance = ((currentPrice - gammaFlip) / gammaFlip * 100).toFixed(2);
+      document.getElementById('gamma-flip-detail').textContent =
+        currentPrice > gammaFlip ? `${distance}% above` : `${Math.abs(distance)}% below`;
+
+      // Market Sentiment
+      const sentiment = currentPrice > gammaFlip ? 'bullish' : 'bearish';
+      const sentimentEl = document.getElementById('market-sentiment');
+      sentimentEl.innerHTML = `
+        <span class="sentiment-indicator ${sentiment}">
+          ${sentiment === 'bullish' ? '↑' : '↓'} ${sentiment.toUpperCase()}
+        </span>
+      `;
+      document.getElementById('sentiment-detail').textContent =
+        currentPrice > gammaFlip ? 'Above gamma flip' : 'Below gamma flip';
+
+      // Call/Put Ratio
+      const callGex = Math.abs(gexData.call_gex || 0);
+      const putGex = Math.abs(gexData.put_gex || 0);
+      const ratio = putGex !== 0 ? (callGex / putGex).toFixed(2) : '--';
+      document.getElementById('call-put-ratio').textContent = ratio;
+      document.getElementById('call-put-detail').innerHTML = `
+        <span class="text-green">Calls: ${formatGEX(callGex)}</span> /
+        <span class="text-red">Puts: ${formatGEX(putGex)}</span>
+      `;
+
+      // Current price badge
+      document.getElementById('current-price-badge').textContent = `Current: $${currentPrice.toFixed(2)}`;
+    }
+
+    // Update heatmap
+    function updateHeatmap(heatmapData, currentPrice, gammaFlipLevel) {
+      const heatmapEl = document.getElementById('gex-heatmap');
+
+      if (!heatmapData || !heatmapData.strikes || heatmapData.strikes.length === 0) {
+        heatmapEl.innerHTML = '<p class="text-muted text-center">No heatmap data available</p>';
+        return;
+      }
+
+      // Find max absolute value for scaling
+      const maxGex = Math.max(...heatmapData.strikes.map(s => Math.abs(s.gex)));
+
+      // Generate heatmap rows
+      const rows = heatmapData.strikes.map(strike => {
+        const gex = strike.gex || 0;
+        const width = (Math.abs(gex) / maxGex * 100).toFixed(2);
+        const isPositive = gex >= 0;
+        const isCurrentPrice = Math.abs(strike.strike - currentPrice) < 0.01;
+        const isGammaFlip = Math.abs(strike.strike - gammaFlipLevel) < 0.01;
+
+        let strikeClass = 'heatmap-strike';
+        if (isCurrentPrice) strikeClass += ' current-price';
+        if (isGammaFlip) strikeClass += ' gamma-flip';
+
+        return `
+          <div class="heatmap-row">
+            <span class="${strikeClass}">$${strike.strike.toFixed(2)}</span>
+            <div class="heatmap-bar-container">
+              <div class="heatmap-bar ${isPositive ? 'positive' : 'negative'}" style="width: ${width}%">
+                <span class="heatmap-value">${formatGEX(gex)}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      heatmapEl.innerHTML = rows;
+    }
+
+    // Update expiration table
+    function updateExpirationTable(expirations) {
+      const tbody = document.getElementById('expiration-table-body');
+
+      if (!expirations || expirations.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--optix-text-dim);">No expiration data available</td></tr>';
+        return;
+      }
+
+      const rows = expirations.map(exp => {
+        const totalGex = Math.abs(exp.total_gex || 0);
+        const callGex = Math.abs(exp.call_gex || 0);
+        const putGex = Math.abs(exp.put_gex || 0);
+        const netGex = exp.net_gex || 0;
+
+        return `
+          <tr>
+            <td>${exp.expiration}</td>
+            <td class="table-numeric">${formatGEX(totalGex)}</td>
+            <td class="table-numeric text-green">${formatGEX(callGex)}</td>
+            <td class="table-numeric text-red">${formatGEX(putGex)}</td>
+            <td class="table-numeric ${netGex >= 0 ? 'text-green' : 'text-red'}">${formatGEX(netGex)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      tbody.innerHTML = rows;
+    }
+
+    // Update market maker positioning
+    function updateMarketMakerPositioning(gexData) {
+      const netGamma = gexData.total_gex || 0;
+      const hedgingPressure = gexData.hedging_pressure || 0;
+
+      // Net Gamma
+      document.getElementById('mm-gamma').textContent = formatGEX(netGamma);
+      const gammaPercent = Math.min(Math.abs(netGamma) / 100000000 * 100, 100);
+      document.getElementById('mm-gamma-gauge').style.width = `${gammaPercent}%`;
+
+      // Hedging Pressure
+      document.getElementById('mm-pressure').textContent = hedgingPressure.toFixed(2) + '%';
+      document.getElementById('mm-pressure-gauge').style.width = `${Math.abs(hedgingPressure)}%`;
+
+      // Interpretation
+      let interpretation = '';
+      if (netGamma > 0 && gexData.current_price > (gexData.gamma_flip_level || 0)) {
+        interpretation = 'Market makers are long gamma above the flip level, suggesting they will sell into rallies and buy dips, providing market stability and dampening volatility.';
+      } else if (netGamma < 0 && gexData.current_price < (gexData.gamma_flip_level || 0)) {
+        interpretation = 'Market makers are short gamma below the flip level, meaning they will buy rallies and sell dips, potentially amplifying market moves and increasing volatility.';
+      } else if (netGamma > 0) {
+        interpretation = 'Positive net gamma indicates market makers will act as stabilizers, dampening price movements.';
+      } else {
+        interpretation = 'Negative net gamma indicates market makers may amplify price movements as they hedge their positions.';
+      }
+
+      document.getElementById('mm-interpretation').textContent = interpretation;
+    }
+
+    // Load historical data
+    async function loadHistoricalData(symbol, days) {
+      const chartEl = document.getElementById('historical-chart');
+      chartEl.innerHTML = '<div class="chart-placeholder"><div class="spinner"></div></div>';
+
+      try {
+        const historicalData = await OPTIXDataBridge.gex.getHistorical(symbol, days);
+
+        // For MVP, show placeholder
+        // In production, implement with a charting library like Chart.js or D3
+        chartEl.innerHTML = `
+          <div class="chart-placeholder">
+            <div style="text-align: center;">
+              <p class="text-muted mb-sm">Historical GEX Chart</p>
+              <p class="text-dim" style="font-size: var(--optix-font-sm);">
+                ${historicalData.length || 0} data points loaded for ${days} days
+              </p>
+              <p class="text-dim" style="font-size: var(--optix-font-sm); margin-top: var(--optix-space-sm);">
+                Integrate charting library (Chart.js, Plotly, etc.) to visualize
+              </p>
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        console.error('Failed to load historical data:', error);
+        chartEl.innerHTML = '<div class="chart-placeholder"><span class="text-red">Failed to load historical data</span></div>';
+      }
+    }
+
+    // Format GEX value
+    function formatGEX(value) {
+      const absValue = Math.abs(value);
+      if (absValue >= 1e9) {
+        return (value / 1e9).toFixed(2) + 'B';
+      } else if (absValue >= 1e6) {
+        return (value / 1e6).toFixed(2) + 'M';
+      } else if (absValue >= 1e3) {
+        return (value / 1e3).toFixed(2) + 'K';
+      }
+      return value.toFixed(2);
+    }
+
+    // Error handling
+    function showError(message) {
+      const errorAlert = document.getElementById('error-alert');
+      const errorMessage = document.getElementById('error-message');
+      errorMessage.textContent = message;
+      errorAlert.style.display = 'block';
+    }
+
+    function hideError() {
+      document.getElementById('error-alert').style.display = 'none';
+    }
+
+    // Loading state
+    function showLoading(loading) {
+      const loadBtn = document.getElementById('load-symbol-btn');
+      const refreshBtn = document.getElementById('refresh-btn');
+
+      loadBtn.disabled = loading;
+      refreshBtn.disabled = loading;
+
+      if (loading) {
+        loadBtn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px;"></div>';
+      } else {
+        loadBtn.textContent = 'Load';
+      }
+    }
+  </script>
+</body>
+</html>

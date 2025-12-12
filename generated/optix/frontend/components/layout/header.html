@@ -1,0 +1,332 @@
+<header class="app-header" role="banner">
+  <div class="header-left">
+    <button id="sidebar-toggle" class="btn btn-ghost btn-icon" aria-label="Toggle sidebar">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M3 5h14a1 1 0 110 2H3a1 1 0 010-2zm0 4h14a1 1 0 110 2H3a1 1 0 110-2zm0 4h14a1 1 0 110 2H3a1 1 0 110-2z"/>
+      </svg>
+    </button>
+    <a href="/pages/dashboard.html" class="logo">
+      <span class="logo-icon">O</span>
+      <span class="logo-text">OPTIX</span>
+    </a>
+  </div>
+
+  <div class="header-center">
+    <div class="search-container">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M11.742 10.344a6.5 6.5 0 10-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 001.415-1.414l-3.85-3.85a1.007 1.007 0 00-.115-.1zM12 6.5a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0z"/>
+      </svg>
+      <input type="text" id="global-search" class="search-input" placeholder="Search symbols, options, strategies..." aria-label="Search">
+      <kbd class="search-shortcut">/</kbd>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <button class="btn btn-ghost btn-icon" aria-label="Alerts">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a2 2 0 01-2-2h4a2 2 0 01-2 2z"/>
+      </svg>
+      <span class="notification-badge" id="alert-count" style="display: none;">0</span>
+    </button>
+
+    <div class="user-menu-container">
+      <button id="user-menu" class="user-menu-btn" aria-haspopup="true" aria-expanded="false">
+        <span class="user-avatar" id="user-avatar">U</span>
+        <span class="user-name" id="user-name">User</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+          <path d="M6 8L1 3h10z"/>
+        </svg>
+      </button>
+
+      <div id="user-dropdown" class="user-dropdown" role="menu">
+        <div class="dropdown-header">
+          <span class="dropdown-name" id="dropdown-user-name">User</span>
+          <span class="dropdown-email" id="user-email">user@example.com</span>
+        </div>
+        <div class="dropdown-divider"></div>
+        <a href="/pages/settings.html" class="dropdown-item" role="menuitem">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 4.754a3.246 3.246 0 100 6.492 3.246 3.246 0 000-6.492zM5.754 8a2.246 2.246 0 114.492 0 2.246 2.246 0 01-4.492 0z"/>
+            <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 01-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 01-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 01.52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 011.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 011.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 01.52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 01-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 01-1.255-.52l-.094-.319z"/>
+          </svg>
+          Settings
+        </a>
+        <a href="/pages/help.html" class="dropdown-item" role="menuitem">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 16A8 8 0 108 0a8 8 0 000 16zm.93-9.412l-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 110-2 1 1 0 010 2z"/>
+          </svg>
+          Help
+        </a>
+        <div class="dropdown-divider"></div>
+        <button id="logout-btn" class="dropdown-item dropdown-item-danger" role="menuitem">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M10.854 8.354a.5.5 0 000-.708l-3-3a.5.5 0 10-.708.708L9.293 7.5H1.5a.5.5 0 000 1h7.793l-2.147 2.146a.5.5 0 00.708.708l3-3z"/>
+            <path d="M14 1a1 1 0 011 1v12a1 1 0 01-1 1H6a1 1 0 01-1-1V2a1 1 0 011-1h8zm-1 1H6v12h7V2z"/>
+          </svg>
+          Log out
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<style>
+  .app-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--optix-header-height);
+    background: var(--optix-bg-card);
+    border-bottom: 1px solid var(--optix-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--optix-space-md);
+    z-index: var(--optix-z-sticky);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: var(--optix-space-md);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: var(--optix-space-sm);
+    text-decoration: none;
+    color: var(--optix-text);
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--optix-primary);
+    border-radius: var(--optix-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: var(--optix-font-bold);
+    font-size: var(--optix-font-lg);
+  }
+
+  .logo-text {
+    font-size: var(--optix-font-lg);
+    font-weight: var(--optix-font-bold);
+    letter-spacing: 1px;
+  }
+
+  .header-center {
+    flex: 1;
+    max-width: 500px;
+    margin: 0 var(--optix-space-lg);
+  }
+
+  .search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--optix-text-dim);
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 8px 40px;
+    background: var(--optix-bg-dark);
+    border: 1px solid var(--optix-border);
+    border-radius: var(--optix-radius-md);
+    color: var(--optix-text);
+    font-size: var(--optix-font-sm);
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--optix-primary);
+  }
+
+  .search-shortcut {
+    position: absolute;
+    right: 12px;
+    padding: 2px 6px;
+    background: var(--optix-bg-elevated);
+    border-radius: var(--optix-radius-sm);
+    font-size: var(--optix-font-xs);
+    color: var(--optix-text-dim);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--optix-space-sm);
+  }
+
+  .notification-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-width: 16px;
+    height: 16px;
+    background: var(--optix-red);
+    border-radius: var(--optix-radius-full);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .user-menu-container {
+    position: relative;
+  }
+
+  .user-menu-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--optix-space-sm);
+    padding: var(--optix-space-sm) var(--optix-space-md);
+    background: transparent;
+    border: none;
+    color: var(--optix-text);
+    cursor: pointer;
+    border-radius: var(--optix-radius-md);
+    transition: background var(--optix-transition-fast);
+  }
+
+  .user-menu-btn:hover {
+    background: var(--optix-bg-elevated);
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+    background: var(--optix-primary);
+    border-radius: var(--optix-radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: var(--optix-font-semibold);
+    font-size: var(--optix-font-sm);
+  }
+
+  .user-name {
+    font-size: var(--optix-font-sm);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .user-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: var(--optix-space-xs);
+    min-width: 220px;
+    background: var(--optix-bg-card);
+    border: 1px solid var(--optix-border);
+    border-radius: var(--optix-radius-md);
+    box-shadow: var(--optix-shadow-lg);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all var(--optix-transition-fast);
+    z-index: var(--optix-z-dropdown);
+  }
+
+  .user-dropdown.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .dropdown-header {
+    padding: var(--optix-space-md);
+  }
+
+  .dropdown-name {
+    display: block;
+    font-weight: var(--optix-font-semibold);
+  }
+
+  .dropdown-email {
+    display: block;
+    font-size: var(--optix-font-sm);
+    color: var(--optix-text-muted);
+  }
+
+  .dropdown-divider {
+    height: 1px;
+    background: var(--optix-border);
+  }
+
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: var(--optix-space-sm);
+    padding: var(--optix-space-sm) var(--optix-space-md);
+    color: var(--optix-text);
+    text-decoration: none;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    width: 100%;
+    font-size: var(--optix-font-base);
+    transition: background var(--optix-transition-fast);
+  }
+
+  .dropdown-item:hover {
+    background: var(--optix-bg-elevated);
+  }
+
+  .dropdown-item-danger {
+    color: var(--optix-red);
+  }
+
+  @media (max-width: 768px) {
+    .header-center {
+      display: none;
+    }
+
+    .user-name {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  // Initialize search shortcut
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+      e.preventDefault();
+      document.getElementById('global-search')?.focus();
+    }
+  });
+
+  // Global search handler
+  const searchInput = document.getElementById('global-search');
+  if (searchInput) {
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const query = e.target.value.trim();
+        if (query) {
+          // Check if it looks like a symbol (all caps, 1-5 chars)
+          if (/^[A-Z]{1,5}$/.test(query.toUpperCase())) {
+            window.location.href = `/pages/options.html?symbol=${query.toUpperCase()}`;
+          } else {
+            // General search
+            window.location.href = `/pages/search.html?q=${encodeURIComponent(query)}`;
+          }
+        }
+      }
+      if (e.key === 'Escape') {
+        e.target.blur();
+      }
+    });
+  }
+</script>

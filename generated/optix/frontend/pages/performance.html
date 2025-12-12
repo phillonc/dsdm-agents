@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Performance Analytics - Portfolio performance tracking and analysis">
+  <title>Performance Analytics - OPTIX</title>
+
+  <!-- Design System -->
+  <link rel="stylesheet" href="../assets/css/optix-design-system.css">
+
+  <!-- Preload critical assets -->
+  <link rel="preload" href="../assets/js/optix-data-bridge.js" as="script">
+  <link rel="preload" href="../assets/js/auth.js" as="script">
+  <link rel="preload" href="../assets/js/component-loader.js" as="script">
+
+  <style>
+    /* Performance-specific styles */
+    .performance-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--optix-space-md);
+      margin-bottom: var(--optix-space-lg);
+    }
+
+    .metric-card {
+      padding: var(--optix-space-lg);
+      background: var(--optix-bg-card);
+      border: 1px solid var(--optix-border);
+      border-radius: var(--optix-radius-lg);
+      transition: border-color var(--optix-transition-normal);
+    }
+
+    .metric-card:hover {
+      border-color: var(--optix-border-light);
+    }
+
+    .metric-label {
+      display: block;
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: var(--optix-font-medium);
+      margin-bottom: var(--optix-space-sm);
+    }
+
+    .metric-value {
+      display: block;
+      font-size: var(--optix-font-3xl);
+      font-weight: var(--optix-font-bold);
+      font-family: var(--optix-font-mono);
+      color: var(--optix-text);
+    }
+
+    .metric-value.positive {
+      color: var(--optix-green);
+    }
+
+    .metric-value.negative {
+      color: var(--optix-red);
+    }
+
+    .metric-value.neutral {
+      color: var(--optix-text);
+    }
+
+    .metric-detail {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-dim);
+      margin-top: var(--optix-space-xs);
+    }
+
+    /* Period Selector */
+    .period-selector {
+      display: flex;
+      gap: var(--optix-space-sm);
+      background: var(--optix-bg-card);
+      padding: var(--optix-space-xs);
+      border-radius: var(--optix-radius-md);
+      border: 1px solid var(--optix-border);
+    }
+
+    .period-btn {
+      padding: var(--optix-space-sm) var(--optix-space-md);
+      background: transparent;
+      border: none;
+      border-radius: var(--optix-radius-sm);
+      color: var(--optix-text-muted);
+      font-size: var(--optix-font-sm);
+      font-weight: var(--optix-font-medium);
+      cursor: pointer;
+      transition: all var(--optix-transition-fast);
+    }
+
+    .period-btn:hover {
+      background: var(--optix-bg-elevated);
+      color: var(--optix-text);
+    }
+
+    .period-btn.active {
+      background: var(--optix-primary);
+      color: white;
+    }
+
+    /* Equity Curve Chart */
+    .equity-curve-container {
+      height: 400px;
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-md);
+      padding: var(--optix-space-md);
+      position: relative;
+    }
+
+    .chart-placeholder {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px dashed var(--optix-border);
+      border-radius: var(--optix-radius-md);
+      color: var(--optix-text-dim);
+      flex-direction: column;
+      gap: var(--optix-space-sm);
+    }
+
+    /* Monthly Returns Heatmap */
+    .returns-heatmap {
+      display: grid;
+      grid-template-columns: auto repeat(12, 1fr);
+      gap: var(--optix-space-xs);
+      margin-top: var(--optix-space-md);
+    }
+
+    .heatmap-label {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: var(--optix-space-sm);
+    }
+
+    .heatmap-month-label {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-muted);
+      text-align: center;
+      padding: var(--optix-space-xs);
+    }
+
+    .heatmap-cell {
+      aspect-ratio: 1;
+      border-radius: var(--optix-radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--optix-font-xs);
+      font-family: var(--optix-font-mono);
+      font-weight: var(--optix-font-semibold);
+      cursor: pointer;
+      transition: transform var(--optix-transition-fast);
+      border: 1px solid var(--optix-border);
+    }
+
+    .heatmap-cell:hover {
+      transform: scale(1.1);
+      z-index: 10;
+      box-shadow: var(--optix-shadow-md);
+    }
+
+    .heatmap-cell.empty {
+      background: var(--optix-bg-card);
+      border-color: transparent;
+    }
+
+    .heatmap-cell.positive {
+      background: var(--optix-green-bg);
+      color: var(--optix-green);
+      border-color: var(--optix-green);
+    }
+
+    .heatmap-cell.negative {
+      background: var(--optix-red-bg);
+      color: var(--optix-red);
+      border-color: var(--optix-red);
+    }
+
+    /* Trade Statistics Table */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: var(--optix-space-md);
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--optix-space-md);
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-md);
+    }
+
+    .stat-item-label {
+      font-size: var(--optix-font-sm);
+      color: var(--optix-text-muted);
+    }
+
+    .stat-item-value {
+      font-size: var(--optix-font-lg);
+      font-weight: var(--optix-font-semibold);
+      font-family: var(--optix-font-mono);
+      color: var(--optix-text);
+    }
+
+    /* Performance Breakdown */
+    .breakdown-chart-container {
+      height: 300px;
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-md);
+      padding: var(--optix-space-md);
+    }
+
+    .breakdown-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--optix-space-sm);
+      margin-top: var(--optix-space-md);
+    }
+
+    .breakdown-item {
+      display: flex;
+      align-items: center;
+      gap: var(--optix-space-md);
+      padding: var(--optix-space-sm);
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-sm);
+    }
+
+    .breakdown-color {
+      width: 4px;
+      height: 32px;
+      border-radius: var(--optix-radius-sm);
+    }
+
+    .breakdown-info {
+      flex: 1;
+    }
+
+    .breakdown-name {
+      font-size: var(--optix-font-sm);
+      font-weight: var(--optix-font-medium);
+      color: var(--optix-text);
+    }
+
+    .breakdown-stats {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-muted);
+      margin-top: 2px;
+    }
+
+    .breakdown-value {
+      font-family: var(--optix-font-mono);
+      font-weight: var(--optix-font-semibold);
+      text-align: right;
+    }
+
+    .breakdown-pnl {
+      font-size: var(--optix-font-md);
+      margin-bottom: 2px;
+    }
+
+    .breakdown-pct {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-dim);
+    }
+
+    /* Time of Day Analysis */
+    .time-analysis-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: var(--optix-space-sm);
+    }
+
+    .time-slot {
+      padding: var(--optix-space-md);
+      background: var(--optix-bg-elevated);
+      border-radius: var(--optix-radius-md);
+      text-align: center;
+      border: 2px solid transparent;
+      transition: border-color var(--optix-transition-fast);
+    }
+
+    .time-slot.positive {
+      border-color: var(--optix-green);
+    }
+
+    .time-slot.negative {
+      border-color: var(--optix-red);
+    }
+
+    .time-slot-label {
+      font-size: var(--optix-font-xs);
+      color: var(--optix-text-muted);
+      margin-bottom: var(--optix-space-xs);
+    }
+
+    .time-slot-value {
+      font-size: var(--optix-font-lg);
+      font-weight: var(--optix-font-bold);
+      font-family: var(--optix-font-mono);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .performance-metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .metric-value {
+        font-size: var(--optix-font-2xl);
+      }
+
+      .equity-curve-container {
+        height: 300px;
+      }
+
+      .returns-heatmap {
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Skip to main content for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- App Container -->
+  <div class="app-container">
+    <!-- Header (loaded dynamically) -->
+    <div id="header-container"></div>
+
+    <!-- Sidebar (loaded dynamically) -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+      <div class="page-container">
+        <!-- Page Header -->
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Performance Analytics</h1>
+            <p class="text-muted">Comprehensive portfolio performance metrics and insights</p>
+          </div>
+          <div class="flex gap-sm">
+            <div class="period-selector">
+              <button class="period-btn" data-period="1W">1W</button>
+              <button class="period-btn" data-period="1M">1M</button>
+              <button class="period-btn active" data-period="3M">3M</button>
+              <button class="period-btn" data-period="6M">6M</button>
+              <button class="period-btn" data-period="1Y">1Y</button>
+              <button class="period-btn" data-period="YTD">YTD</button>
+              <button class="period-btn" data-period="ALL">All</button>
+            </div>
+            <button id="refresh-btn" class="btn btn-secondary btn-sm" aria-label="Refresh data">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 3a5 5 0 104.546 2.914.5.5 0 01.908-.417A6 6 0 118 2v1z"/>
+                <path d="M8 4.466V.534a.25.25 0 01.41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 018 4.466z"/>
+              </svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Performance Metrics Cards -->
+        <div class="performance-metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">Total Return</span>
+            <span id="total-return" class="metric-value skeleton" style="height: 40px; width: 120px;">--</span>
+            <div id="total-return-detail" class="metric-detail">--</div>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Win Rate</span>
+            <span id="win-rate" class="metric-value neutral skeleton" style="height: 40px; width: 100px;">--</span>
+            <div id="win-rate-detail" class="metric-detail">--</div>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Avg Win/Loss</span>
+            <span id="avg-win-loss" class="metric-value neutral skeleton" style="height: 40px; width: 120px;">--</span>
+            <div id="avg-win-loss-detail" class="metric-detail">--</div>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Profit Factor</span>
+            <span id="profit-factor" class="metric-value neutral skeleton" style="height: 40px; width: 100px;">--</span>
+            <div id="profit-factor-detail" class="metric-detail">--</div>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Sharpe Ratio</span>
+            <span id="sharpe-ratio" class="metric-value neutral skeleton" style="height: 40px; width: 100px;">--</span>
+            <div id="sharpe-ratio-detail" class="metric-detail">--</div>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Max Drawdown</span>
+            <span id="max-drawdown" class="metric-value negative skeleton" style="height: 40px; width: 120px;">--</span>
+            <div id="max-drawdown-detail" class="metric-detail">--</div>
+          </div>
+        </div>
+
+        <!-- Equity Curve Chart -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Equity Curve</h2>
+            <div class="flex items-center gap-sm">
+              <span class="badge badge-primary" id="equity-badge">Portfolio Value</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="equity-curve-container">
+              <div class="chart-placeholder">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                  <polyline points="17 6 23 6 23 12"></polyline>
+                </svg>
+                <span>Equity curve chart placeholder</span>
+                <span style="font-size: var(--optix-font-xs);">Integrate charting library for live data visualization</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Monthly Returns Heatmap -->
+        <div class="card mt-md">
+          <div class="card-header">
+            <h2 class="card-title">Monthly Returns Calendar</h2>
+            <span class="text-muted text-mono" style="font-size: var(--optix-font-sm);" id="heatmap-year">2024</span>
+          </div>
+          <div class="card-body">
+            <div class="returns-heatmap" id="returns-heatmap">
+              <!-- Month labels row -->
+              <div class="heatmap-label"></div>
+              <div class="heatmap-month-label">Jan</div>
+              <div class="heatmap-month-label">Feb</div>
+              <div class="heatmap-month-label">Mar</div>
+              <div class="heatmap-month-label">Apr</div>
+              <div class="heatmap-month-label">May</div>
+              <div class="heatmap-month-label">Jun</div>
+              <div class="heatmap-month-label">Jul</div>
+              <div class="heatmap-month-label">Aug</div>
+              <div class="heatmap-month-label">Sep</div>
+              <div class="heatmap-month-label">Oct</div>
+              <div class="heatmap-month-label">Nov</div>
+              <div class="heatmap-month-label">Dec</div>
+
+              <!-- Dynamic rows will be inserted here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Trade Statistics -->
+        <div class="card mt-md">
+          <div class="card-header">
+            <h2 class="card-title">Trade Statistics</h2>
+          </div>
+          <div class="card-body">
+            <div class="stats-grid">
+              <div class="stat-item">
+                <span class="stat-item-label">Total Trades</span>
+                <span id="total-trades" class="stat-item-value skeleton" style="height: 24px; width: 60px;">--</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-item-label">Winning Trades</span>
+                <span id="winning-trades" class="stat-item-value text-green skeleton" style="height: 24px; width: 60px;">--</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-item-label">Losing Trades</span>
+                <span id="losing-trades" class="stat-item-value text-red skeleton" style="height: 24px; width: 60px;">--</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-item-label">Best Trade</span>
+                <span id="best-trade" class="stat-item-value text-green skeleton" style="height: 24px; width: 80px;">--</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-item-label">Worst Trade</span>
+                <span id="worst-trade" class="stat-item-value text-red skeleton" style="height: 24px; width: 80px;">--</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-item-label">Avg Holding Period</span>
+                <span id="avg-holding" class="stat-item-value skeleton" style="height: 24px; width: 80px;">--</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Performance Breakdown Grid -->
+        <div class="grid grid-cols-2 mt-md">
+          <!-- Performance by Symbol -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Performance by Symbol</h3>
+            </div>
+            <div class="card-body">
+              <div class="breakdown-chart-container">
+                <div class="chart-placeholder">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                  </svg>
+                  <span style="font-size: var(--optix-font-sm);">Pie chart placeholder</span>
+                </div>
+              </div>
+              <div class="breakdown-list" id="symbol-breakdown">
+                <!-- Dynamic content will be inserted here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Performance by Strategy Type -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Performance by Strategy</h3>
+            </div>
+            <div class="card-body">
+              <div class="breakdown-chart-container">
+                <div class="chart-placeholder">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                  </svg>
+                  <span style="font-size: var(--optix-font-sm);">Pie chart placeholder</span>
+                </div>
+              </div>
+              <div class="breakdown-list" id="strategy-breakdown">
+                <!-- Dynamic content will be inserted here -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Time of Day Analysis -->
+        <div class="card mt-md">
+          <div class="card-header">
+            <h2 class="card-title">Performance by Time of Day</h2>
+            <span class="text-muted" style="font-size: var(--optix-font-sm);">Market hours: 9:30 AM - 4:00 PM ET</span>
+          </div>
+          <div class="card-body">
+            <div class="time-analysis-grid" id="time-analysis">
+              <!-- Dynamic content will be inserted here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/optix-data-bridge.js"></script>
+  <script src="../assets/js/auth.js"></script>
+  <script src="../assets/js/component-loader.js"></script>
+
+  <script>
+    // Performance Analytics Application
+    (async function() {
+      'use strict';
+
+      let currentPeriod = '3M';
+
+      // Check authentication
+      if (!OPTIXAuth.isAuthenticated()) {
+        OPTIXAuth.redirectToLogin();
+        return;
+      }
+
+      // Load layout components
+      await OPTIXComponentLoader.loadLayout();
+
+      // Initialize page
+      initPerformance();
+
+      /**
+       * Initialize performance analytics
+       */
+      function initPerformance() {
+        loadPerformanceData(currentPeriod);
+
+        // Period selector buttons
+        document.querySelectorAll('.period-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            currentPeriod = e.target.dataset.period;
+            loadPerformanceData(currentPeriod);
+          });
+        });
+
+        // Refresh button
+        document.getElementById('refresh-btn')?.addEventListener('click', () => {
+          OPTIXDataBridge.clearCache();
+          loadPerformanceData(currentPeriod);
+        });
+      }
+
+      /**
+       * Load all performance data
+       */
+      async function loadPerformanceData(period) {
+        try {
+          const [metrics, equity, trades] = await Promise.all([
+            OPTIXDataBridge.performance.getMetrics(period),
+            OPTIXDataBridge.performance.getEquityCurve(period),
+            OPTIXDataBridge.performance.getTrades(period)
+          ]);
+
+          updateMetricsCards(metrics);
+          updateMonthlyReturns(metrics.monthly_returns || []);
+          updateTradeStatistics(trades);
+          updateSymbolBreakdown(trades);
+          updateStrategyBreakdown(trades);
+          updateTimeAnalysis(trades);
+        } catch (error) {
+          console.error('Failed to load performance data:', error);
+          showDefaultMetrics();
+        }
+      }
+
+      /**
+       * Update performance metrics cards
+       */
+      function updateMetricsCards(metrics) {
+        // Total Return
+        const totalReturn = metrics.total_return || 0;
+        const totalReturnPct = metrics.total_return_percent || 0;
+        const returnEl = document.getElementById('total-return');
+        returnEl.textContent = formatPercent(totalReturnPct);
+        returnEl.classList.remove('skeleton');
+        returnEl.classList.toggle('positive', totalReturnPct >= 0);
+        returnEl.classList.toggle('negative', totalReturnPct < 0);
+        document.getElementById('total-return-detail').textContent = formatCurrency(totalReturn);
+
+        // Win Rate
+        const winRate = metrics.win_rate || 0;
+        const winRateEl = document.getElementById('win-rate');
+        winRateEl.textContent = formatPercent(winRate);
+        winRateEl.classList.remove('skeleton');
+        document.getElementById('win-rate-detail').textContent = `${metrics.winning_trades || 0} of ${metrics.total_trades || 0} trades`;
+
+        // Avg Win/Loss
+        const avgWin = metrics.avg_win || 0;
+        const avgLoss = Math.abs(metrics.avg_loss || 0);
+        const avgWinLossEl = document.getElementById('avg-win-loss');
+        const ratio = avgLoss !== 0 ? (avgWin / avgLoss).toFixed(2) : '--';
+        avgWinLossEl.textContent = ratio;
+        avgWinLossEl.classList.remove('skeleton');
+        document.getElementById('avg-win-loss-detail').textContent = `${formatCurrency(avgWin)} / ${formatCurrency(avgLoss)}`;
+
+        // Profit Factor
+        const profitFactor = metrics.profit_factor || 0;
+        const pfEl = document.getElementById('profit-factor');
+        pfEl.textContent = profitFactor.toFixed(2);
+        pfEl.classList.remove('skeleton');
+        pfEl.classList.toggle('positive', profitFactor > 1);
+        pfEl.classList.toggle('negative', profitFactor < 1);
+        document.getElementById('profit-factor-detail').textContent = profitFactor > 1 ? 'Profitable' : 'Unprofitable';
+
+        // Sharpe Ratio
+        const sharpe = metrics.sharpe_ratio || 0;
+        const sharpeEl = document.getElementById('sharpe-ratio');
+        sharpeEl.textContent = sharpe.toFixed(2);
+        sharpeEl.classList.remove('skeleton');
+        sharpeEl.classList.toggle('positive', sharpe > 1);
+        sharpeEl.classList.toggle('negative', sharpe < 1);
+        document.getElementById('sharpe-ratio-detail').textContent =
+          sharpe > 2 ? 'Excellent' : sharpe > 1 ? 'Good' : sharpe > 0 ? 'Fair' : 'Poor';
+
+        // Max Drawdown
+        const drawdown = metrics.max_drawdown || 0;
+        const drawdownEl = document.getElementById('max-drawdown');
+        drawdownEl.textContent = formatPercent(drawdown);
+        drawdownEl.classList.remove('skeleton');
+        document.getElementById('max-drawdown-detail').textContent = formatCurrency(metrics.max_drawdown_amount || 0);
+      }
+
+      /**
+       * Update monthly returns heatmap
+       */
+      function updateMonthlyReturns(monthlyReturns) {
+        const heatmapEl = document.getElementById('returns-heatmap');
+        const currentYear = new Date().getFullYear();
+        document.getElementById('heatmap-year').textContent = currentYear;
+
+        // Group returns by year
+        const returnsByYear = {};
+        monthlyReturns.forEach(item => {
+          const year = item.year || currentYear;
+          if (!returnsByYear[year]) returnsByYear[year] = {};
+          returnsByYear[year][item.month] = item.return_percent;
+        });
+
+        // Generate rows for recent years
+        const years = [currentYear, currentYear - 1, currentYear - 2];
+        const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        years.forEach(year => {
+          const yearReturns = returnsByYear[year] || {};
+
+          // Year label
+          const yearLabel = document.createElement('div');
+          yearLabel.className = 'heatmap-label';
+          yearLabel.textContent = year;
+          heatmapEl.appendChild(yearLabel);
+
+          // Month cells
+          for (let month = 1; month <= 12; month++) {
+            const returnPct = yearReturns[month] || null;
+            const cell = document.createElement('div');
+            cell.className = 'heatmap-cell';
+
+            if (returnPct === null) {
+              cell.classList.add('empty');
+              cell.textContent = '--';
+            } else {
+              cell.classList.add(returnPct >= 0 ? 'positive' : 'negative');
+              cell.textContent = formatPercent(returnPct, 1);
+              cell.title = `${monthLabels[month-1]} ${year}: ${formatPercent(returnPct)}`;
+            }
+
+            heatmapEl.appendChild(cell);
+          }
+        });
+      }
+
+      /**
+       * Update trade statistics
+       */
+      function updateTradeStatistics(trades) {
+        const stats = calculateTradeStats(trades);
+
+        // Total Trades
+        const totalEl = document.getElementById('total-trades');
+        totalEl.textContent = stats.total;
+        totalEl.classList.remove('skeleton');
+
+        // Winning Trades
+        const winningEl = document.getElementById('winning-trades');
+        winningEl.textContent = stats.winning;
+        winningEl.classList.remove('skeleton');
+
+        // Losing Trades
+        const losingEl = document.getElementById('losing-trades');
+        losingEl.textContent = stats.losing;
+        losingEl.classList.remove('skeleton');
+
+        // Best Trade
+        const bestEl = document.getElementById('best-trade');
+        bestEl.textContent = formatCurrency(stats.bestTrade);
+        bestEl.classList.remove('skeleton');
+
+        // Worst Trade
+        const worstEl = document.getElementById('worst-trade');
+        worstEl.textContent = formatCurrency(stats.worstTrade);
+        worstEl.classList.remove('skeleton');
+
+        // Avg Holding Period
+        const avgHoldingEl = document.getElementById('avg-holding');
+        avgHoldingEl.textContent = formatDuration(stats.avgHoldingPeriod);
+        avgHoldingEl.classList.remove('skeleton');
+      }
+
+      /**
+       * Update symbol breakdown
+       */
+      function updateSymbolBreakdown(trades) {
+        const breakdown = calculateSymbolBreakdown(trades);
+        const container = document.getElementById('symbol-breakdown');
+
+        if (breakdown.length === 0) {
+          container.innerHTML = '<div class="text-muted text-center">No trade data available</div>';
+          return;
+        }
+
+        const colors = ['#22C55E', '#3B82F6', '#EAB308', '#EF4444', '#8B5CF6', '#EC4899'];
+
+        container.innerHTML = breakdown.slice(0, 6).map((item, idx) => {
+          const color = colors[idx % colors.length];
+          const pnlClass = item.pnl >= 0 ? 'text-green' : 'text-red';
+
+          return `
+            <div class="breakdown-item">
+              <div class="breakdown-color" style="background: ${color};"></div>
+              <div class="breakdown-info">
+                <div class="breakdown-name">${escapeHtml(item.symbol)}</div>
+                <div class="breakdown-stats">${item.trades} trades</div>
+              </div>
+              <div class="breakdown-value">
+                <div class="breakdown-pnl ${pnlClass}">${formatCurrency(item.pnl)}</div>
+                <div class="breakdown-pct">${formatPercent(item.percent)}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      /**
+       * Update strategy breakdown
+       */
+      function updateStrategyBreakdown(trades) {
+        const breakdown = calculateStrategyBreakdown(trades);
+        const container = document.getElementById('strategy-breakdown');
+
+        if (breakdown.length === 0) {
+          container.innerHTML = '<div class="text-muted text-center">No trade data available</div>';
+          return;
+        }
+
+        const colors = {
+          'Calls': '#22C55E',
+          'Puts': '#EF4444',
+          'Stocks': '#3B82F6',
+          'Spreads': '#EAB308',
+          'Other': '#8B5CF6'
+        };
+
+        container.innerHTML = breakdown.map(item => {
+          const color = colors[item.strategy] || '#64748B';
+          const pnlClass = item.pnl >= 0 ? 'text-green' : 'text-red';
+
+          return `
+            <div class="breakdown-item">
+              <div class="breakdown-color" style="background: ${color};"></div>
+              <div class="breakdown-info">
+                <div class="breakdown-name">${escapeHtml(item.strategy)}</div>
+                <div class="breakdown-stats">${item.trades} trades</div>
+              </div>
+              <div class="breakdown-value">
+                <div class="breakdown-pnl ${pnlClass}">${formatCurrency(item.pnl)}</div>
+                <div class="breakdown-pct">${formatPercent(item.percent)}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      /**
+       * Update time of day analysis
+       */
+      function updateTimeAnalysis(trades) {
+        const analysis = calculateTimeAnalysis(trades);
+        const container = document.getElementById('time-analysis');
+
+        if (analysis.length === 0) {
+          container.innerHTML = '<div class="text-muted text-center">No trade data available</div>';
+          return;
+        }
+
+        container.innerHTML = analysis.map(slot => {
+          const slotClass = slot.pnl >= 0 ? 'positive' : 'negative';
+          const valueClass = slot.pnl >= 0 ? 'text-green' : 'text-red';
+
+          return `
+            <div class="time-slot ${slotClass}">
+              <div class="time-slot-label">${escapeHtml(slot.period)}</div>
+              <div class="time-slot-value ${valueClass}">${formatCurrency(slot.pnl)}</div>
+              <div class="metric-detail">${slot.trades} trades</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      /**
+       * Calculate trade statistics
+       */
+      function calculateTradeStats(trades) {
+        if (!trades || trades.length === 0) {
+          return {
+            total: 0,
+            winning: 0,
+            losing: 0,
+            bestTrade: 0,
+            worstTrade: 0,
+            avgHoldingPeriod: 0
+          };
+        }
+
+        const winning = trades.filter(t => (t.pnl || 0) > 0);
+        const losing = trades.filter(t => (t.pnl || 0) < 0);
+        const pnls = trades.map(t => t.pnl || 0);
+
+        let totalHoldingDays = 0;
+        trades.forEach(trade => {
+          if (trade.open_date && trade.close_date) {
+            const days = Math.abs(new Date(trade.close_date) - new Date(trade.open_date)) / (1000 * 60 * 60 * 24);
+            totalHoldingDays += days;
+          }
+        });
+
+        return {
+          total: trades.length,
+          winning: winning.length,
+          losing: losing.length,
+          bestTrade: Math.max(...pnls, 0),
+          worstTrade: Math.min(...pnls, 0),
+          avgHoldingPeriod: trades.length > 0 ? totalHoldingDays / trades.length : 0
+        };
+      }
+
+      /**
+       * Calculate symbol breakdown
+       */
+      function calculateSymbolBreakdown(trades) {
+        if (!trades || trades.length === 0) return [];
+
+        const bySymbol = {};
+        let totalPnl = 0;
+
+        trades.forEach(trade => {
+          const symbol = trade.symbol || 'Unknown';
+          const pnl = trade.pnl || 0;
+          totalPnl += Math.abs(pnl);
+
+          if (!bySymbol[symbol]) {
+            bySymbol[symbol] = { symbol, pnl: 0, trades: 0 };
+          }
+          bySymbol[symbol].pnl += pnl;
+          bySymbol[symbol].trades++;
+        });
+
+        return Object.values(bySymbol)
+          .map(item => ({
+            ...item,
+            percent: totalPnl > 0 ? (Math.abs(item.pnl) / totalPnl * 100) : 0
+          }))
+          .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl));
+      }
+
+      /**
+       * Calculate strategy breakdown
+       */
+      function calculateStrategyBreakdown(trades) {
+        if (!trades || trades.length === 0) return [];
+
+        const byStrategy = {};
+        let totalPnl = 0;
+
+        trades.forEach(trade => {
+          let strategy = 'Other';
+
+          if (trade.asset_type === 'stock') {
+            strategy = 'Stocks';
+          } else if (trade.option_type === 'call') {
+            strategy = 'Calls';
+          } else if (trade.option_type === 'put') {
+            strategy = 'Puts';
+          } else if (trade.strategy) {
+            strategy = trade.strategy;
+          }
+
+          const pnl = trade.pnl || 0;
+          totalPnl += Math.abs(pnl);
+
+          if (!byStrategy[strategy]) {
+            byStrategy[strategy] = { strategy, pnl: 0, trades: 0 };
+          }
+          byStrategy[strategy].pnl += pnl;
+          byStrategy[strategy].trades++;
+        });
+
+        return Object.values(byStrategy)
+          .map(item => ({
+            ...item,
+            percent: totalPnl > 0 ? (Math.abs(item.pnl) / totalPnl * 100) : 0
+          }))
+          .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl));
+      }
+
+      /**
+       * Calculate time of day analysis
+       */
+      function calculateTimeAnalysis(trades) {
+        const periods = [
+          { name: '9:30-10:30', start: 9.5, end: 10.5 },
+          { name: '10:30-11:30', start: 10.5, end: 11.5 },
+          { name: '11:30-12:30', start: 11.5, end: 12.5 },
+          { name: '12:30-13:30', start: 12.5, end: 13.5 },
+          { name: '13:30-14:30', start: 13.5, end: 14.5 },
+          { name: '14:30-15:30', start: 14.5, end: 15.5 },
+          { name: '15:30-16:00', start: 15.5, end: 16 }
+        ];
+
+        const analysis = periods.map(period => ({
+          period: period.name,
+          pnl: 0,
+          trades: 0
+        }));
+
+        trades.forEach(trade => {
+          if (!trade.open_time) return;
+
+          const time = new Date(trade.open_time);
+          const hours = time.getHours() + time.getMinutes() / 60;
+
+          for (let i = 0; i < periods.length; i++) {
+            if (hours >= periods[i].start && hours < periods[i].end) {
+              analysis[i].pnl += trade.pnl || 0;
+              analysis[i].trades++;
+              break;
+            }
+          }
+        });
+
+        return analysis;
+      }
+
+      /**
+       * Show default metrics when data fails to load
+       */
+      function showDefaultMetrics() {
+        ['total-return', 'win-rate', 'avg-win-loss', 'profit-factor', 'sharpe-ratio', 'max-drawdown'].forEach(id => {
+          const el = document.getElementById(id);
+          el.textContent = '--';
+          el.classList.remove('skeleton');
+        });
+
+        ['total-trades', 'winning-trades', 'losing-trades', 'best-trade', 'worst-trade', 'avg-holding'].forEach(id => {
+          const el = document.getElementById(id);
+          el.textContent = '--';
+          el.classList.remove('skeleton');
+        });
+      }
+
+      /**
+       * Format currency
+       */
+      function formatCurrency(value) {
+        return OPTIXComponentLoader.formatPrice(value);
+      }
+
+      /**
+       * Format percentage
+       */
+      function formatPercent(value, decimals = 2) {
+        const sign = value >= 0 ? '+' : '';
+        return sign + value.toFixed(decimals) + '%';
+      }
+
+      /**
+       * Format duration in days
+       */
+      function formatDuration(days) {
+        if (days < 1) return Math.round(days * 24) + 'h';
+        if (days < 30) return Math.round(days) + 'd';
+        const months = Math.floor(days / 30);
+        return months + 'mo';
+      }
+
+      /**
+       * Escape HTML
+       */
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+    })();
+  </script>
+</body>
+</html>
