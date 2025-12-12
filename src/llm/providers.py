@@ -11,6 +11,61 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 
+# Phase-specific model optimization: Use faster models for simpler tasks
+# This can provide 5-10x speedup for feasibility and simple phases
+PHASE_MODELS = {
+    # Fast phases - use Haiku (cheaper, faster)
+    "feasibility": "claude-3-5-haiku-20241022",
+    "devops": "claude-3-5-haiku-20241022",
+    # Balanced phases - use Sonnet
+    "business_study": "claude-sonnet-4-5-20250929",
+    "prd_trd": "claude-sonnet-4-5-20250929",
+    "functional_model": "claude-sonnet-4-5-20250929",
+    # Complex phases - use best available
+    "design_build": "claude-sonnet-4-5-20250929",
+    "implementation": "claude-sonnet-4-5-20250929",
+    # Specialized roles
+    "dev_lead": "claude-sonnet-4-5-20250929",
+    "frontend_developer": "claude-sonnet-4-5-20250929",
+    "backend_developer": "claude-sonnet-4-5-20250929",
+    "automation_tester": "claude-3-5-haiku-20241022",
+    "nfr_tester": "claude-3-5-haiku-20241022",
+    "pen_tester": "claude-sonnet-4-5-20250929",
+}
+
+# Phase-specific max iterations to avoid wasted cycles
+PHASE_MAX_ITERATIONS = {
+    "feasibility": 8,        # Quick decisions
+    "business_study": 12,    # Moderate analysis
+    "prd_trd": 15,           # Document generation
+    "functional_model": 15,  # Prototyping
+    "design_build": 50,      # Code generation (needs more)
+    "implementation": 20,    # Deployment tasks
+    "devops": 10,            # Config tasks
+    # Specialized roles
+    "dev_lead": 15,
+    "frontend_developer": 30,
+    "backend_developer": 30,
+    "automation_tester": 20,
+    "nfr_tester": 15,
+    "pen_tester": 20,
+}
+
+
+def get_model_for_phase(phase: str, default_model: str = None) -> str:
+    """Get the optimized model for a specific phase."""
+    env_model = os.environ.get("ANTHROPIC_MODEL")
+    if env_model:
+        # If user explicitly set a model, respect that
+        return env_model
+    return PHASE_MODELS.get(phase, default_model or "claude-sonnet-4-5-20250929")
+
+
+def get_max_iterations_for_phase(phase: str, default: int = 100) -> int:
+    """Get the optimized max iterations for a specific phase."""
+    return PHASE_MAX_ITERATIONS.get(phase, default)
+
+
 class LLMProvider(Enum):
     """Supported LLM providers."""
     ANTHROPIC = "anthropic"

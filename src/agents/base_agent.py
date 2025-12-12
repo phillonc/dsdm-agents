@@ -112,10 +112,23 @@ class BaseAgent(ABC):
             # Override model if specified in agent config
             if config.model:
                 llm_config.model = config.model
+            else:
+                # Use phase-optimized model for faster execution
+                from src.llm.providers import get_model_for_phase
+                llm_config.model = get_model_for_phase(config.phase, llm_config.model)
             self.llm_client = create_llm_client(config=llm_config)
+
+        # Apply phase-specific max_iterations if not explicitly set
+        from src.llm.providers import get_max_iterations_for_phase
+        if config.max_iterations == 100:  # Default value
+            config.max_iterations = get_max_iterations_for_phase(config.phase, 100)
 
         self.messages: List[Dict[str, Any]] = []
         self.tool_call_history: List[Dict[str, Any]] = []
+
+        # Convergence detection state
+        self._recent_responses: List[str] = []
+        self._max_identical_responses = 3  # Exit after this many identical responses
 
     def _emit_progress(self, event: ProgressEvent, message: str, **kwargs) -> None:
         """Emit a progress event if callback is set."""

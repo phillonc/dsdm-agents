@@ -99,14 +99,19 @@ def main():
             PhaseConfig(DSDMPhase.BUSINESS_STUDY, BusinessStudyAgent, AgentMode(args.mode)),
             PhaseConfig(DSDMPhase.PRD_TRD, ProductManagerAgent, AgentMode(args.mode)),
             PhaseConfig(DSDMPhase.FUNCTIONAL_MODEL, FunctionalModelAgent, AgentMode(args.mode)),
-            PhaseConfig(DSDMPhase.DESIGN_BUILD, DesignBuildAgent, AgentMode.HYBRID if args.mode == "automated" else AgentMode(args.mode)),
+            PhaseConfig(DSDMPhase.DESIGN_BUILD, DesignBuildAgent, AgentMode(args.mode)),
             PhaseConfig(DSDMPhase.IMPLEMENTATION, ImplementationAgent, AgentMode.MANUAL if args.mode == "automated" else AgentMode(args.mode)),
         ],
         interactive=args.interactive or not args.input,
         auto_advance=False,
     )
 
-    orchestrator = DSDMOrchestrator(config)
+    orchestrator = DSDMOrchestrator(
+        config,
+        include_devops=False,  # Disable to reduce prompt size
+        include_jira=False,    # Disable to reduce prompt size
+        include_confluence=False,  # Disable to reduce prompt size
+    )
 
     # Handle commands
     if args.list_phases:

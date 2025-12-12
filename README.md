@@ -111,6 +111,95 @@ This runs the Feasibility phase to assess:
 
 ---
 
+## Using Requirements Files
+
+You can build applications from PRD (Product Requirements Document) or other requirements files stored in the `docs/requirements/` folder.
+
+### Supported File Formats
+
+| Format | Description |
+|--------|-------------|
+| `.md` | Markdown files (recommended) |
+| `.txt` | Plain text files |
+| `.docx` | Word documents (convert to .md first using pandoc) |
+
+### Converting DOCX to Markdown
+
+If you have a Word document, convert it first:
+
+```bash
+pandoc docs/requirements/YOUR_PRD.docx -t markdown -o docs/requirements/YOUR_PRD.md
+```
+
+### Building from a Requirements File
+
+**Run full DSDM workflow:**
+```bash
+python main.py --workflow --input "$(cat docs/requirements/YOUR_PRD.md)"
+```
+
+**Run specific phase:**
+```bash
+python main.py --phase feasibility --input "$(cat docs/requirements/YOUR_PRD.md)"
+```
+
+**Programmatic approach:**
+```python
+from src.orchestrator import DSDMOrchestrator, DSDMPhase
+
+orchestrator = DSDMOrchestrator(
+    include_devops=True,
+    include_jira=True,        # Optional: track tasks in Jira
+    include_confluence=True   # Optional: publish docs to Confluence
+)
+
+# Load requirements from file
+with open("docs/requirements/YOUR_PRD.md", "r") as f:
+    requirements = f.read()
+
+# Run full workflow
+results = orchestrator.run_workflow(requirements)
+
+# Or run specific phases
+result = orchestrator.run_phase(DSDMPhase.FEASIBILITY, requirements)
+result = orchestrator.run_phase(DSDMPhase.BUSINESS_STUDY, requirements)
+```
+
+### Requirements Folder Structure
+
+```
+docs/requirements/
+├── YOUR_PROJECT_PRD.md      # Product Requirements Document
+├── YOUR_PROJECT_TRD.md      # Technical Requirements Document (optional)
+├── feature_specs/           # Feature-specific requirements
+│   ├── auth_feature.md
+│   └── payment_feature.md
+└── nfr/                     # Non-Functional Requirements
+    ├── performance.md
+    └── security.md
+```
+
+### Output Location
+
+All generated artifacts are saved to `generated/<project-name>/`:
+
+```
+generated/
+└── your-project/
+    ├── docs/
+    │   ├── FEASIBILITY_REPORT.md
+    │   ├── BUSINESS_STUDY.md
+    │   ├── PRODUCT_REQUIREMENTS.md
+    │   ├── TECHNICAL_REQUIREMENTS.md
+    │   └── architecture/
+    ├── src/           # Production code
+    ├── tests/         # Test files
+    ├── config/        # Configuration files
+    └── prototypes/    # Functional prototypes
+```
+
+---
+
 ## Usage
 
 ### Interactive Mode
@@ -155,6 +244,60 @@ python main.py --list-phases
 ```bash
 python main.py --list-tools
 ```
+
+### CLI Reference
+
+#### Available Command Line Options
+
+| Flag | Description | Example |
+|------|-------------|---------|
+| `--workflow` | Run ALL DSDM phases in sequence | `python main.py --workflow --input "..."` |
+| `--phase <name>` | Run a SINGLE phase | `python main.py --phase design_build --input "..."` |
+| `--mode <mode>` | Set agent mode: `manual`, `automated`, `hybrid` | `python main.py --phase design_build --mode hybrid --input "..."` |
+| `--input "<text>"` | Your requirements or task description | `python main.py --phase feasibility --input "Build an API"` |
+| `--interactive` | Launch interactive menu | `python main.py --interactive` |
+| `--list-phases` | List all available phases | `python main.py --list-phases` |
+| `--list-tools` | List all available tools | `python main.py --list-tools` |
+
+#### Valid Phase Names
+
+| Phase Name | Description |
+|------------|-------------|
+| `feasibility` | Assess project viability |
+| `business_study` | Define requirements with MoSCoW |
+| `functional_model` | Create prototypes |
+| `design_build` | Develop production code |
+| `implementation` | Deploy to production |
+
+#### Common Command Patterns
+
+**Run Design & Build phase from a TRD file:**
+```bash
+python main.py --phase design_build --input "$(cat docs/requirements/YOUR_TRD.md)"
+```
+
+**Run Design & Build with hybrid mode (recommended for production):**
+```bash
+python main.py --phase design_build --mode hybrid --input "$(cat docs/requirements/YOUR_TRD.md)"
+```
+
+**Run full workflow from a PRD file:**
+```bash
+python main.py --workflow --input "$(cat docs/requirements/YOUR_PRD.md)"
+```
+
+**Combine multiple requirement files:**
+```bash
+python main.py --phase design_build --input "$(cat docs/requirements/TRD_MAIN.md docs/requirements/TRD_SLICES.md)"
+```
+
+#### Common Mistakes to Avoid
+
+| Incorrect | Correct | Reason |
+|-----------|---------|--------|
+| `--workflow --design_build` | `--phase design_build` | Cannot combine `--workflow` with phase flags |
+| `--phase Design_Build` | `--phase design_build` | Phase names are lowercase with underscores |
+| `--input file.md` | `--input "$(cat file.md)"` | Must read file contents, not pass filename |
 
 ### Programmatic Usage
 

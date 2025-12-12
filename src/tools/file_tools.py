@@ -123,8 +123,24 @@ def list_directory_handler(
     dir_path: str = "",
     output_dir: Optional[str] = None,
     recursive: bool = False,
+    max_items: int = 500,
 ) -> str:
-    """List contents of a directory."""
+    """List contents of a directory.
+
+    Excludes common large directories like venv, node_modules, __pycache__ etc.
+    to prevent massive outputs.
+    """
+    # Directories to skip when listing recursively
+    SKIP_DIRS = {
+        'venv', '.venv', 'env', '.env', 'virtualenv',
+        'node_modules', '.npm', '.pnpm-store',
+        '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache',
+        '.git', '.svn', '.hg',
+        'dist', 'build', '.tox', '.nox', '.eggs', '*.egg-info',
+        '.idea', '.vscode', '.vs',
+        'htmlcov', '.coverage',
+    }
+
     try:
         full_path = get_output_path(dir_path, output_dir) if dir_path else Path(output_dir or DEFAULT_OUTPUT_DIR)
 
@@ -140,30 +156,58 @@ def list_directory_handler(
                 "error": f"Not a directory: {full_path}",
             })
 
+        items = []
+        truncated = False
+
         if recursive:
-            items = []
+            def should_skip(path: Path) -> bool:
+                """Check if path should be skipped."""
+                return any(
+                    part in SKIP_DIRS or part.endswith('.egg-info')
+                    for part in path.parts
+                )
+
             for item in full_path.rglob("*"):
+                if len(items) >= max_items:
+                    truncated = True
+                    break
+
                 rel_path = item.relative_to(full_path)
+
+                # Skip excluded directories
+                if should_skip(rel_path):
+                    continue
+
                 items.append({
                     "path": str(rel_path),
                     "type": "directory" if item.is_dir() else "file",
                     "size": item.stat().st_size if item.is_file() else None,
                 })
         else:
-            items = []
             for item in full_path.iterdir():
+                if len(items) >= max_items:
+                    truncated = True
+                    break
+
                 items.append({
                     "name": item.name,
                     "type": "directory" if item.is_dir() else "file",
                     "size": item.stat().st_size if item.is_file() else None,
                 })
 
-        return json.dumps({
+        result = {
             "success": True,
             "dir_path": str(full_path),
             "items": items,
             "count": len(items),
-        })
+        }
+
+        if truncated:
+            result["truncated"] = True
+            result["message"] = f"Output truncated at {max_items} items. Use more specific paths to see more."
+            result["excluded_dirs"] = list(SKIP_DIRS)
+
+        return json.dumps(result)
     except Exception as e:
         return json.dumps({
             "success": False,
