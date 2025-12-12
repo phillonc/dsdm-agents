@@ -1,0 +1,64 @@
+# OPTIX Adaptive Intelligence - Python Dependencies
+# Updated for Python 3.13 compatibility
+
+# Core Dependencies
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.6.0
+pydantic-settings>=2.1.0
+
+# Async Support
+aiohttp>=3.9.1
+# Note: asyncio is built into Python 3, no need to install
+
+# Data Processing - Python 3.13 compatible
+numpy>=2.0.0
+pandas>=2.2.0
+scipy>=1.12.0
+
+# Machine Learning
+scikit-learn>=1.4.0
+xgboost>=2.0.2
+statsmodels>=0.14.0
+
+# Technical Analysis
+pandas-ta>=0.3.14b0
+
+# Time Series
+arch>=6.2.0
+
+# NLP for Sentiment Analysis (optional - can be large)
+transformers>=4.35.2
+nltk>=3.8.1
+textblob>=0.17.1
+
+# Database - Use asyncpg for better Python 3.13 compatibility
+motor>=3.3.2
+pymongo>=4.6.0
+redis>=5.0.1
+sqlalchemy>=2.0.25
+asyncpg>=0.29.0
+greenlet>=3.0.0
+
+# Caching
+aiocache>=0.12.2
+
+# Monitoring & Logging
+prometheus-client>=0.19.0
+python-json-logger>=2.0.7
+
+# Testing
+pytest>=7.4.3
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+httpx>=0.26.0
+
+# Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Utilities
+python-dateutil>=2.8.2
+pytz>=2023.3
+python-dotenv>=1.0.0

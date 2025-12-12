@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}My Tasks - Todo List{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-4 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-primary">{{ total_count }}</h3>
+                        <p class="text-muted mb-0">Total Tasks</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-warning">{{ active_count }}</h3>
+                        <p class="text-muted mb-0">Active</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-success">{{ completed_count }}</h3>
+                        <p class="text-muted mb-0">Completed</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs">
+            <a href="{{ url_for('index', filter='all') }}" 
+               class="btn btn-{{ 'primary' if filter_type == 'all' else 'outline-primary' }}">
+                <i class="fas fa-list"></i> All
+                <span class="stats-badge badge bg-secondary">{{ total_count }}</span>
+            </a>
+            <a href="{{ url_for('index', filter='active') }}" 
+               class="btn btn-{{ 'warning' if filter_type == 'active' else 'outline-warning' }}">
+                <i class="fas fa-clock"></i> Active
+                <span class="stats-badge badge bg-secondary">{{ active_count }}</span>
+            </a>
+            <a href="{{ url_for('index', filter='completed') }}" 
+               class="btn btn-{{ 'success' if filter_type == 'completed' else 'outline-success' }}">
+                <i class="fas fa-check"></i> Completed
+                <span class="stats-badge badge bg-secondary">{{ completed_count }}</span>
+            </a>
+            
+            {% if completed_count > 0 %}
+            <form action="{{ url_for('clear_completed') }}" method="POST" style="display: inline;" 
+                  onsubmit="return confirm('Are you sure you want to delete all completed tasks?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="fas fa-trash"></i> Clear Completed
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- Todo List Card -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    {% if filter_type == 'active' %}
+                        <i class="fas fa-clock text-warning"></i> Active Tasks
+                    {% elif filter_type == 'completed' %}
+                        <i class="fas fa-check text-success"></i> Completed Tasks
+                    {% else %}
+                        <i class="fas fa-list"></i> All Tasks
+                    {% endif %}
+                </span>
+                <span class="badge bg-primary">{{ todos|length }}</span>
+            </div>
+            
+            <div class="card-body p-0">
+                {% if todos %}
+                    {% for todo in todos %}
+                    <div class="todo-item {{ 'completed' if todo.completed else '' }}">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <div class="todo-title">
+                                    {% if todo.completed %}
+                                        <i class="fas fa-check-circle text-success"></i>
+                                    {% else %}
+                                        <i class="far fa-circle text-muted"></i>
+                                    {% endif %}
+                                    {{ todo.title }}
+                                </div>
+                                
+                                {% if todo.description %}
+                                <div class="todo-description">
+                                    {{ todo.description }}
+                                </div>
+                                {% endif %}
+                                
+                                <div class="todo-meta">
+                                    <i class="far fa-clock"></i>
+                                    Created {{ todo.created_at.strftime('%b %d, %Y at %I:%M %p') }}
+                                    {% if todo.updated_at and todo.updated_at != todo.created_at %}
+                                        • Updated {{ todo.updated_at.strftime('%b %d, %Y at %I:%M %p') }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 text-end todo-actions">
+                                <!-- Toggle Button -->
+                                <form action="{{ url_for('toggle_todo', todo_id=todo.id) }}" 
+                                      method="POST" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" 
+                                            class="btn btn-sm btn-toggle {{ 'completed' if todo.completed else '' }}"
+                                            title="{{ 'Mark as incomplete' if todo.completed else 'Mark as complete' }}">
+                                        <i class="fas fa-{{ 'undo' if todo.completed else 'check' }}"></i>
+                                    </button>
+                                </form>
+                                
+                                <!-- Edit Button -->
+                                <a href="{{ url_for('edit_todo', todo_id=todo.id) }}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="Edit task">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                
+                                <!-- Delete Button -->
+                                <form action="{{ url_for('delete_todo', todo_id=todo.id) }}" 
+                                      method="POST" style="display: inline;"
+                                      onsubmit="return confirm('Are you sure you want to delete this task?');">
+                                    {{ delete_forms[todo.id].hidden_tag() }}
+                                    <button type="submit" 
+                                            class="btn btn-sm btn-outline-danger"
+                                            title="Delete task">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h4>No tasks found</h4>
+                        <p class="text-muted">
+                            {% if filter_type == 'active' %}
+                                You don't have any active tasks. Great job!
+                            {% elif filter_type == 'completed' %}
+                                You haven't completed any tasks yet.
+                            {% else %}
+                                Start by adding your first task.
+                            {% endif %}
+                        </p>
+                        <a href="{{ url_for('add_todo') }}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Your First Task
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-dismiss alerts after 5 seconds
+    setTimeout(function() {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        });
+    }, 5000);
+</script>
+{% endblock %}

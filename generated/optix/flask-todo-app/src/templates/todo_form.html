@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Todo List{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-{{ 'plus' if action == 'Add' else 'edit' }}"></i>
+                    {{ title }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.title.label(class="form-label") }}
+                        {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else "")) }}
+                        {% if form.title.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.title.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i>
+                            Enter a clear, concise title for your task (max 200 characters)
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else "")) }}
+                        {% if form.description.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.description.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i>
+                            Add optional details about your task (max 1000 characters)
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="form-check">
+                            {{ form.completed(class="form-check-input" + (" is-invalid" if form.completed.errors else "")) }}
+                            {{ form.completed.label(class="form-check-label") }}
+                            {% if form.completed.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.completed.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="form-text ms-4">
+                            <i class="fas fa-info-circle"></i>
+                            Check this box if the task is already completed
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Cancel
+                        </a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Tips Card -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-lightbulb text-warning"></i> Tips
+                </h6>
+                <ul class="mb-0 small text-muted">
+                    <li>Use clear, action-oriented titles (e.g., "Buy groceries" instead of "Groceries")</li>
+                    <li>Add descriptions for tasks that need extra context or steps</li>
+                    <li>You can always edit or update tasks later</li>
+                    <li>Mark tasks as complete when done to track your progress</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Character counter for title
+    const titleInput = document.querySelector('input[name="title"]');
+    const descriptionInput = document.querySelector('textarea[name="description"]');
+    
+    if (titleInput) {
+        titleInput.addEventListener('input', function() {
+            const remaining = 200 - this.value.length;
+            const helpText = this.parentElement.querySelector('.form-text');
+            if (remaining < 50) {
+                helpText.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${remaining} characters remaining`;
+                helpText.classList.add('text-warning');
+            }
+        });
+    }
+    
+    if (descriptionInput) {
+        descriptionInput.addEventListener('input', function() {
+            const remaining = 1000 - this.value.length;
+            const helpText = this.parentElement.querySelector('.form-text');
+            if (remaining < 100) {
+                helpText.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${remaining} characters remaining`;
+                helpText.classList.add('text-warning');
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,179 @@
+# Configuration for OPTIX Adaptive Intelligence Engine
+
+service:
+  name: "optix-adaptive-intelligence"
+  version: "1.0.0"
+  environment: "development"
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  reload: false
+
+# Pattern Recognition Configuration
+pattern_recognition:
+  min_confidence: 0.6
+  lookback_periods: 100
+  volume_threshold_multiplier: 2.0
+  
+  chart_patterns:
+    enabled: true
+    min_pattern_length: 10
+    peak_prominence: 0.5
+    
+  support_resistance:
+    enabled: true
+    min_touches: 2
+    level_tolerance: 0.01  # 1% tolerance
+    
+  options_activity:
+    enabled: true
+    min_volume_multiple: 3.0
+    sweep_threshold: 5.0
+    golden_sweep_threshold: 10.0
+    
+  volume_anomalies:
+    enabled: true
+    spike_threshold: 2.0
+    divergence_threshold: 0.3
+
+# AI Analysis Configuration
+ai_analysis:
+  price_prediction:
+    enabled: true
+    model_type: "random_forest"
+    n_estimators: 100
+    max_depth: 10
+    min_samples: 50
+    
+  volatility_forecasting:
+    enabled: true
+    methods: ["ewma", "garch"]
+    ewma_lambda: 0.94
+    garch_p: 1
+    garch_q: 1
+    
+  sentiment_analysis:
+    enabled: true
+    sources: ["options_flow", "market_breadth", "news"]
+    news_weight: 0.3
+    options_weight: 0.4
+    breadth_weight: 0.3
+
+# Personalization Configuration
+personalization:
+  min_sample_size: 10
+  learning_window_days: 90
+  insight_generation:
+    enabled: true
+    max_insights_per_user: 20
+    relevance_threshold: 0.5
+  
+  pattern_learning:
+    enabled: true
+    success_rate_threshold: 0.6
+    
+  performance_tracking:
+    enabled: true
+    update_frequency_hours: 24
+
+# Alert Configuration
+alerts:
+  enabled: true
+  delivery:
+    max_retries: 3
+    retry_delay_seconds: 60
+    timeout_seconds: 30
+    
+  channels:
+    in_app:
+      enabled: true
+    email:
+      enabled: true
+      provider: "sendgrid"
+    sms:
+      enabled: false
+      provider: "twilio"
+    push:
+      enabled: true
+      provider: "fcm"
+    webhook:
+      enabled: true
+      
+  rate_limiting:
+    enabled: true
+    default_max_per_day: 50
+    default_deduplication_window: 3600
+    
+  quiet_hours:
+    enabled: false
+    default_start: 22
+    default_end: 8
+
+# Database Configuration
+database:
+  type: "mongodb"
+  host: "localhost"
+  port: 27017
+  name: "optix_intelligence"
+  user: ""
+  password: ""
+  
+  collections:
+    patterns: "chart_patterns"
+    signals: "prediction_signals"
+    insights: "personalized_insights"
+    alerts: "alerts"
+    user_profiles: "user_profiles"
+
+# Cache Configuration
+cache:
+  enabled: true
+  type: "redis"
+  host: "localhost"
+  port: 6379
+  ttl_seconds: 3600
+  max_size_mb: 256
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  metrics_port: 9090
+  log_level: "INFO"
+  
+  prometheus:
+    enabled: true
+    scrape_interval: 15
+    
+  logging:
+    format: "json"
+    output: "stdout"
+    rotation: "daily"
+    retention_days: 30
+
+# Security Configuration
+security:
+  api_keys:
+    enabled: true
+    header_name: "X-API-Key"
+  
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 100
+    
+  cors:
+    enabled: true
+    allowed_origins: ["*"]
+    
+  encryption:
+    enabled: true
+    algorithm: "aes-256-gcm"
+
+# Feature Flags
+features:
+  experimental_patterns: false
+  deep_learning_models: false
+  real_time_streaming: true
+  backtesting: true
+  paper_trading: false

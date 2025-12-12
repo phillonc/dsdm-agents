@@ -1,0 +1,74 @@
+# OPTIX Trading Platform - Python Dependencies
+# Phase 1: VS-0 (Core Foundation) + VS-7 (Brokerage Sync)
+# Phase 2: Redis Integration + Production Persistence
+# Phase 3: PostgreSQL Integration + Rate Limiting
+# Updated for Python 3.13 compatibility
+
+# FastAPI and ASGI Server
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# Data Validation
+pydantic>=2.6.0
+pydantic-settings>=2.1.0
+email-validator>=2.1.0
+
+# Authentication & Security
+pyjwt>=2.8.0
+bcrypt>=4.1.2
+pyotp>=2.9.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# HTTP Client
+httpx>=0.26.0
+aiohttp>=3.9.1
+
+# Database - PostgreSQL with async support (use asyncpg for Python 3.13 compatibility)
+asyncpg>=0.29.0
+sqlalchemy>=2.0.25
+alembic>=1.13.1
+aiosqlite>=0.19.0  # For testing
+greenlet>=3.0.0
+
+# Caching and Session Management (Redis)
+redis>=5.0.1
+hiredis>=2.3.2
+
+# Message Queue (for background tasks)
+celery>=5.3.6
+kombu>=5.3.5
+
+# Testing
+pytest>=7.4.4
+pytest-asyncio>=0.23.3
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+fakeredis>=2.21.0
+
+# Code Quality
+black>=23.12.1
+flake8>=7.0.0
+mypy>=1.8.0
+pylint>=3.0.3
+isort>=5.13.2
+
+# Monitoring and Logging
+structlog>=24.1.0
+python-json-logger>=2.0.7
+
+# AWS SDK
+boto3>=1.34.27
+botocore>=1.34.27
+
+# WebSocket
+websockets>=12.0
+
+# Date/Time
+python-dateutil>=2.8.2
+pytz>=2023.4
+
+# Utilities
+python-dotenv>=1.0.0
+pyyaml>=6.0.1

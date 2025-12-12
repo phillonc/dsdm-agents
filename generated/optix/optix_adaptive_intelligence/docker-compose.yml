@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  # Main Application
+  optix-intelligence:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: optix-intelligence-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DB=optix_intelligence
+    depends_on:
+      - redis
+      - mongodb
+    networks:
+      - optix-network
+    restart: unless-stopped
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: optix-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - optix-network
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:6
+    container_name: optix-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=optix_intelligence
+    networks:
+      - optix-network
+    restart: unless-stopped
+    volumes:
+      - mongodb-data:/data/db
+      - mongodb-config:/data/configdb
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: optix-prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - optix-network
+    restart: unless-stopped
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: optix-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - optix-network
+    restart: unless-stopped
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+networks:
+  optix-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  mongodb-data:
+  mongodb-config:
+  prometheus-data:
+  grafana-data:

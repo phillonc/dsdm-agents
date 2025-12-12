@@ -206,9 +206,14 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Generated code by agents (keep .gitkeep)
-generated/*
-!generated/.gitkeep
+# Generated code by agents - now tracked in git
+# Ignore virtual environments and sensitive files within generated projects
+generated/**/venv/
+generated/**/env/
+generated/**/.env
+generated/**/node_modules/
+generated/**/*.db
+generated/**/*.sqlite3
 
 # macOS
 .DS_Store

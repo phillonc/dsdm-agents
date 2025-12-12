@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Todo List App{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1><i class="bi bi-kanban"></i> My Tasks</h1>
+        <p class="lead mb-0">Stay organized and productive</p>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card bg-primary text-white">
+                <h3 class="mb-0">{{ total_tasks }}</h3>
+                <small>Total Tasks</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card bg-warning text-dark">
+                <h3 class="mb-0">{{ active_tasks }}</h3>
+                <small>Active Tasks</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card bg-success text-white">
+                <h3 class="mb-0">{{ completed_tasks }}</h3>
+                <small>Completed</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card bg-danger text-white">
+                <h3 class="mb-0">{{ overdue_count }}</h3>
+                <small>Overdue</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Buttons -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('main.dashboard', filter='all') }}" 
+                   class="btn btn-outline-primary {{ 'active' if filter_type == 'all' else '' }}">
+                    <i class="bi bi-list-ul"></i> All
+                </a>
+                <a href="{{ url_for('main.dashboard', filter='active') }}" 
+                   class="btn btn-outline-primary {{ 'active' if filter_type == 'active' else '' }}">
+                    <i class="bi bi-circle"></i> Active
+                </a>
+                <a href="{{ url_for('main.dashboard', filter='completed') }}" 
+                   class="btn btn-outline-primary {{ 'active' if filter_type == 'completed' else '' }}">
+                    <i class="bi bi-check-circle"></i> Completed
+                </a>
+                <a href="{{ url_for('main.dashboard', filter='due_soon') }}" 
+                   class="btn btn-outline-primary {{ 'active' if filter_type == 'due_soon' else '' }}">
+                    <i class="bi bi-alarm"></i> Due Soon
+                </a>
+            </div>
+            
+            <a href="{{ url_for('main.create_task') }}" class="btn btn-primary float-end">
+                <i class="bi bi-plus-lg"></i> New Task
+            </a>
+        </div>
+    </div>
+
+    <!-- Tasks List -->
+    <div class="row">
+        <div class="col-12">
+            {% if tasks %}
+                {% for task in tasks %}
+                    {% set is_overdue = task.due_date and task.due_date < now and not task.completed %}
+                    {% set is_due_soon = task.due_date and task.due_date > now and (task.due_date - now).total_seconds() < 86400 and not task.completed %}
+                    
+                    <div class="card task-card mb-3 {{ 'task-completed' if task.completed else ('task-overdue' if is_overdue else '') }}">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-auto">
+                                    <form method="POST" action="{{ url_for('main.toggle_task', task_id=task.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-link p-0" title="{{ 'Mark as incomplete' if task.completed else 'Mark as complete' }}">
+                                            <i class="bi {{ 'bi-check-circle-fill text-success' if task.completed else 'bi-circle' }} fs-4"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                                <div class="col">
+                                    <h5 class="mb-1 {{ 'text-decoration-line-through text-muted' if task.completed else '' }}">
+                                        {{ task.title }}
+                                        {% if is_overdue %}
+                                            <span class="badge bg-danger">Overdue</span>
+                                        {% elif is_due_soon %}
+                                            <span class="badge bg-warning text-dark">Due Soon</span>
+                                        {% elif task.reminder_sent and not task.completed %}
+                                            <span class="badge bg-info">Reminder Sent</span>
+                                        {% endif %}
+                                    </h5>
+                                    {% if task.description %}
+                                        <p class="mb-1 text-muted">{{ task.description }}</p>
+                                    {% endif %}
+                                    <small class="text-muted">
+                                        {% if task.due_date %}
+                                            <i class="bi bi-calendar-event"></i> 
+                                            Due: {{ task.due_date.strftime('%B %d, %Y at %I:%M %p') }}
+                                        {% endif %}
+                                        <span class="ms-2">
+                                            <i class="bi bi-clock"></i> 
+                                            Created: {{ task.created_at.strftime('%b %d, %Y') }}
+                                        </span>
+                                    </small>
+                                </div>
+                                <div class="col-auto">
+                                    <a href="{{ url_for('main.edit_task', task_id=task.id) }}" 
+                                       class="btn btn-sm btn-outline-primary me-1"
+                                       title="Edit task">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteModal{{ task.id }}"
+                                            title="Delete task">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Delete Confirmation Modal -->
+                    <div class="modal fade" id="deleteModal{{ task.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Confirm Delete</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    Are you sure you want to delete "<strong>{{ task.title }}</strong>"?
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <form method="POST" action="{{ url_for('main.delete_task', task_id=task.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-danger">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox fs-1 text-muted"></i>
+                    <h3 class="text-muted mt-3">No tasks found</h3>
+                    <p class="text-muted">Create your first task to get started!</p>
+                    <a href="{{ url_for('main.create_task') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg"></i> Create Task
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

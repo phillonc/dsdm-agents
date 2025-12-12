@@ -1,0 +1,73 @@
+# VS-9 Smart Alerts Configuration
+
+# Alert Engine Settings
+alert_engine:
+  default_cooldown_minutes: 5
+  max_active_rules_per_user: 100
+  enable_market_hours_filter: true
+  
+# Learning Engine Settings
+learning_engine:
+  learning_rate: 0.1
+  min_samples_for_learning: 10
+  profile_update_interval_hours: 24
+  
+# Consolidation Engine Settings
+consolidation_engine:
+  consolidation_window_minutes: 5
+  max_alerts_before_flush: 10
+  enable_smart_grouping: true
+  
+# Notification Service Settings
+notification_service:
+  default_max_alerts_per_hour: 50
+  default_max_sms_per_day: 10
+  retry_failed_deliveries: true
+  retry_attempts: 3
+  retry_delay_seconds: 60
+  
+# Priority-based Channel Configuration
+priority_channels:
+  low:
+    - in_app
+  medium:
+    - in_app
+    - push
+  high:
+    - in_app
+    - push
+    - email
+  urgent:
+    - in_app
+    - push
+    - email
+    - sms
+    
+# Market Hours Configuration
+market_hours:
+  pre_market_start: "04:00"
+  pre_market_end: "09:30"
+  regular_start: "09:30"
+  regular_end: "16:00"
+  after_hours_start: "16:00"
+  after_hours_end: "20:00"
+  timezone: "America/New_York"
+  
+# Template Settings
+templates:
+  enable_custom_templates: true
+  max_custom_templates_per_user: 20
+  
+# Performance Settings
+performance:
+  enable_caching: true
+  cache_ttl_seconds: 300
+  max_concurrent_evaluations: 100
+  
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/smart_alerts.log"
+  max_file_size_mb: 100
+  backup_count: 5

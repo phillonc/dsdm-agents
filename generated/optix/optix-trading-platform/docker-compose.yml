@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: optix-postgres
+    environment:
+      POSTGRES_DB: optix
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - optix-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: optix-redis
+    command: redis-server --appendonly yes --requirepass redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - optix-network
+
+  # OPTIX API Service
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    container_name: optix-api
+    environment:
+      # Application
+      ENVIRONMENT: production
+      DEBUG: "false"
+      
+      # Database
+      DATABASE_URL: postgresql://postgres:postgres_password@postgres:5432/optix
+      
+      # Redis
+      REDIS_URL: redis://:redis_password@redis:6379/0
+      REDIS_MAX_CONNECTIONS: 50
+      
+      # JWT
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-in-production}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 15
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: 30
+      
+      # API
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      
+      # Feature Flags
+      ENABLE_MFA: "true"
+      ENABLE_BROKERAGE_SYNC: "true"
+      ENABLE_ALERTS: "true"
+      ENABLE_WEBSOCKET: "true"
+      
+      # Market Data
+      MARKET_DATA_PROVIDER: ${MARKET_DATA_PROVIDER:-mock}
+      POLYGON_API_KEY: ${POLYGON_API_KEY}
+      
+      # Brokerage
+      SCHWAB_CLIENT_ID: ${SCHWAB_CLIENT_ID}
+      SCHWAB_CLIENT_SECRET: ${SCHWAB_CLIENT_SECRET}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - optix-network
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+  # Redis Commander (Optional - Redis GUI)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: optix-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:redis_password
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - optix-network
+    profiles:
+      - dev
+
+  # pgAdmin (Optional - PostgreSQL GUI)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: optix-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@optix.local
+      PGADMIN_DEFAULT_PASSWORD: admin_password
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "8082:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - optix-network
+    profiles:
+      - dev
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  pgadmin-data:
+    driver: local
+
+networks:
+  optix-network:
+    driver: bridge
