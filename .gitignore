@@ -209,3 +209,6 @@ __marimo__/
 # Generated code by agents (keep .gitkeep)
 generated/*
 !generated/.gitkeep
+
+# macOS
+.DS_Store
