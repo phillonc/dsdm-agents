@@ -118,6 +118,17 @@ source venv/bin/activate
 GENUI_DEFAULT_LLM_PROVIDER=mock python -m uvicorn genui_service.api.app:app --port 8004
 ```
 
+### Default Credentials
+
+After starting the services, use these test accounts:
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@optix.io` | `Admin123!` |
+| User | `test@optix.io` | `Test123!` |
+
+**Note:** The API uses in-memory storage. Users persist until server restart. Register new users via the API or frontend.
+
 ---
 
 ## Frontend Pages

@@ -218,7 +218,7 @@ def upgrade() -> None:
             email, email_verified, password_hash, first_name, last_name,
             display_name, status, role, is_premium, mfa_enabled
         ) VALUES (
-            'admin@optix.local',
+            'admin@optix.io',
             TRUE,
             '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5qdaN.x7q1WKO',
             'OPTIX',
@@ -230,14 +230,14 @@ def upgrade() -> None:
             FALSE
         ) ON CONFLICT (email) DO NOTHING;
     """)
-    
+
     # Create sample test user (password: Test123!)
     op.execute("""
         INSERT INTO user_service.users (
             email, email_verified, password_hash, first_name, last_name,
             display_name, status, role, is_premium
         ) VALUES (
-            'test@optix.local',
+            'test@optix.io',
             TRUE,
             '$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
             'Test',

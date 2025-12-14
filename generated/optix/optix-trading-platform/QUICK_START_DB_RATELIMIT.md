@@ -56,8 +56,8 @@ docker-compose exec postgres psql -U postgres -d optix
 SELECT email, role FROM user_service.users;
 
 # Should see:
-# admin@optix.local | admin
-# test@optix.local  | user
+# admin@optix.io | admin
+# test@optix.io  | user
 
 # Exit
 \q

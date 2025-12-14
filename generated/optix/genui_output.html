@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; font-src 'self' https:; frame-ancestors 'none'">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Options Chain</title>
+  <style>
+    :root {
+      --optix-primary: #2563EB;
+      --optix-bg-dark: #0F172A;
+      --optix-text: #F1F5F9;
+      --optix-green: #22C55E;
+      --optix-red: #EF4444;
+    }
+    body { font-family: Inter, sans-serif; background: var(--optix-bg-dark); color: var(--optix-text); margin: 0; padding: 16px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .symbol { font-size: 24px; font-weight: 700; }
+    .price { font-size: 20px; color: var(--optix-green); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px 8px; text-align: right; border-bottom: 1px solid #334155; }
+    th { background: #1E293B; position: sticky; top: 0; }
+    .strike { text-align: center; font-weight: 600; background: #1E293B; }
+    .loading { opacity: 0.5; }
+
+
+    /* Mobile responsiveness */
+    * {
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: var(--optix-space-sm);
+      }
+
+      table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .card {
+        margin-bottom: var(--optix-space-sm);
+      }
+    }
+
+    /* Touch-friendly targets */
+    button, a, [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /* Prevent text size adjustment */
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
+</style>
+</head>
+<body>
+  <div id="error-boundary" style="display:none;"></div>
+  <a href="#main-content" class="skip-link" style="
+        position: absolute;
+        top: -40px;
+        left: 0;
+        background: var(--optix-primary);
+        color: white;
+        padding: 8px;
+        z-index: 100;
+      ">Skip to main content</a>
+  <div class="header">
+    <div>
+      <span class="symbol" data-bind="symbol">AAPL</span>
+      <span class="price" data-bind="price">$185.50</span>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Bid</th><th>Ask</th><th>Vol</th><th>OI</th><th>Δ</th>
+        <th class="strike">Strike</th>
+        <th>Δ</th><th>OI</th><th>Vol</th><th>Ask</th><th>Bid</th>
+      </tr>
+    </thead>
+    <tbody id="chain-body">
+      <tr>
+        <td>3.50</td><td>3.55</td><td>1.2K</td><td>5.6K</td><td>0.52</td>
+        <td class="strike">185</td>
+        <td>-0.48</td><td>4.2K</td><td>890</td><td>2.85</td><td>2.80</td>
+      </tr>
+    </tbody>
+  </table>
+
+<script>
+  // Data bridge initialization
+  (function() {
+    const dataBridge = window.OPTIXDataBridge || {
+      request: async (endpoint, params) => ({ loading: true }),
+      subscribe: (channel, callback) => {}
+    };
+
+    async function initDataBindings() {
+      const bindings = document.querySelectorAll('[data-bind]');
+      for (const el of bindings) {
+        const endpoint = el.dataset.bind;
+        const params = el.dataset.params || '';
+        try {
+          const data = await dataBridge.request(endpoint, params);
+          el.textContent = JSON.stringify(data);
+          el.classList.remove('loading');
+        } catch (e) {
+          el.textContent = '[Error loading data]';
+          el.classList.add('error');
+        }
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initDataBindings);
+    } else {
+      initDataBindings();
+    }
+  })();
+</script>
+
+<script>
+  // Global error handler
+  window.onerror = function(msg, url, lineNo, columnNo, error) {
+    const errorContainer = document.getElementById('error-boundary');
+    if (errorContainer) {
+      errorContainer.innerHTML = `
+        <div style="
+          padding: 16px;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid var(--optix-red);
+          border-radius: 8px;
+          margin: 16px 0;
+        ">
+          <strong style="color: var(--optix-red);">Something went wrong</strong>
+          <p style="color: var(--optix-text-muted); margin: 8px 0 0;">
+            ${msg}
+          </p>
+          <button onclick="location.reload()" style="
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: var(--optix-primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+          ">Reload</button>
+        </div>
+      `;
+      errorContainer.style.display = 'block';
+    }
+    return false;
+  };
+
+  // Promise rejection handler
+  window.onunhandledrejection = function(event) {
+    console.error('Unhandled promise rejection:', event.reason);
+  };
+</script>
+</body>
+</html>

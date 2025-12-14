@@ -55,14 +55,14 @@ Then open http://localhost:3000 in your browser.
 
 Use these credentials to test the platform (when backend is running):
 
-| Email | Password | Description |
-|-------|----------|-------------|
-| `demo@optix.com` | `DemoPass123#` | Standard demo account |
-| `trader@optix.com` | `Trader123#` | Active trader with positions |
-| `admin@optix.com` | `Admin123#` | Admin account with full access |
-| `test@example.com` | `Test1234#` | Basic test account |
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@optix.io` | `Admin123!` | Admin account with full access |
+| `test@optix.io` | `Test123!` | Standard user account |
 
-**Note:** Passwords require: 8+ chars, uppercase, lowercase, number, and special character (`#`, `@`, `$`, etc.)
+**Note:** The API uses in-memory storage for development. Register new users via `/api/v1/auth/register` or restart the server to reset.
+
+**Password Requirements:** 8+ chars, uppercase, lowercase, number, and special character (`!`, `@`, `#`, etc.)
 
 ### Quick Login for Development
 

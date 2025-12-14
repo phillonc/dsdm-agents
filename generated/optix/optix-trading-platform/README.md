@@ -113,6 +113,17 @@ uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
 Visit: http://localhost:8000/docs for interactive API documentation
 
+### Default Credentials
+
+After running migrations, the following test accounts are available:
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@optix.io` | `Admin123!` |
+| User | `test@optix.io` | `Test123!` |
+
+**Note:** The API currently uses in-memory storage for development. Users registered via `/api/v1/auth/register` will persist until server restart.
+
 ### Docker Development
 
 ```bash

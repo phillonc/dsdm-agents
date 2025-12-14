@@ -234,6 +234,31 @@ def push_optix_frontend_readme():
     return create_or_update_page(client, title, html_content)
 
 
+def push_optix_platform_readme():
+    """Push OPTIX Platform README to Confluence."""
+    client = get_confluence_client()
+
+    if not client.is_configured:
+        return None
+
+    # Read OPTIX Platform README
+    optix_readme_path = project_root / "generated" / "optix" / "README.md"
+    if not optix_readme_path.exists():
+        print(f"ERROR: OPTIX Platform README not found at {optix_readme_path}")
+        return None
+
+    optix_content = optix_readme_path.read_text()
+    html_content = markdown_to_confluence(optix_content)
+
+    # Add update timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    html_content = f'<p><em>Last synced from repository: {timestamp}</em></p><hr/>' + html_content
+
+    title = f"{PROJECT_NAME} - OPTIX Platform Overview"
+    print(f"\nPushing OPTIX Platform README to Confluence...")
+    return create_or_update_page(client, title, html_content)
+
+
 def push_sync_feature_announcement():
     """Push a page announcing the new Jira-Confluence sync feature."""
     client = get_confluence_client()
@@ -316,6 +341,98 @@ orchestrator.tool_registry.execute(
     return create_or_update_page(client, title, content)
 
 
+def push_generic_doc(file_path: str, title_suffix: str) -> dict:
+    """Push a generic markdown document to Confluence."""
+    client = get_confluence_client()
+
+    if not client.is_configured:
+        return None
+
+    doc_path = project_root / file_path
+    if not doc_path.exists():
+        print(f"  SKIP: {file_path} not found")
+        return None
+
+    doc_content = doc_path.read_text()
+    html_content = markdown_to_confluence(doc_content)
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    html_content = f'<p><em>Last synced from repository: {timestamp}</em></p><hr/>' + html_content
+
+    title = f"{PROJECT_NAME} - {title_suffix}"
+    print(f"\nPushing {title_suffix}...")
+    return create_or_update_page(client, title, html_content)
+
+
+# Document configuration: (file_path, title_suffix, display_name)
+DOCUMENTS = [
+    # Core documentation
+    ("README.md", "Documentation", "README"),
+    ("GETTING_STARTED.md", "Getting Started Guide", "Getting Started"),
+    ("docs/TECHNICAL_REQUIREMENTS.md", "Technical Requirements Document", "TRD"),
+    ("docs/DEVOPS_TOOLS.md", "DevOps Tools Documentation", "DevOps Tools"),
+    ("docs/WORKFLOW_DIAGRAM.md", "Workflow Diagram", "Workflow Diagram"),
+
+    # OPTIX Requirements
+    ("docs/requirements/OPTIX_PRD.md", "OPTIX PRD", "OPTIX PRD"),
+    ("docs/requirements/OPTIX_TRD_DSDM.md", "OPTIX TRD DSDM", "OPTIX TRD DSDM"),
+    ("docs/requirements/OPTIX_PRD_Generative_UI.md", "OPTIX PRD Generative UI", "OPTIX PRD GenUI"),
+    ("docs/requirements/OPTIX_TRD_Generative_UI.md", "OPTIX TRD Generative UI", "OPTIX TRD GenUI"),
+    ("docs/requirements/OPTIX_TRD_Generative_UI_API.md", "OPTIX TRD Generative UI API", "OPTIX TRD GenUI API"),
+    ("docs/requirements/OPTIX_TRD_Vertical_Slices.md", "OPTIX TRD Vertical Slices", "OPTIX TRD Vertical Slices"),
+
+    # OPTIX Service Documentation
+    ("docs/OPTIX_Service_Endpoints.md", "OPTIX Service Endpoints", "OPTIX Service Endpoints"),
+
+    # OPTIX Platform
+    ("generated/optix/README.md", "OPTIX Platform Overview", "OPTIX Platform"),
+    ("generated/optix/REMAINING_UI_UX_TASKS.md", "OPTIX Remaining UI/UX Tasks", "OPTIX UI/UX Tasks"),
+    ("generated/optix/frontend/README.md", "OPTIX Frontend Documentation", "OPTIX Frontend"),
+    ("generated/optix/genui_service/README.md", "OPTIX GenUI Service", "OPTIX GenUI Service"),
+
+    # Vertical Slices - Trading Platform
+    ("generated/optix/optix-trading-platform/README.md", "OPTIX Trading Platform", "Trading Platform"),
+    ("generated/optix/optix-trading-platform/docs/API_REFERENCE.md", "OPTIX Trading Platform API", "Trading Platform API"),
+    ("generated/optix/optix-trading-platform/docs/DEPLOYMENT.md", "OPTIX Trading Platform Deployment", "Trading Platform Deployment"),
+
+    # Vertical Slices - Backtester
+    ("generated/optix/optix_backtester/README.md", "OPTIX Backtester", "Backtester"),
+    ("generated/optix/optix_backtester/docs/ARCHITECTURE.md", "OPTIX Backtester Architecture", "Backtester Architecture"),
+
+    # Vertical Slices - GEX Visualizer
+    ("generated/optix/gex_visualizer/README.md", "OPTIX GEX Visualizer", "GEX Visualizer"),
+    ("generated/optix/gex_visualizer/docs/ARCHITECTURE.md", "OPTIX GEX Visualizer Architecture", "GEX Visualizer Architecture"),
+    ("generated/optix/gex_visualizer/docs/API.md", "OPTIX GEX Visualizer API", "GEX Visualizer API"),
+
+    # Vertical Slices - Volatility Compass
+    ("generated/optix/optix_volatility_compass/README.md", "OPTIX Volatility Compass", "Volatility Compass"),
+    ("generated/optix/optix_volatility_compass/docs/ARCHITECTURE.md", "OPTIX Volatility Compass Architecture", "Volatility Compass Architecture"),
+    ("generated/optix/optix_volatility_compass/docs/USER_GUIDE.md", "OPTIX Volatility Compass User Guide", "Volatility Compass Guide"),
+
+    # Vertical Slices - Smart Alerts (VS9)
+    ("generated/optix/vs9_smart_alerts/README.md", "OPTIX Smart Alerts", "Smart Alerts"),
+    ("generated/optix/vs9_smart_alerts/docs/ARCHITECTURE.md", "OPTIX Smart Alerts Architecture", "Smart Alerts Architecture"),
+    ("generated/optix/vs9_smart_alerts/docs/API_GUIDE.md", "OPTIX Smart Alerts API", "Smart Alerts API"),
+
+    # Vertical Slices - Trading Journal AI (VS10)
+    ("generated/optix/vs10_trading_journal_ai/README.md", "OPTIX Trading Journal AI", "Trading Journal AI"),
+    ("generated/optix/vs10_trading_journal_ai/docs/USER_GUIDE.md", "OPTIX Trading Journal AI User Guide", "Trading Journal Guide"),
+    ("generated/optix/vs10_trading_journal_ai/docs/DEPLOYMENT.md", "OPTIX Trading Journal AI Deployment", "Trading Journal Deployment"),
+
+    # Vertical Slices - Visual Strategy Builder
+    ("generated/optix/optix_visual_strategy_builder/README.md", "OPTIX Visual Strategy Builder", "Visual Strategy Builder"),
+    ("generated/optix/optix_visual_strategy_builder/docs/ARCHITECTURE.md", "OPTIX Visual Strategy Builder Architecture", "VSB Architecture"),
+
+    # Vertical Slices - Collective Intelligence
+    ("generated/optix/optix_collective_intelligence/README.md", "OPTIX Collective Intelligence", "Collective Intelligence"),
+    ("generated/optix/optix_collective_intelligence/docs/ARCHITECTURE.md", "OPTIX Collective Intelligence Architecture", "CI Architecture"),
+
+    # Vertical Slices - Adaptive Intelligence
+    ("generated/optix/optix_adaptive_intelligence/README.md", "OPTIX Adaptive Intelligence", "Adaptive Intelligence"),
+    ("generated/optix/optix_adaptive_intelligence/docs/architecture/ARCHITECTURE.md", "OPTIX Adaptive Intelligence Architecture", "AI Architecture"),
+]
+
+
 def main():
     """Main function to push all documentation."""
     print("=" * 60)
@@ -323,14 +440,15 @@ def main():
     print("=" * 60)
     print(f"Space: {CONFLUENCE_SPACE}")
     print(f"Project: {PROJECT_NAME}")
+    print(f"Documents to push: {len(DOCUMENTS) + 1}")
 
-    # Push all documentation
+    # Push all documentation from config
     results = []
-    results.append(("README", push_readme()))
-    results.append(("TRD", push_trd()))
-    results.append(("DevOps Tools", push_devops_tools_docs()))
-    results.append(("OPTIX Service Endpoints", push_optix_service_endpoints()))
-    results.append(("OPTIX Frontend", push_optix_frontend_readme()))
+    for file_path, title_suffix, display_name in DOCUMENTS:
+        result = push_generic_doc(file_path, title_suffix)
+        results.append((display_name, result))
+
+    # Push the sync feature announcement (static content)
     results.append(("Sync Feature", push_sync_feature_announcement()))
 
     # Summary
@@ -338,7 +456,7 @@ def main():
     print("Summary")
     print("=" * 60)
     for name, result in results:
-        status = "OK" if result else "FAILED"
+        status = "OK" if result else "FAILED/SKIP"
         print(f"  {name}: {status}")
 
     success_count = sum(1 for _, r in results if r)
