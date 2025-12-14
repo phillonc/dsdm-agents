@@ -210,4 +210,4 @@ pytest tests/ --cov=genui_service --cov-report=html
 
 ## License
 
-Copyright (c) 2024 OPTIX. All rights reserved.
+Copyright (c) 2025 OPTIX. All rights reserved.

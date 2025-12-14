@@ -3,7 +3,7 @@
 ## DSDM Agents - AI-Powered Software Development Framework
 
 **Version:** 1.0.0
-**Date:** December 2024
+**Date:** December 2025
 **Status:** Draft for Review
 
 ---
@@ -788,7 +788,7 @@ cp .env.example .env
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0.0 | Dec 2024 | DSDM Agents Team | Initial release |
+| 1.0.0 | Dec 2025 | DSDM Agents Team | Initial release |
 
 ---
 

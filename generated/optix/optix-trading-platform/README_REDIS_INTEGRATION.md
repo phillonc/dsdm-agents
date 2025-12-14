@@ -503,7 +503,7 @@ mypy src/user_service/redis_*.py
 
 ## 📄 License
 
-Copyright © 2024 OPTIX Trading Platform. All rights reserved.
+Copyright © 2025 OPTIX Trading Platform. All rights reserved.
 
 ---
 
@@ -519,6 +519,6 @@ Built with:
 ---
 
 **Version**: 2.0.0  
-**Build Date**: December 12, 2024  
+**Build Date**: December 12, 2025  
 **Status**: ✅ Production Ready (pending load testing)  
 **Next Phase**: PostgreSQL Integration + Rate Limiting

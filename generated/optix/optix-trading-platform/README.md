@@ -360,7 +360,7 @@ We follow DSDM Atern methodology with iterative development cycles.
 
 ## 📝 License
 
-Copyright © 2024 OPTIX Trading Platform  
+Copyright © 2025 OPTIX Trading Platform  
 All rights reserved.
 
 ---
@@ -386,5 +386,5 @@ Built with ❤️ by the OPTIX Engineering Team following DSDM Atern principles.
 
 ---
 
-**Last Updated:** December 2024  
+**Last Updated:** December 2025
 **Document Owner:** Engineering Team

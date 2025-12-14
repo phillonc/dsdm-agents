@@ -4,7 +4,7 @@
 
 **DSDM Atern Methodology**
 
-Version 1.0 | December 12, 2024
+Version 1.0 | December 12, 2025
 
 ---
 
@@ -1624,6 +1624,6 @@ httpx>=0.27.0
 
 *End of Document*
 
-*Last Updated: December 12, 2024*
+*Last Updated: December 12, 2025*
 *Version: 1.0*
 *Author: DSDM Agents System*

@@ -286,5 +286,5 @@ kubectl get hpa -n optix-production
 
 ---
 
-**Last Updated:** December 2024  
+**Last Updated:** December 2025  
 **Document Owner:** DevOps Team

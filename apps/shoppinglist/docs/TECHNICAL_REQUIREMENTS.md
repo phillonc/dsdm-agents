@@ -3,7 +3,7 @@
 ## Shopping List Application
 
 **Version:** 1.0.0
-**Date:** December 2024
+**Date:** December 2025
 **Status:** Production Ready
 
 ---
@@ -636,7 +636,7 @@ Phase 5: Optional microservices split
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0.0 | Dec 2024 | DSDM Agents | Initial TRD creation via reverse engineering |
+| 1.0.0 | Dec 2025 | DSDM Agents | Initial TRD creation via reverse engineering |
 
 ---
 

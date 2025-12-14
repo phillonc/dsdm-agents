@@ -2,7 +2,7 @@
 
 ## Technical Requirements Document - DSDM Atern Methodology
 
-Version 1.0 | December 2024
+Version 1.0 | December 2025
 
 ---
 

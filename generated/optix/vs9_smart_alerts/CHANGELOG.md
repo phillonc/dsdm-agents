@@ -5,7 +5,7 @@ All notable changes to the VS-9 Smart Alerts Ecosystem will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2024-01-15
+## [1.0.0] - 2025-01-15
 
 ### Added
 - **Alert Engine**: Core evaluation engine with multi-condition support
@@ -107,8 +107,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
-- **1.0.0** (2024-01-15): Initial release with core functionality
-- **0.9.0** (2024-01-01): Beta release for internal testing
+- **1.0.0** (2025-01-15): Initial release with core functionality
+- **0.9.0** (2025-01-01): Beta release for internal testing
 - **0.5.0** (2023-12-01): Alpha release with basic features
 
 ---
