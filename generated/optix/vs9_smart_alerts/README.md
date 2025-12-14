@@ -427,19 +427,19 @@ For issues and questions:
 
 ## 🗺️ Roadmap
 
-### Version 1.1 (Q2 2024)
+### Version 1.1 (Q2 2025)
 - [ ] WebSocket support for real-time alerts
 - [ ] Advanced ML models (deep learning)
 - [ ] Mobile SDK (iOS/Android)
 - [ ] Backtesting framework
 
-### Version 1.2 (Q3 2024)
+### Version 1.2 (Q3 2025)
 - [ ] Natural language rule creation
 - [ ] Voice alerts
 - [ ] Social features (template sharing)
 - [ ] Enhanced analytics dashboard
 
-### Version 2.0 (Q4 2024)
+### Version 2.0 (Q4 2025)
 - [ ] Multi-asset support (crypto, forex)
 - [ ] Collaborative filtering
 - [ ] Advanced position analysis

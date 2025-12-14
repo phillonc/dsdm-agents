@@ -418,7 +418,7 @@ Built with:
 
 ## Version History
 
-### v1.0.0 (2024-12-12)
+### v1.0.0 (2025-12-12)
 - Initial release
 - Complete backtesting engine
 - Walk-forward optimization

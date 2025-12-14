@@ -1,6 +1,6 @@
 # OPTIX Trading Platform
 
-**Version:** 1.0.0 | **Updated:** December 2024
+**Version:** 1.0.0 | **Updated:** December 2025
 
 A comprehensive options trading intelligence platform providing institutional-grade tools for retail traders. Built with modern microservices architecture and AI-powered analytics.
 
@@ -344,4 +344,4 @@ GENUI_ANTHROPIC_API_KEY=your-key
 
 **Built with DSDM Atern methodology by the OPTIX Engineering Team**
 
-*Copyright 2024 OPTIX Trading Platform. All rights reserved.*
+*Copyright 2025 OPTIX Trading Platform. All rights reserved.*

@@ -4,7 +4,7 @@
 
 **DSDM Atern Methodology**
 
-Version 1.0 | December 12, 2024
+Version 1.0 | December 12, 2025
 
 ---
 
@@ -504,6 +504,6 @@ The LLM must have access to:
 
 *End of Document*
 
-*Last Updated: December 12, 2024*
+*Last Updated: December 12, 2025*
 *Version: 1.0*
 *Author: DSDM Agents System*

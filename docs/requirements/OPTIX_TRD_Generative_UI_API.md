@@ -4,7 +4,7 @@
 
 **DSDM Atern Methodology**
 
-Version 1.0 | December 12, 2024
+Version 1.0 | December 12, 2025
 
 ---
 
@@ -1486,7 +1486,7 @@ All GenUI operations are logged:
 
 | Date | Version | Changes |
 |------|---------|---------|
-| 2024-12-12 | 1.0.0 | Initial API release |
+| 2025-12-12 | 1.0.0 | Initial API release |
 
 ---
 
@@ -1578,6 +1578,6 @@ try {
 
 *End of Document*
 
-*Last Updated: December 12, 2024*
+*Last Updated: December 12, 2025*
 *Version: 1.0*
 *Author: DSDM Agents System*

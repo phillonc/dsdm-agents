@@ -2891,9 +2891,9 @@ Feature: AI Trade Analysis
     When I view my performance trend
     Then I should see metrics over time:
       | Period    | Win Rate | Avg P&L | Sharpe |
-      | Q1 2024   | 58%      | +$180   | 1.2    |
-      | Q2 2024   | 62%      | +$220   | 1.5    |
-      | Q3 2024   | 65%      | +$280   | 1.8    |
+      | Q1 2025   | 58%      | +$180   | 1.2    |
+      | Q2 2025   | 62%      | +$220   | 1.5    |
+      | Q3 2025   | 65%      | +$280   | 1.8    |
 ```
 
 ---
@@ -3073,9 +3073,9 @@ Feature: IV Crush Calendar
     When I click on "AAPL" in the calendar
     Then I should see past 4 earnings:
       | Date       | Pre-IV | Post-IV | Crush  |
-      | Q3 2024    | 42%    | 25%     | -17%   |
-      | Q2 2024    | 38%    | 24%     | -14%   |
-      | Q1 2024    | 45%    | 28%     | -17%   |
+      | Q3 2025    | 42%    | 25%     | -17%   |
+      | Q2 2025    | 38%    | 24%     | -14%   |
+      | Q1 2025    | 45%    | 28%     | -17%   |
       | Q4 2023    | 40%    | 26%     | -14%   |
 
   @high @volatility @earnings
@@ -3897,9 +3897,9 @@ Feature: Detailed Performance Metrics
     When I select "Monthly" view
     Then I should see monthly performance:
       | Month    | Return  | Trades | Win Rate |
-      | Dec 2024 | +8.2%   | 18     | 72%      |
-      | Nov 2024 | +5.1%   | 22     | 59%      |
-      | Oct 2024 | -2.3%   | 15     | 47%      |
+      | Dec 2025 | +8.2%   | 18     | 72%      |
+      | Nov 2025 | +5.1%   | 22     | 59%      |
+      | Oct 2025 | -2.3%   | 15     | 47%      |
 
   @medium @performance @metrics
   Scenario: Benchmark comparison

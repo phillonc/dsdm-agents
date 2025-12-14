@@ -5,7 +5,7 @@
 The DevOps Tools module provides automated code quality validation, security scanning, and development lifecycle management for the DSDM Agents framework. All tools execute real commands on your local machine and provide actionable remediation recommendations.
 
 **Version:** 1.0.0
-**Last Updated:** December 2024
+**Last Updated:** December 2025
 **Aligned With:** 14 Development Principles
 
 ---
@@ -590,7 +590,7 @@ Each tool aligns with specific development principles:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0.0 | Dec 2024 | Initial release with remediation system |
+| 1.0.0 | Dec 2025 | Initial release with remediation system |
 
 ---
 

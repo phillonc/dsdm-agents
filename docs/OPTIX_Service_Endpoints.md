@@ -1,6 +1,6 @@
 # OPTIX Platform - Service Endpoints & Components
 
-**Version:** 1.1 | **Date:** December 12, 2024
+**Version:** 1.1 | **Date:** December 12, 2025
 
 ---
 
@@ -313,4 +313,4 @@ GENUI_DEFAULT_LLM_PROVIDER=mock python -m uvicorn genui_service.api.app:app --po
 
 ---
 
-*Document generated: December 12, 2024*
+*Document generated: December 12, 2025*
