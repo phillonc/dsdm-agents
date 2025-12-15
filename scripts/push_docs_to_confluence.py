@@ -31,44 +31,150 @@ from src.tools.integrations.confluence_tools import get_confluence_client
 # Configuration - update these for your Confluence space
 CONFLUENCE_SPACE = os.environ.get("CONFLUENCE_DEFAULT_SPACE", "dhdemoconf")
 PROJECT_NAME = "DSDM Agents"
+CONFLUENCE_PARENT_ID = "42008638"
+
+
+def convert_markdown_table_to_confluence(table_lines: list) -> str:
+    """Convert markdown table lines to Confluence table HTML."""
+    if len(table_lines) < 2:
+        return '\n'.join(table_lines)
+
+    html_rows = []
+    is_header = True
+
+    for line in table_lines:
+        # Skip separator line (e.g., |---|---|---| or | --- | --- |)
+        # Check if line only contains |, -, :, and whitespace
+        stripped = line.strip()
+        if stripped.startswith('|') and stripped.endswith('|'):
+            inner = stripped[1:-1]  # Remove outer pipes
+            # Check if all cells are just dashes/colons (separator row)
+            is_separator = True
+            for cell in inner.split('|'):
+                cell_stripped = cell.strip()
+                if cell_stripped and not re.match(r'^:?-+:?$', cell_stripped):
+                    is_separator = False
+                    break
+            if is_separator:
+                continue
+
+        # Parse cells
+        cells = [cell.strip() for cell in line.split('|')]
+
+        # Clean up cells - remove leading/trailing empty strings from split
+        if cells and cells[0] == '':
+            cells = cells[1:]
+        if cells and cells[-1] == '':
+            cells = cells[:-1]
+
+        if not cells:
+            continue
+
+        if is_header:
+            row_html = '<tr>' + ''.join(f'<th>{cell}</th>' for cell in cells) + '</tr>'
+            is_header = False
+        else:
+            row_html = '<tr>' + ''.join(f'<td>{cell}</td>' for cell in cells) + '</tr>'
+
+        html_rows.append(row_html)
+
+    if html_rows:
+        return '<table><tbody>' + '\n'.join(html_rows) + '</tbody></table>'
+    return ''
 
 
 def markdown_to_confluence(md_content: str) -> str:
     """Convert Markdown to Confluence storage format."""
-    html = md_content
+    lines = md_content.split('\n')
+    result_lines = []
+    i = 0
 
-    # Headers
+    while i < len(lines):
+        line = lines[i]
+
+        # Detect markdown table (starts with |)
+        if line.strip().startswith('|') and '|' in line[1:]:
+            table_lines = []
+            while i < len(lines) and lines[i].strip().startswith('|'):
+                table_lines.append(lines[i])
+                i += 1
+            # Convert table to Confluence format
+            table_html = convert_markdown_table_to_confluence(table_lines)
+            result_lines.append(table_html)
+            continue
+
+        i += 1
+        result_lines.append(line)
+
+    html = '\n'.join(result_lines)
+
+    # Headers (process in order from h4 to h1 to avoid conflicts)
+    html = re.sub(r'^##### (.+)$', r'<h5>\1</h5>', html, flags=re.MULTILINE)
     html = re.sub(r'^#### (.+)$', r'<h4>\1</h4>', html, flags=re.MULTILINE)
     html = re.sub(r'^### (.+)$', r'<h3>\1</h3>', html, flags=re.MULTILINE)
     html = re.sub(r'^## (.+)$', r'<h2>\1</h2>', html, flags=re.MULTILINE)
     html = re.sub(r'^# (.+)$', r'<h1>\1</h1>', html, flags=re.MULTILINE)
 
-    # Bold and italic
-    html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
-    html = re.sub(r'\*(.+?)\*', r'<em>\1</em>', html)
+    # Horizontal rules
+    html = re.sub(r'^---+$', r'<hr/>', html, flags=re.MULTILINE)
 
-    # Code blocks
-    html = re.sub(r'```(\w+)?\n(.*?)```', r'<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">\1</ac:parameter><ac:plain-text-body><![CDATA[\2]]></ac:plain-text-body></ac:structured-macro>', html, flags=re.DOTALL)
+    # Bold and italic (be careful with order - bold first)
+    html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
+    html = re.sub(r'(?<!\*)\*([^*]+)\*(?!\*)', r'<em>\1</em>', html)
+
+    # Code blocks - handle with or without language specification
+    html = re.sub(
+        r'```(\w*)\n(.*?)```',
+        lambda m: f'<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">{m.group(1) or "text"}</ac:parameter><ac:plain-text-body><![CDATA[{m.group(2)}]]></ac:plain-text-body></ac:structured-macro>',
+        html,
+        flags=re.DOTALL
+    )
 
     # Inline code
     html = re.sub(r'`([^`]+)`', r'<code>\1</code>', html)
 
-    # Lists
+    # Checkboxes
+    html = re.sub(r'^- \[x\] (.+)$', r'<li><ac:task-status>complete</ac:task-status> \1</li>', html, flags=re.MULTILINE)
+    html = re.sub(r'^- \[ \] (.+)$', r'<li><ac:task-status>incomplete</ac:task-status> \1</li>', html, flags=re.MULTILINE)
+
+    # Unordered lists
     html = re.sub(r'^- (.+)$', r'<li>\1</li>', html, flags=re.MULTILINE)
+
+    # Numbered lists
+    html = re.sub(r'^\d+\. (.+)$', r'<li>\1</li>', html, flags=re.MULTILINE)
 
     # Links
     html = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', html)
 
-    # Paragraphs (simple conversion)
-    lines = html.split('\n')
-    result = []
-    for line in lines:
-        if line.strip() and not line.strip().startswith('<'):
-            result.append(f'<p>{line}</p>')
-        else:
-            result.append(line)
+    # Blockquotes
+    html = re.sub(r'^> (.+)$', r'<blockquote>\1</blockquote>', html, flags=re.MULTILINE)
 
-    return '\n'.join(result)
+    # Emojis commonly used in status
+    emoji_map = {
+        '✅': '<ac:emoticon ac:name="tick"/>',
+        '❌': '<ac:emoticon ac:name="cross"/>',
+        '⚠️': '<ac:emoticon ac:name="warning"/>',
+        '🚨': '<ac:emoticon ac:name="warning"/>',
+        '🔴': '<ac:emoticon ac:name="cross"/>',
+        '🟡': '<ac:emoticon ac:name="warning"/>',
+        '🟢': '<ac:emoticon ac:name="tick"/>',
+    }
+    for emoji, confluence_emoticon in emoji_map.items():
+        html = html.replace(emoji, confluence_emoticon)
+
+    # Wrap standalone list items in ul tags
+    html = re.sub(r'((?:<li>.*?</li>\n?)+)', r'<ul>\1</ul>', html)
+
+    # Process remaining lines - wrap non-HTML lines in paragraphs
+    final_lines = []
+    for line in html.split('\n'):
+        stripped = line.strip()
+        if stripped and not stripped.startswith('<') and not stripped.startswith('|'):
+            final_lines.append(f'<p>{line}</p>')
+        else:
+            final_lines.append(line)
+
+    return '\n'.join(final_lines)
 
 
 def create_or_update_page(client, title: str, content: str, parent_id: str = None) -> dict:
@@ -87,7 +193,8 @@ def create_or_update_page(client, title: str, content: str, parent_id: str = Non
                 page_id=page_id,
                 title=title,
                 content=content,
-                version_number=version
+                version_number=version,
+                parent_id=parent_id or CONFLUENCE_PARENT_ID
             )
             print(f"  Updated: {client.base_url}/wiki{page.get('_links', {}).get('webui', '')}")
             return page
@@ -97,7 +204,7 @@ def create_or_update_page(client, title: str, content: str, parent_id: str = Non
                 space_key=CONFLUENCE_SPACE,
                 title=title,
                 content=content,
-                parent_id=parent_id
+                parent_id=parent_id or CONFLUENCE_PARENT_ID
             )
             print(f"  Created: {client.base_url}/wiki{page.get('_links', {}).get('webui', '')}")
             return page
@@ -430,6 +537,19 @@ DOCUMENTS = [
     # Vertical Slices - Adaptive Intelligence
     ("generated/optix/optix_adaptive_intelligence/README.md", "OPTIX Adaptive Intelligence", "Adaptive Intelligence"),
     ("generated/optix/optix_adaptive_intelligence/docs/architecture/ARCHITECTURE.md", "OPTIX Adaptive Intelligence Architecture", "AI Architecture"),
+
+    # OPTIX Platform TRD (consolidated requirements)
+    ("generated/optix/TRD_OPTIX_PLATFORM.md", "OPTIX Platform TRD", "OPTIX Platform TRD"),
+
+    # TODO Lists for all OPTIX applications
+    ("generated/optix/optix_adaptive_intelligence/TODO_LIST.md", "OPTIX Adaptive Intelligence TODO", "Adaptive Intelligence TODO"),
+    ("generated/optix/optix_backtester/TODO_LIST.md", "OPTIX Backtester TODO", "Backtester TODO"),
+    ("generated/optix/optix_collective_intelligence/TODO_LIST.md", "OPTIX Collective Intelligence TODO", "Collective Intelligence TODO"),
+    ("generated/optix/optix_volatility_compass/TODO_LIST.md", "OPTIX Volatility Compass TODO", "Volatility Compass TODO"),
+    ("generated/optix/optix_visual_strategy_builder/TODO_LIST.md", "OPTIX Visual Strategy Builder TODO", "Visual Strategy Builder TODO"),
+    ("generated/optix/vs9_smart_alerts/TODO_LIST.md", "OPTIX Smart Alerts TODO", "Smart Alerts TODO"),
+    ("generated/optix/vs10_trading_journal_ai/TODO_LIST.md", "OPTIX Trading Journal AI TODO", "Trading Journal TODO"),
+    ("generated/optix/genui_service/TODO_LIST.md", "OPTIX GenUI Service TODO", "GenUI Service TODO"),
 ]
 
 

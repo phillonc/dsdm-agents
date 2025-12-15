@@ -92,6 +92,7 @@ class ConfluenceClient:
         title: str,
         content: str,
         version_number: int,
+        parent_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update an existing page."""
         payload = {
@@ -105,6 +106,9 @@ class ConfluenceClient:
             },
             "version": {"number": version_number}
         }
+        if parent_id:
+            payload["ancestors"] = [{"id": parent_id}]
+
         response = self.session.put(self._api_url(f"content/{page_id}"), json=payload)
         response.raise_for_status()
         return response.json()

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import (
     String, Boolean, DateTime, Integer, Text, Enum as SQLEnum,
-    ARRAY, JSON, Index, CheckConstraint, UniqueConstraint
+    ARRAY, JSON, Index, CheckConstraint, UniqueConstraint, ForeignKey
 )
 from sqlalchemy.dialects.postgresql import UUID, INET, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -83,25 +83,25 @@ class UserModel(Base):
     phone_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     phone_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
     
-    # Status and Role
-    status: Mapped[UserStatus] = mapped_column(
-        SQLEnum(UserStatus, name='user_status', schema='user_service'),
+    # Status and Role - using String to avoid enum mapping issues with existing DB
+    status: Mapped[str] = mapped_column(
+        String(20),
         nullable=False,
-        default=UserStatus.ACTIVE,
+        default="active",
         server_default='active'
     )
-    role: Mapped[UserRole] = mapped_column(
-        SQLEnum(UserRole, name='user_role', schema='user_service'),
+    role: Mapped[str] = mapped_column(
+        String(20),
         nullable=False,
-        default=UserRole.USER,
+        default="user",
         server_default='user'
     )
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
     
     # MFA Settings
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
-    mfa_type: Mapped[Optional[MFAType]] = mapped_column(
-        SQLEnum(MFAType, name='mfa_type', schema='user_service'),
+    mfa_type: Mapped[Optional[str]] = mapped_column(
+        String(20),
         nullable=True
     )
     mfa_secret: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -193,6 +193,7 @@ class SessionModel(Base):
     session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, unique=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("user_service.users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
@@ -267,10 +268,11 @@ class SecurityEventModel(Base):
     # User reference
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("user_service.users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
-    
+
     # Event details
     event_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     severity: Mapped[EventSeverity] = mapped_column(
@@ -334,10 +336,11 @@ class TrustedDeviceModel(Base):
     device_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("user_service.users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
-    
+
     # Device information
     device_fingerprint: Mapped[str] = mapped_column(String(255), nullable=False)
     device_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -416,10 +419,11 @@ class RefreshTokenFamilyModel(Base):
     family_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("user_service.users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
-    
+
     # Device context
     device_fingerprint: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(INET, nullable=True)

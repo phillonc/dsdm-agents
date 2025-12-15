@@ -38,7 +38,7 @@ from alert_service.api import router as alert_router
 
 # Import infrastructure components
 from user_service.redis_client import get_redis_client
-from user_service.database import init_db, close_db, db_manager
+from user_service.database import init_db_async, close_db_async, db_manager
 from user_service.rate_limiter import get_rate_limiter, add_rate_limit_headers
 from config.settings import settings
 
@@ -73,10 +73,10 @@ async def lifespan(app: FastAPI):
                 phase_2="Redis Integration + Production Persistence",
                 phase_3="Rate Limiting + Repository Pattern")
     
-    # Initialize PostgreSQL
+    # Initialize PostgreSQL (sync SQLAlchemy with async wrapper)
     try:
-        await init_db()
-        is_healthy = await db_manager.health_check()
+        await init_db_async()
+        is_healthy = db_manager.health_check()
         if is_healthy:
             logger.info("database", status="connected", url=settings.DATABASE_URL.split('@')[1])
         else:
@@ -116,7 +116,7 @@ async def lifespan(app: FastAPI):
     
     # Close database connections
     try:
-        await close_db()
+        await close_db_async()
         logger.info("database", status="disconnected")
     except Exception as e:
         logger.error("database", error=f"Error closing database: {e}")
@@ -251,12 +251,12 @@ async def health_check():
     """
     Comprehensive health check endpoint for load balancers and monitoring
     """
-    # Check PostgreSQL health
+    # Check PostgreSQL health (sync method)
     db_status = "unknown"
     db_info = {}
-    
+
     try:
-        is_healthy = await db_manager.health_check()
+        is_healthy = db_manager.health_check()
         if is_healthy:
             db_status = "healthy"
             pool = db_manager.engine.pool
@@ -327,11 +327,11 @@ async def health_check():
 async def database_health():
     """Dedicated database health check"""
     try:
-        is_healthy = await db_manager.health_check()
+        is_healthy = db_manager.health_check()
         return {
             "status": "healthy" if is_healthy else "unhealthy",
             "database": "postgresql",
-            "driver": "asyncpg"
+            "driver": "psycopg2"
         }
     except Exception as e:
         return {
