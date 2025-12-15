@@ -106,11 +106,34 @@ class AuthService:
     ) -> str:
         """Create JWT access token with RBAC permissions"""
         expire = datetime.utcnow() + self.access_token_expire
-        
-        # Get user permissions from RBAC
-        permissions = self.rbac_service.get_user_permissions(user.id)
+
+        # Derive permissions from user's roles using RBAC service's role mappings
+        # Import here to avoid circular imports
+        from .rbac import Role, ROLE_PERMISSIONS_MAP
+
+        # Map database roles to RBAC Role enum values
+        db_role_to_rbac = {
+            "user": Role.FREE_USER,
+            "premium": Role.PREMIUM_USER,
+            "admin": Role.ADMIN,
+            "trial": Role.FREE_USER,  # Trial users get free user permissions
+        }
+
+        permissions = set()
+        for role_str in user.roles:
+            try:
+                # First try direct Role enum match
+                role = Role(role_str)
+                if role in ROLE_PERMISSIONS_MAP:
+                    permissions.update(ROLE_PERMISSIONS_MAP[role].permissions)
+            except ValueError:
+                # Try mapping database role to RBAC role
+                mapped_role = db_role_to_rbac.get(role_str)
+                if mapped_role and mapped_role in ROLE_PERMISSIONS_MAP:
+                    permissions.update(ROLE_PERMISSIONS_MAP[mapped_role].permissions)
+
         permission_strings = [perm.value for perm in permissions]
-        
+
         to_encode = {
             "sub": str(user.id),
             "email": user.email,
@@ -121,10 +144,10 @@ class AuthService:
             "iat": datetime.utcnow(),
             "is_premium": user.is_premium,
         }
-        
+
         if additional_claims:
             to_encode.update(additional_claims)
-        
+
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
     
     def create_refresh_token(self, user_id: uuid.UUID) -> str:
