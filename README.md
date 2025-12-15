@@ -959,6 +959,48 @@ Key practices used by these agents:
 
 **Backup & Recovery:** `backup_database`, `test_restore`
 
+## OPTIX Trading Platform (Demo Application)
+
+The repository includes a complete demo application - the **OPTIX Trading Platform** - built using DSDM Agents. This showcases what the agents can produce.
+
+### Quick Start
+
+```bash
+# From dsdm-agents root directory
+./scripts/start_servers.sh
+
+# Check status
+./scripts/start_servers.sh status
+
+# Stop all services
+./scripts/start_servers.sh stop
+```
+
+### Services Started
+
+| Service | Port | Description |
+|---------|------|-------------|
+| Frontend | 3000 | Web interface (11 pages) |
+| OPTIX API | 8000 | Core platform API |
+| GEX Visualizer | 8001 | Gamma exposure analytics |
+| PostgreSQL | 5432 | Database |
+| Redis | 6379 | Cache |
+
+### Test Credentials
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@optix.io` | `Admin123!` |
+| User | `test@optix.io` | `Test123!` |
+
+### URLs
+
+- **Frontend:** http://localhost:3000
+- **API Docs:** http://localhost:8000/docs
+- **Health Check:** http://localhost:8000/health
+
+See [generated/optix/README.md](generated/optix/README.md) for full documentation.
+
 ## License
 
 MIT
