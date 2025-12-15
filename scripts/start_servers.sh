@@ -13,6 +13,7 @@
 #   ./scripts/start_servers.sh infra     # Start infrastructure (PostgreSQL + Redis)
 #   ./scripts/start_servers.sh status    # Check status of all services
 #   ./scripts/start_servers.sh stop      # Stop all services
+#   ./scripts/start_servers.sh frontend  # Start frontend server (port 3000)
 #
 
 set -e
@@ -28,8 +29,10 @@ NC='\033[0m' # No Color
 PROJECT_ROOT="/Users/phillonmorris/dsdm-agents"
 OPTIX_PATH="$PROJECT_ROOT/generated/optix/optix-trading-platform"
 GEX_PATH="$PROJECT_ROOT/generated/optix/gex_visualizer"
+FRONTEND_PATH="$PROJECT_ROOT/generated/optix/frontend"
 
 # Ports
+FRONTEND_PORT=3000
 OPTIX_PORT=8000
 GEX_PORT=8001
 POSTGRES_PORT=5432
@@ -169,6 +172,42 @@ start_redis() {
     return 0
 }
 
+check_dependencies() {
+    local venv_python=$1
+
+    # Check if psycopg2 is installed
+    if ! "$venv_python" -c "import psycopg2" 2>/dev/null; then
+        echo -e "${YELLOW}Installing psycopg2-binary...${NC}"
+        "$venv_python" -m pip install psycopg2-binary --quiet
+    fi
+}
+
+start_frontend() {
+    echo -e "${BLUE}Starting Frontend Server...${NC}"
+
+    # Kill any existing process on the port
+    kill_port $FRONTEND_PORT
+
+    cd "$FRONTEND_PATH"
+
+    # Start Python HTTP server
+    nohup python3 -m http.server $FRONTEND_PORT > "$LOG_DIR/frontend.log" 2>&1 &
+
+    echo -e "${GREEN}Frontend starting on port $FRONTEND_PORT${NC}"
+    echo -e "${YELLOW}Logs: $LOG_DIR/frontend.log${NC}"
+
+    # Wait for server to start
+    sleep 2
+
+    if [ "$(check_port $FRONTEND_PORT)" == "running" ]; then
+        echo -e "${GREEN}Frontend is running!${NC}"
+        echo -e "  URL: http://localhost:$FRONTEND_PORT"
+    else
+        echo -e "${RED}Frontend failed to start. Check logs: $LOG_DIR/frontend.log${NC}"
+        return 1
+    fi
+}
+
 start_optix() {
     echo -e "${BLUE}Starting OPTIX Main API...${NC}"
 
@@ -188,8 +227,13 @@ start_optix() {
         return 1
     fi
 
+    local VENV_PYTHON="$OPTIX_PATH/$VENV_PATH/bin/python"
+
+    # Check and install dependencies
+    check_dependencies "$VENV_PYTHON"
+
     # Start uvicorn using the venv's Python directly
-    nohup "$OPTIX_PATH/$VENV_PATH/bin/python" -m uvicorn src.main:app --host 0.0.0.0 --port $OPTIX_PORT > "$LOG_DIR/optix.log" 2>&1 &
+    nohup "$VENV_PYTHON" -m uvicorn src.main:app --host 0.0.0.0 --port $OPTIX_PORT > "$LOG_DIR/optix.log" 2>&1 &
 
     echo -e "${GREEN}OPTIX API starting on port $OPTIX_PORT${NC}"
     echo -e "${YELLOW}Logs: $LOG_DIR/optix.log${NC}"
@@ -268,6 +312,9 @@ start_all() {
     start_gex
     echo ""
 
+    start_frontend
+    echo ""
+
     echo -e "${GREEN}All services started!${NC}"
     show_status
 }
@@ -276,6 +323,10 @@ stop_all() {
     print_header
     echo -e "${YELLOW}Stopping all OPTIX services...${NC}"
     echo ""
+
+    # Stop Frontend
+    echo -e "${YELLOW}Stopping Frontend...${NC}"
+    kill_port $FRONTEND_PORT
 
     # Stop API servers
     echo -e "${YELLOW}Stopping OPTIX API...${NC}"
@@ -322,9 +373,14 @@ show_status() {
         print_status "Redis (Docker)" "running" "6379"
     elif brew services list 2>/dev/null | grep -q "redis.*started"; then
         print_status "Redis (Homebrew)" "running" "6379"
+    elif lsof -ti:6379 > /dev/null 2>&1; then
+        print_status "Redis" "running" "6379"
     else
         print_status "Redis" "stopped" "6379"
     fi
+
+    # Check Frontend
+    print_status "Frontend" "$(check_port $FRONTEND_PORT)" "$FRONTEND_PORT"
 
     # Check OPTIX API
     print_status "OPTIX Main API" "$(check_port $OPTIX_PORT)" "$OPTIX_PORT"
@@ -334,6 +390,9 @@ show_status() {
 
     echo ""
     echo -e "${BLUE}Endpoints:${NC}"
+    if [ "$(check_port $FRONTEND_PORT)" == "running" ]; then
+        echo -e "  Frontend:     ${GREEN}http://localhost:$FRONTEND_PORT${NC}"
+    fi
     if [ "$(check_port $OPTIX_PORT)" == "running" ]; then
         echo -e "  OPTIX Health: ${GREEN}http://localhost:$OPTIX_PORT/health${NC}"
         echo -e "  OPTIX Docs:   ${GREEN}http://localhost:$OPTIX_PORT/docs${NC}"
@@ -349,6 +408,10 @@ show_logs() {
     local service=$1
 
     case $service in
+        frontend)
+            echo -e "${BLUE}Frontend Logs:${NC}"
+            tail -f "$LOG_DIR/frontend.log"
+            ;;
         optix)
             echo -e "${BLUE}OPTIX API Logs:${NC}"
             tail -f "$LOG_DIR/optix.log"
@@ -358,7 +421,7 @@ show_logs() {
             tail -f "$LOG_DIR/gex.log"
             ;;
         *)
-            echo -e "${YELLOW}Usage: $0 logs [optix|gex]${NC}"
+            echo -e "${YELLOW}Usage: $0 logs [frontend|optix|gex]${NC}"
             ;;
     esac
 }
@@ -370,19 +433,21 @@ show_help() {
     echo ""
     echo -e "${BLUE}Commands:${NC}"
     echo "  all       Start all services (default)"
+    echo "  frontend  Start Frontend server (port 3000)"
     echo "  optix     Start OPTIX Main API (port 8000)"
     echo "  gex       Start GEX Visualizer (port 8001)"
-    echo "  postgres  Start PostgreSQL container (port 5433)"
+    echo "  postgres  Start PostgreSQL container (port 5432/5433)"
     echo "  redis     Start Redis container (port 6379)"
     echo "  infra     Start infrastructure (PostgreSQL + Redis)"
     echo "  status    Show status of all services"
     echo "  stop      Stop all services"
-    echo "  logs      View logs (usage: $0 logs [optix|gex])"
+    echo "  logs      View logs (usage: $0 logs [optix|gex|frontend])"
     echo "  help      Show this help message"
     echo ""
     echo -e "${BLUE}Examples:${NC}"
     echo "  $0                  # Start all services"
-    echo "  $0 gex              # Start only GEX Visualizer"
+    echo "  $0 frontend         # Start only Frontend"
+    echo "  $0 optix            # Start only OPTIX API"
     echo "  $0 status           # Check service status"
     echo "  $0 logs optix       # View OPTIX logs"
     echo ""
@@ -392,6 +457,9 @@ show_help() {
 case "${1:-all}" in
     all)
         start_all
+        ;;
+    frontend)
+        start_frontend
         ;;
     optix)
         start_optix
