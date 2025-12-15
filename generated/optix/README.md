@@ -75,27 +75,50 @@ OPTIX (Options Trading Intelligence eXchange) is a mobile-first platform that de
 ### Prerequisites
 
 - Python 3.11+
-- PostgreSQL 15+
-- Redis 7.0+
-- Node.js (optional, for development)
+- PostgreSQL 15+ (via Docker or Homebrew)
+- Redis 7.0+ (via Docker or Homebrew)
+- Docker Desktop (recommended for infrastructure)
 
-### Start All Services
+### Start All Services (One Command)
 
 ```bash
 # From dsdm-agents root directory
 cd /Users/phillonmorris/dsdm-agents
 
-# Start all services (PostgreSQL, Redis, APIs, Frontend)
+# Start everything: PostgreSQL, Redis, Frontend, OPTIX API, GEX
 ./scripts/start_servers.sh
 
-# Check status
+# Check status of all services
 ./scripts/start_servers.sh status
 
 # Stop all services
 ./scripts/start_servers.sh stop
 ```
 
-### Start Individual Services
+The script automatically:
+- Starts PostgreSQL (Docker or Homebrew)
+- Starts Redis (Docker or Homebrew)
+- Installs missing dependencies (e.g., `psycopg2-binary`)
+- Kills conflicting processes on ports
+- Starts all API servers in the background
+- Logs output to `logs/` directory
+
+### Server Management Commands
+
+| Command | Description |
+|---------|-------------|
+| `./scripts/start_servers.sh` | Start all services |
+| `./scripts/start_servers.sh status` | Check service status |
+| `./scripts/start_servers.sh stop` | Stop all services |
+| `./scripts/start_servers.sh frontend` | Start only Frontend (port 3000) |
+| `./scripts/start_servers.sh optix` | Start only OPTIX API (port 8000) |
+| `./scripts/start_servers.sh gex` | Start only GEX Visualizer (port 8001) |
+| `./scripts/start_servers.sh infra` | Start only PostgreSQL + Redis |
+| `./scripts/start_servers.sh logs optix` | View OPTIX API logs |
+| `./scripts/start_servers.sh logs frontend` | View Frontend logs |
+| `./scripts/start_servers.sh help` | Show all commands |
+
+### Start Individual Services (Manual)
 
 ```bash
 # Start frontend only (Port 3000)
@@ -104,8 +127,8 @@ python3 -m http.server 3000
 
 # Start main API only (Port 8000)
 cd /Users/phillonmorris/dsdm-agents/generated/optix/optix-trading-platform
-source venv/bin/activate
-uvicorn src.main:app --host 0.0.0.0 --port 8000
+pip install psycopg2-binary  # Required for PostgreSQL
+python -m uvicorn src.main:app --host 0.0.0.0 --port 8000
 
 # Start GEX service only (Port 8001)
 cd /Users/phillonmorris/dsdm-agents/generated/optix/gex_visualizer
@@ -127,7 +150,7 @@ After starting the services, use these test accounts:
 | Admin | `admin@optix.io` | `Admin123!` |
 | User | `test@optix.io` | `Test123!` |
 
-**Note:** The API uses in-memory storage. Users persist until server restart. Register new users via the API or frontend.
+**Note:** The API uses PostgreSQL for persistent storage. Users and data persist across server restarts. Seeded users (`admin@optix.io`, `test@optix.io`) are available after database initialization.
 
 ---
 
