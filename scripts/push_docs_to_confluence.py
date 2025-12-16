@@ -540,6 +540,7 @@ DOCUMENTS = [
 
     # OPTIX Platform TRD (consolidated requirements)
     ("generated/optix/TRD_OPTIX_PLATFORM.md", "OPTIX Platform TRD", "OPTIX Platform TRD"),
+    ("docs/requirements/TRD_OPTIX_Brokerage_Integrations.md", "OPTIX Brokerage Integrations TRD", "Brokerage Integrations TRD"),
 
     # TODO Lists for all OPTIX applications
     ("generated/optix/optix_adaptive_intelligence/TODO_LIST.md", "OPTIX Adaptive Intelligence TODO", "Adaptive Intelligence TODO"),
