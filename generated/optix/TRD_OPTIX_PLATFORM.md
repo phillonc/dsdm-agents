@@ -336,6 +336,101 @@ The following tasks are required across multiple applications:
 | **Prometheus/Grafana Monitoring** | All applications | Medium |
 | **Docker/Kubernetes Configs** | GenUI, Journal | Medium |
 | **Rate Limiting** | All API-based applications | Medium |
+| **Pact Contract Tests** | All service-to-service integrations | High |
+
+---
+
+#### 1.6.10.1 Pact Contract Testing Requirements
+
+**Current Status**: 0 Pact tests implemented. All current tests are API integration tests using pytest + FastAPI TestClient.
+
+**Why Pact is Required**:
+- OPTIX is a microservices platform with 11+ services
+- Services communicate via REST APIs (Frontend → API, API → GEX, etc.)
+- Contract tests ensure API compatibility between service releases
+- Prevents breaking changes when deploying services independently
+
+**Consumer-Provider Contracts Required**:
+
+| Consumer | Provider | Contract Priority | Interactions |
+|----------|----------|-------------------|--------------|
+| **Frontend** | OPTIX Main API | Critical | Auth, quotes, watchlist, portfolio |
+| **Frontend** | GEX Visualizer | Critical | GEX calculations, heatmaps, alerts |
+| **Frontend** | GenUI Service | High | Component generation, templates |
+| **OPTIX Main API** | GEX Visualizer | High | GEX data aggregation |
+| **Smart Alerts** | OPTIX Main API | High | Price data, user preferences |
+| **Trading Journal** | OPTIX Main API | Medium | Trade data, user auth |
+| **Backtester** | OPTIX Main API | Medium | Historical data, strategy configs |
+| **Collective Intelligence** | OPTIX Main API | Medium | User signals, sentiment data |
+
+**Implementation Tasks for Developer/QA Agents**:
+
+| # | Task | Assignee | Priority | Estimated Effort |
+|---|------|----------|----------|------------------|
+| 1 | Install `pact-python` in all service venvs | Developer | High | 1 hour |
+| 2 | Create `tests/contract/` directory structure in each service | Developer | High | 30 min |
+| 3 | Implement Frontend → OPTIX API consumer contract (auth flows) | QA/Developer | Critical | 4 hours |
+| 4 | Implement Frontend → OPTIX API consumer contract (market data) | QA/Developer | Critical | 4 hours |
+| 5 | Implement Frontend → GEX Visualizer consumer contract | QA/Developer | Critical | 3 hours |
+| 6 | Implement OPTIX API provider verification tests | Developer | Critical | 4 hours |
+| 7 | Implement GEX Visualizer provider verification tests | Developer | Critical | 3 hours |
+| 8 | Set up Pact Broker (Docker or hosted) | DevOps | High | 2 hours |
+| 9 | Integrate Pact verification into CI/CD pipeline | DevOps | High | 3 hours |
+| 10 | Implement remaining consumer contracts (Smart Alerts, Journal, etc.) | QA/Developer | Medium | 8 hours |
+| 11 | Create Pact testing documentation and examples | QA | Medium | 2 hours |
+
+**Total Estimated Effort**: ~34 hours
+
+**Pact Test File Structure** (per service):
+```
+service_name/
+├── tests/
+│   ├── contract/
+│   │   ├── __init__.py
+│   │   ├── consumer/
+│   │   │   ├── __init__.py
+│   │   │   └── test_optix_api_consumer.py
+│   │   └── provider/
+│   │       ├── __init__.py
+│   │       └── test_provider_verification.py
+│   ├── integration/
+│   └── unit/
+```
+
+**Example Consumer Test Pattern** (Python/pact-python):
+```python
+# tests/contract/consumer/test_optix_api_consumer.py
+import pytest
+from pact import Consumer, Provider
+
+@pytest.fixture
+def pact():
+    return Consumer('Frontend').has_pact_with(
+        Provider('OPTIXMainAPI'),
+        pact_dir='./pacts'
+    )
+
+def test_get_user_profile(pact):
+    expected = {'id': 1, 'email': 'test@optix.io', 'tier': 'free'}
+
+    (pact
+     .given('a user exists')
+     .upon_receiving('a request for user profile')
+     .with_request('GET', '/api/v1/auth/profile')
+     .will_respond_with(200, body=expected))
+
+    with pact:
+        # Call your client code
+        result = api_client.get_profile()
+        assert result['email'] == 'test@optix.io'
+```
+
+**Acceptance Criteria for Pact Implementation**:
+- [ ] All Critical consumer-provider contracts have Pact tests
+- [ ] Pact Broker is operational and accessible
+- [ ] CI/CD pipeline runs provider verification on every PR
+- [ ] Contract test failures block deployments
+- [ ] Documentation exists for writing new Pact tests
 
 ---
 
@@ -4768,6 +4863,9 @@ Feature: GenUI Component Customization
 | @performance | Performance related tests |
 | @accessibility | Accessibility tests |
 | @security | Security related tests |
+| @contract | Pact contract tests |
+| @consumer | Pact consumer tests |
+| @provider | Pact provider verification tests |
 
 ### 7.2 Test Environment Requirements
 

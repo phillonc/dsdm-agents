@@ -63,16 +63,16 @@
             <div class="card-body">
               <div class="portfolio-stat-group">
                 <div class="portfolio-stat">
-                  <div class="stat-label">Total Value</div>
-                  <div id="portfolio-value" class="stat-value skeleton" style="height: 36px; width: 160px;">$0.00</div>
+                  <span class="stat-label">Total Value</span>
+                  <div id="portfolio-value" class="stat-value">$0.00</div>
                 </div>
                 <div class="portfolio-stat">
-                  <div class="stat-label">Day P&L</div>
-                  <div id="portfolio-day-pnl" class="stat-value-change skeleton" style="height: 24px; width: 120px;">$0.00</div>
+                  <span class="stat-label">Day P&L</span>
+                  <div id="portfolio-day-pnl" class="stat-value-change positive">+$0.00 (+0.00%)</div>
                 </div>
                 <div class="portfolio-stat">
-                  <div class="stat-label">Total P&L</div>
-                  <div id="portfolio-total-pnl" class="stat-value-change skeleton" style="height: 24px; width: 120px;">$0.00</div>
+                  <span class="stat-label">Total P&L</span>
+                  <div id="portfolio-total-pnl" class="stat-value-change positive">+$0.00 (+0.00%)</div>
                 </div>
               </div>
             </div>
@@ -292,33 +292,46 @@
     }
 
     .portfolio-stat {
-      display: flex;
-      flex-direction: column;
-      gap: var(--optix-space-xs);
+      display: block;
+      position: relative;
     }
 
     .stat-label {
+      display: block;
       font-size: var(--optix-font-sm);
       color: var(--optix-text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
       font-weight: var(--optix-font-medium);
+      margin-bottom: var(--optix-space-xs);
     }
 
     .stat-value {
+      display: block;
       font-size: var(--optix-font-3xl);
       font-weight: var(--optix-font-bold);
       font-family: var(--optix-font-mono);
       color: var(--optix-text);
+      line-height: 1.2;
     }
 
     .stat-value-change {
+      display: block;
       font-size: var(--optix-font-xl);
       font-weight: var(--optix-font-semibold);
       font-family: var(--optix-font-mono);
-      display: flex;
-      align-items: center;
-      gap: var(--optix-space-xs);
+      line-height: 1.4;
+    }
+
+    .stat-value-change .pnl-value {
+      display: inline;
+    }
+
+    .stat-value-change .pnl-percent {
+      display: inline;
+      margin-left: var(--optix-space-xs);
+      font-size: var(--optix-font-md);
+      opacity: 0.8;
     }
 
     .stat-value-change.positive {
