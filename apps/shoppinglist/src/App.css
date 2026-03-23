@@ -1,0 +1,82 @@
+.app-container {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.app-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 30px;
+  text-align: center;
+  color: white;
+}
+
+.app-header h1 {
+  font-size: 28px;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  opacity: 0.85;
+  font-size: 14px;
+}
+
+.list-section {
+  padding: 0 20px;
+  min-height: 100px;
+}
+
+.shopping-list {
+  list-style: none;
+}
+
+.empty-message {
+  text-align: center;
+  color: #999;
+  padding: 40px 20px;
+  font-size: 15px;
+}
+
+.stats-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+  font-size: 13px;
+  color: #888;
+}
+
+.stats-info {
+  display: flex;
+  gap: 8px;
+}
+
+.stat-divider {
+  color: #ddd;
+}
+
+.stat-completed {
+  color: #4caf50;
+}
+
+.stat-remaining {
+  color: #667eea;
+}
+
+.clear-btn {
+  padding: 6px 14px;
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-btn:hover {
+  border-color: #dc3545;
+  color: #dc3545;
+}
