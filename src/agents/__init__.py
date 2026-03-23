@@ -31,6 +31,26 @@ from .automation_tester_agent import AutomationTesterAgent
 from .nfr_tester_agent import NFRTesterAgent
 from .pen_tester_agent import PenTesterAgent
 
+# Git Pin agents (high-throughput from pi-mono architecture)
+from .git_pin_agent_core import (
+    GitPinBaseAgent,
+    GitPinAgentLoop,
+    GitPinLoopConfig,
+    GitPinEvent,
+    GitPinEventType,
+    ToolExecutionMode,
+    ThroughputMetrics,
+)
+from .git_pin_coding_agent import GitPinCodingAgent, GitPinReviewAgent
+from .git_pin_throughput_optimizer import (
+    GitPinPipeline,
+    PipelineTask,
+    PipelineResult,
+    ThroughputDashboard,
+    BatchToolScheduler,
+    AdaptiveConcurrencyState,
+)
+
 __all__ = [
     "BaseAgent",
     "AgentMode",
@@ -61,4 +81,20 @@ __all__ = [
     "AutomationTesterAgent",
     "NFRTesterAgent",
     "PenTesterAgent",
+    # Git Pin Agents (high-throughput parallel execution)
+    "GitPinBaseAgent",
+    "GitPinAgentLoop",
+    "GitPinLoopConfig",
+    "GitPinEvent",
+    "GitPinEventType",
+    "ToolExecutionMode",
+    "ThroughputMetrics",
+    "GitPinCodingAgent",
+    "GitPinReviewAgent",
+    "GitPinPipeline",
+    "PipelineTask",
+    "PipelineResult",
+    "ThroughputDashboard",
+    "BatchToolScheduler",
+    "AdaptiveConcurrencyState",
 ]
