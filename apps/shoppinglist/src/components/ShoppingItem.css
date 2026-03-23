@@ -1,0 +1,186 @@
+.shopping-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid #f0f0f0;
+  animation: slideIn 0.25s ease-out;
+}
+
+.shopping-item:last-child {
+  border-bottom: none;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.shopping-item.completed {
+  opacity: 0.5;
+}
+
+.shopping-item.completed .item-text {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.item-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.item-checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: #667eea;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.item-details {
+  min-width: 0;
+}
+
+.item-text {
+  font-size: 15px;
+  color: #333;
+  display: block;
+}
+
+.item-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 3px;
+}
+
+.item-category {
+  font-size: 11px;
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.item-quantity {
+  font-size: 11px;
+  color: #888;
+  font-weight: 600;
+}
+
+.item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.edit-btn,
+.delete-btn {
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.edit-btn {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.edit-btn:hover {
+  background: #667eea;
+  color: white;
+}
+
+.delete-btn {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.delete-btn:hover {
+  background: #dc3545;
+  color: white;
+}
+
+/* Editing mode */
+.shopping-item.editing {
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px;
+  background: #f8f9ff;
+  border-radius: 10px;
+  margin: 4px 0;
+}
+
+.edit-input {
+  flex: 1;
+  min-width: 150px;
+  padding: 8px 12px;
+  border: 2px solid #667eea;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+}
+
+.edit-category {
+  padding: 8px;
+  border: 2px solid #e8e8e8;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+}
+
+.edit-quantity {
+  width: 50px;
+  padding: 8px;
+  border: 2px solid #e8e8e8;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: center;
+  outline: none;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.save-btn {
+  padding: 6px 14px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.save-btn:hover {
+  background: #5a6fd6;
+}
+
+.cancel-btn {
+  padding: 6px 14px;
+  background: #e8e8e8;
+  color: #666;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cancel-btn:hover {
+  background: #ddd;
+}

@@ -1,0 +1,44 @@
+.category-filter {
+  display: flex;
+  gap: 6px;
+  padding: 12px 20px;
+  overflow-x: auto;
+  border-bottom: 1px solid #eee;
+}
+
+.filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  background: white;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.filter-chip:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.filter-chip.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+}
+
+.chip-count {
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.filter-chip.active .chip-count {
+  background: rgba(255, 255, 255, 0.3);
+}

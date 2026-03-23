@@ -1,0 +1,91 @@
+.add-form {
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.item-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid #e8e8e8;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+.item-input:focus {
+  border-color: #667eea;
+}
+
+.add-btn {
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.add-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.add-btn:active {
+  transform: translateY(0);
+}
+
+.form-options {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.category-select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid #e8e8e8;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #555;
+  outline: none;
+  cursor: pointer;
+}
+
+.category-select:focus {
+  border-color: #667eea;
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quantity-control label {
+  font-size: 13px;
+  color: #888;
+}
+
+.quantity-input {
+  width: 50px;
+  padding: 8px;
+  border: 2px solid #e8e8e8;
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: center;
+  outline: none;
+}
+
+.quantity-input:focus {
+  border-color: #667eea;
+}
