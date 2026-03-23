@@ -18,9 +18,15 @@ def create_dsdm_tool_registry(
     include_jira: bool = False,
     include_devops: bool = False,
     include_file_tools: bool = True,
+    include_git_pin: bool = True,
 ) -> ToolRegistry:
     """Create a tool registry with all DSDM tools."""
     registry = ToolRegistry()
+
+    # ==================== GIT PIN THROUGHPUT TOOLS ====================
+    if include_git_pin:
+        from .git_pin_tools import register_git_pin_tools
+        register_git_pin_tools(registry)
 
     # ==================== FEASIBILITY PHASE TOOLS ====================
 

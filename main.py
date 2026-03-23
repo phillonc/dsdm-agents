@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from src.orchestrator.dsdm_orchestrator import (
     DSDMOrchestrator,
     DSDMPhase,
+    DesignBuildRole,
     OrchestratorConfig,
     PhaseConfig,
 )
@@ -89,6 +90,17 @@ def main():
         action="store_true",
         help="List all available tools",
     )
+    parser.add_argument(
+        "--git-pin-pipeline",
+        action="store_true",
+        help="Run Git Pin high-throughput parallel pipeline",
+    )
+    parser.add_argument(
+        "--max-concurrent",
+        type=int,
+        default=4,
+        help="Max concurrent agents for Git Pin pipeline (default: 4)",
+    )
 
     args = parser.parse_args()
 
@@ -133,6 +145,13 @@ def main():
 
     if args.workflow and args.input:
         orchestrator.run_workflow(args.input)
+        return
+
+    if args.git_pin_pipeline and args.input:
+        orchestrator.run_git_pin_pipeline(
+            args.input,
+            max_concurrent=args.max_concurrent,
+        )
         return
 
     # Default to interactive mode if no specific action

@@ -29,6 +29,15 @@ from ..agents.automation_tester_agent import AutomationTesterAgent
 from ..agents.nfr_tester_agent import NFRTesterAgent
 from ..agents.pen_tester_agent import PenTesterAgent
 
+# Git Pin agents (high-throughput parallel execution from pi-mono architecture)
+from ..agents.git_pin_coding_agent import GitPinCodingAgent, GitPinReviewAgent
+from ..agents.git_pin_throughput_optimizer import (
+    GitPinPipeline,
+    PipelineTask,
+    ThroughputDashboard,
+    BatchToolScheduler,
+)
+
 from ..tools.tool_registry import ToolRegistry
 from ..tools.dsdm_tools import create_dsdm_tool_registry
 from ..tools.feasibility_optimizer import (
@@ -68,6 +77,9 @@ class DesignBuildRole(Enum):
     AUTOMATION_TESTER = "automation_tester"
     NFR_TESTER = "nfr_tester"
     PEN_TESTER = "pen_tester"
+    # Git Pin agents (high-throughput from pi-mono architecture)
+    GIT_PIN_CODER = "git_pin_coder"
+    GIT_PIN_REVIEWER = "git_pin_reviewer"
 
 
 @dataclass
@@ -114,8 +126,10 @@ class DSDMOrchestrator:
 
     DESIGN_BUILD_ROLE_ORDER = [
         DesignBuildRole.DEV_LEAD,
+        DesignBuildRole.GIT_PIN_CODER,
         DesignBuildRole.FRONTEND_DEV,
         DesignBuildRole.BACKEND_DEV,
+        DesignBuildRole.GIT_PIN_REVIEWER,
         DesignBuildRole.AUTOMATION_TESTER,
         DesignBuildRole.NFR_TESTER,
         DesignBuildRole.PEN_TESTER,
@@ -166,8 +180,10 @@ class DSDMOrchestrator:
             ],
             design_build_roles=[
                 RoleConfig(DesignBuildRole.DEV_LEAD, DevLeadAgent, AgentMode.HYBRID),
+                RoleConfig(DesignBuildRole.GIT_PIN_CODER, GitPinCodingAgent, AgentMode.AUTOMATED),
                 RoleConfig(DesignBuildRole.FRONTEND_DEV, FrontendDeveloperAgent, AgentMode.AUTOMATED),
                 RoleConfig(DesignBuildRole.BACKEND_DEV, BackendDeveloperAgent, AgentMode.AUTOMATED),
+                RoleConfig(DesignBuildRole.GIT_PIN_REVIEWER, GitPinReviewAgent, AgentMode.HYBRID),
                 RoleConfig(DesignBuildRole.AUTOMATION_TESTER, AutomationTesterAgent, AgentMode.AUTOMATED),
                 RoleConfig(DesignBuildRole.NFR_TESTER, NFRTesterAgent, AgentMode.HYBRID),
                 RoleConfig(DesignBuildRole.PEN_TESTER, PenTesterAgent, AgentMode.MANUAL),
@@ -1044,6 +1060,97 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
 
         return self.role_results
 
+    # ------------------------------------------------------------------
+    # Git Pin pipeline execution
+    # ------------------------------------------------------------------
+
+    def run_git_pin_pipeline(
+        self,
+        user_input: str,
+        context: Optional[Dict[str, Any]] = None,
+        roles: Optional[List[DesignBuildRole]] = None,
+        max_concurrent: int = 4,
+    ) -> Dict[str, AgentResult]:
+        """Run multiple Design & Build agents in parallel using the Git Pin pipeline.
+
+        This provides higher throughput than sequential run_design_build_team
+        by executing independent agents concurrently with dependency management.
+        """
+        pipeline = GitPinPipeline(
+            max_concurrent_agents=max_concurrent,
+            progress_callback=self._progress_callback,
+        )
+        dashboard = ThroughputDashboard()
+
+        # Default roles if not specified
+        if roles is None:
+            roles = [
+                DesignBuildRole.GIT_PIN_CODER,
+                DesignBuildRole.GIT_PIN_REVIEWER,
+            ]
+
+        # Build pipeline tasks
+        tasks = []
+        for i, role in enumerate(roles):
+            agent = self.design_build_agents.get(role)
+            if not agent:
+                continue
+            task = PipelineTask(
+                agent=agent,
+                user_input=user_input,
+                context=context,
+                task_id=f"gitpin_{role.value}_{i}",
+            )
+            # Reviewer depends on coder
+            if role == DesignBuildRole.GIT_PIN_REVIEWER:
+                coder_tasks = [t.task_id for t in tasks if "git_pin_coder" in t.task_id]
+                if coder_tasks:
+                    task.depends_on = coder_tasks
+            tasks.append(task)
+
+        if not tasks:
+            self.formatter.format_error("No Git Pin agents available for pipeline")
+            return {}
+
+        # Display pipeline start
+        self.formatter.format_team_start(
+            team_name="Git Pin Pipeline",
+            roles=[t.agent.name for t in tasks],
+        )
+
+        # Execute pipeline
+        pipeline_results = pipeline.execute(tasks)
+        dashboard.record_pipeline_results(pipeline_results)
+
+        # Collect results
+        results = {}
+        for pr in pipeline_results:
+            # Find matching role
+            for task in tasks:
+                if task.task_id == pr.task_id:
+                    for role in roles:
+                        if role.value in task.task_id:
+                            results[role] = pr.result
+                            self.role_results[role] = pr.result
+                            # Record metrics from Git Pin agents
+                            throughput = pr.result.artifacts.get("git_pin_throughput")
+                            if throughput:
+                                from ..agents.git_pin_agent_core import ThroughputMetrics
+                                dashboard.record_agent_metrics(pr.agent_name, ThroughputMetrics())
+                            break
+
+        # Display throughput report
+        report = dashboard.format_report()
+        self.console.print(f"\n{report}")
+
+        # Display pipeline summary
+        self.formatter.format_workflow_summary(
+            {role.value: result for role, result in results.items()}
+        )
+
+        pipeline.shutdown()
+        return results
+
     def load_trd_from_file(self, file_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Load a TRD file from the directory and parse its content."""
         import os
@@ -1107,9 +1214,10 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
             self.console.print("5. Configure workflow modes")
             self.console.print("6. View tools")
             self.console.print("7. Design & Build from TRD in directory")
-            self.console.print("8. Exit")
+            self.console.print("8. Git Pin Pipeline (high-throughput parallel agents)")
+            self.console.print("9. Exit")
 
-            choice = Prompt.ask("Select option", choices=[str(i) for i in range(1, 9)])
+            choice = Prompt.ask("Select option", choices=[str(i) for i in range(1, 10)])
 
             if choice == "1":
                 self._run_specific_phase_menu()
@@ -1129,6 +1237,8 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
                 if trd_context:
                     self.design_build_from_trd(trd_context)
             elif choice == "8":
+                self._git_pin_pipeline_menu()
+            elif choice == "9":
                 break
 
     def _run_specific_phase_menu(self) -> None:
@@ -1353,6 +1463,72 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
                     )
                     if new_mode != "skip":
                         self.set_role_workflow_mode(role, WorkflowMode(new_mode))
+
+    def _git_pin_pipeline_menu(self) -> None:
+        """Menu for running the Git Pin parallel pipeline."""
+        self.console.print("\n[bold cyan]Git Pin Pipeline - High-Throughput Parallel Agents[/bold cyan]")
+        self.console.print("\nThis runs Git Pin agents in parallel for maximum throughput.")
+        self.console.print("The pipeline automatically manages dependencies between agents.\n")
+
+        # Show available Git Pin agents
+        git_pin_roles = [
+            r for r in self.DESIGN_BUILD_ROLE_ORDER
+            if r in self.design_build_agents and "git_pin" in r.value
+        ]
+
+        if not git_pin_roles:
+            self.console.print("[red]No Git Pin agents available.[/red]")
+            return
+
+        self.console.print("[bold]Available Git Pin agents:[/bold]")
+        for i, role in enumerate(git_pin_roles, 1):
+            agent = self.design_build_agents[role]
+            self.console.print(f"  {i}. {agent.name} ({role.value})")
+
+        self.console.print(f"\n[bold]Run options:[/bold]")
+        self.console.print("1. Run all Git Pin agents in pipeline")
+        self.console.print("2. Run Git Pin Coder only")
+        self.console.print("3. Run Git Pin Reviewer only")
+        self.console.print("4. Run with full Design & Build team")
+        self.console.print("5. Back")
+
+        choice = Prompt.ask("Select option", choices=["1", "2", "3", "4", "5"])
+
+        if choice == "5":
+            return
+
+        user_input = Prompt.ask("Enter your development task/requirement")
+
+        max_concurrent = int(Prompt.ask("Max concurrent agents", default="4"))
+
+        if choice == "1":
+            self.run_git_pin_pipeline(user_input, max_concurrent=max_concurrent)
+        elif choice == "2":
+            self.run_git_pin_pipeline(
+                user_input,
+                roles=[DesignBuildRole.GIT_PIN_CODER],
+                max_concurrent=max_concurrent,
+            )
+        elif choice == "3":
+            self.run_git_pin_pipeline(
+                user_input,
+                roles=[DesignBuildRole.GIT_PIN_REVIEWER],
+                max_concurrent=max_concurrent,
+            )
+        elif choice == "4":
+            all_roles = [
+                DesignBuildRole.DEV_LEAD,
+                DesignBuildRole.GIT_PIN_CODER,
+                DesignBuildRole.FRONTEND_DEV,
+                DesignBuildRole.BACKEND_DEV,
+                DesignBuildRole.GIT_PIN_REVIEWER,
+                DesignBuildRole.AUTOMATION_TESTER,
+            ]
+            self.run_git_pin_pipeline(
+                user_input,
+                roles=all_roles,
+                max_concurrent=max_concurrent,
+            )
 
     def _display_tips(self, result: AgentResult) -> None:
         """Display tips from an agent result if available."""
