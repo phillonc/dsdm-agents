@@ -13,7 +13,6 @@ from .room_state import (
     RoomBlocker,
     RoomDecision,
     RoomHandoff,
-    utc_now_iso,
 )
 from .room_templates import get_template_agents, get_template_next_actions, normalize_template
 
@@ -169,6 +168,73 @@ def set_room_phase(project_name: str, phase: Optional[str], status: Optional[str
     room.active_phase = phase
     if status:
         room.status = status
+    return _save_room(room)
+
+
+def mark_room_agent_status(
+    project_name: str,
+    agent_name: str,
+    status: str,
+    current_task: Optional[str] = None,
+) -> DeliveryRoomState:
+    """Update the status for all room assignments using a given agent name."""
+    room = load_delivery_room(project_name)
+    for agent in room.agents:
+        if agent.agent_name == agent_name:
+            agent.status = status
+            agent.current_task = current_task
+    return _save_room(room)
+
+
+def record_room_phase_result(
+    project_name: str,
+    phase: str,
+    agent_name: str,
+    success: bool,
+    output: str,
+    artifact_path: Optional[str] = None,
+) -> DeliveryRoomState:
+    """Record the result of a DSDM phase in the delivery room."""
+    room = load_delivery_room(project_name)
+    status = "completed" if success else "blocked"
+    for agent in room.agents:
+        if agent.agent_name == agent_name or agent.phase == phase:
+            agent.status = status
+            agent.current_task = None
+
+    if artifact_path:
+        artifact_name = f"{phase.replace('_', ' ').title()} Output"
+        if not any(artifact.path == artifact_path for artifact in room.artifacts):
+            room.artifacts.append(RoomArtifact(
+                name=artifact_name,
+                path=artifact_path,
+                artifact_type="phase_output",
+                owner_agent=agent_name,
+            ))
+
+    if success:
+        room.decisions.append(RoomDecision(
+            id=f"DEC-{len(room.decisions) + 1:03d}",
+            title=f"{phase.replace('_', ' ').title()} phase completed",
+            owner_agent=agent_name,
+            context=f"Agent completed {phase} as part of the delivery room workflow.",
+            decision="Proceed to the next planned delivery phase when dependencies are satisfied.",
+            consequences=["Room state updated", "Phase output available for downstream agents"],
+        ))
+    else:
+        summary = output.strip().splitlines()[0] if output.strip() else f"{phase} failed"
+        room.blockers.append(RoomBlocker(
+            id=f"BLK-{len(room.blockers) + 1:03d}",
+            title=f"{phase.replace('_', ' ').title()} phase failed",
+            owner_agent=agent_name,
+            severity="high",
+            status="open",
+            suggested_resolution=summary[:240],
+        ))
+        room.next_actions.insert(0, f"Resolve failed phase: {phase}")
+
+    room.active_phase = phase
+    room.status = "running" if success else "blocked"
     return _save_room(room)
 
 
