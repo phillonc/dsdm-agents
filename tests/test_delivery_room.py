@@ -16,6 +16,7 @@ from src.rooms.delivery_room import (
     get_room_state_path,
     load_delivery_room,
 )
+from src.rooms.room_dashboard import RoomDashboardFilters, build_room_dashboard_markdown
 from src.rooms.room_health import calculate_room_health
 from src.rooms.room_progress import create_room_progress_callback
 from src.rooms.room_runner import run_delivery_room
@@ -90,7 +91,7 @@ def test_export_delivery_room_writes_markdown_dashboard(tmp_path, monkeypatch):
     assert "## Health" in content
 
 
-def test_run_delivery_room_records_phase_results_and_handoffs(tmp_path, monkeypatch):
+def test_run_delivery_room_records_phase_results_handoffs_and_actual_artifacts(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     room = run_delivery_room(
         orchestrator=FakeOrchestrator(),
@@ -104,6 +105,13 @@ def test_run_delivery_room_records_phase_results_and_handoffs(tmp_path, monkeypa
     assert room.active_phase == "business_study"
     assert len(room.handoffs) == 1
     assert any(decision.title == "Feasibility phase completed" for decision in room.decisions)
+
+    feasibility_artifact = Path("generated/scheduling-app/docs/FEASIBILITY_OUTPUT.md")
+    business_artifact = Path("generated/scheduling-app/docs/BUSINESS_STUDY_OUTPUT.md")
+    assert feasibility_artifact.exists()
+    assert business_artifact.exists()
+    assert "feasibility output" in feasibility_artifact.read_text(encoding="utf-8")
+    assert room.handoffs[0].artifact_refs == [str(feasibility_artifact)]
 
 
 def test_run_delivery_room_preserves_blocked_status_on_failure(tmp_path, monkeypatch):
@@ -140,6 +148,30 @@ def test_room_health_identifies_open_issues(tmp_path, monkeypatch):
     health = calculate_room_health(load_delivery_room(room.project_name))
     assert health.weak_points
     assert health.recommended_actions
+
+
+def test_filtered_room_dashboard_filters_sections_and_artifacts(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    run_delivery_room(
+        orchestrator=FakeOrchestrator(),
+        mission="Build filtered dashboard app",
+        project_name="Filtered Dashboard App",
+        phases=[DSDMPhase.FEASIBILITY, DSDMPhase.BUSINESS_STUDY],
+        overwrite=True,
+    )
+
+    filters = RoomDashboardFilters.from_values(
+        sections=["summary", "artifacts"],
+        artifact_type="phase_output",
+        phase="feasibility",
+    )
+    markdown = build_room_dashboard_markdown("filtered-dashboard-app", filters)
+
+    assert "## Summary" in markdown
+    assert "## Artifacts" in markdown
+    assert "FEASIBILITY_OUTPUT.md" in markdown
+    assert "BUSINESS_STUDY_OUTPUT.md" not in markdown
+    assert "## Agents" not in markdown
 
 
 def test_room_progress_callback_updates_agent_status(tmp_path, monkeypatch):
