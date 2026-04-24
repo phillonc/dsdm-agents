@@ -16,6 +16,8 @@ from .delivery_room import (
     record_room_phase_result,
     set_room_phase,
 )
+from .room_artifacts import sync_room_artifacts
+from .room_events import RoomEventType, append_room_event, export_room_events_markdown
 from .room_progress import create_room_progress_callback
 from .room_state import DeliveryRoomState
 
@@ -60,6 +62,14 @@ def _write_phase_artifact(
         f"```json\n{tool_calls_json}\n```\n"
     )
     artifact_path.write_text(content, encoding="utf-8")
+    append_room_event(
+        project_name,
+        RoomEventType.ARTIFACT_CREATED,
+        f"Artifact created: {artifact_path.name}",
+        actor=agent_name,
+        phase=phase.value,
+        payload={"path": str(artifact_path)},
+    )
     return str(artifact_path)
 
 
@@ -96,18 +106,18 @@ def run_delivery_room(
     phases: Optional[Iterable[DSDMPhase]] = None,
     overwrite: bool = False,
 ) -> DeliveryRoomState:
-    """Run a delivery room through selected DSDM phases.
-
-    This is intentionally a light orchestration layer above the existing
-    DSDMOrchestrator. It keeps the core phase execution unchanged while adding
-    room state, real phase output artifacts, handoffs, decisions, blockers,
-    health scoring, and dashboard export.
-    """
+    """Run a delivery room through selected DSDM phases."""
     room = create_delivery_room(
         mission=mission,
         project_name=project_name,
         template=template,
         overwrite=overwrite,
+    )
+    append_room_event(
+        room.project_name,
+        RoomEventType.ROOM_CREATED,
+        "Delivery room workflow started",
+        payload={"mission": room.mission, "template": room.template},
     )
     _install_room_progress_callback(orchestrator, room.project_name)
 
@@ -131,6 +141,7 @@ def run_delivery_room(
         set_room_phase(room.project_name, phase.value, "running")
         agent = orchestrator.get_agent(phase)
         agent_name = agent.name if agent else phase.value
+        append_room_event(room.project_name, RoomEventType.PHASE_STARTED, f"{phase.value} started", actor=agent_name, phase=phase.value)
 
         phase_input = (
             f"Delivery Room Mission: {room.mission}\n"
@@ -149,6 +160,14 @@ def run_delivery_room(
             output=result.output,
             artifact_path=artifact_path,
         )
+        append_room_event(
+            room.project_name,
+            RoomEventType.PHASE_COMPLETED if result.success else RoomEventType.PHASE_FAILED,
+            f"{phase.value} {'completed' if result.success else 'failed'}",
+            actor=agent_name,
+            phase=phase.value,
+            payload={"artifact_path": artifact_path},
+        )
 
         if previous_agent_name and previous_phase:
             add_room_handoff(
@@ -159,7 +178,16 @@ def run_delivery_room(
                 acceptance_gate=f"{phase.value.replace('_', ' ').title()} agent confirms it has enough context to proceed.",
                 artifact_refs=[previous_artifact_path] if previous_artifact_path else [],
             )
+            append_room_event(
+                room.project_name,
+                RoomEventType.HANDOFF_ADDED,
+                f"Handoff: {previous_agent_name} to {agent_name}",
+                actor="DeliveryRoom",
+                phase=phase.value,
+                payload={"artifact_refs": [previous_artifact_path] if previous_artifact_path else []},
+            )
 
+        sync_room_artifacts(room.project_name)
         export_delivery_room(room.project_name)
 
         if not result.success:
@@ -174,5 +202,7 @@ def run_delivery_room(
 
     final_status = "blocked" if blocked else "completed"
     set_room_phase(room.project_name, last_phase.value if last_phase else None, final_status)
+    append_room_event(room.project_name, RoomEventType.HEALTH_UPDATED, f"Room workflow {final_status}", payload={"status": final_status})
     export_delivery_room(room.project_name)
+    export_room_events_markdown(room.project_name)
     return load_delivery_room(room.project_name)
