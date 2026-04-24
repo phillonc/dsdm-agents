@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
 from ..agents.base_agent import AgentResult
@@ -28,9 +30,37 @@ PHASE_HANDOFF_TARGETS = {
 
 
 def _phase_artifact_path(project_name: str, phase: DSDMPhase) -> str:
-    """Return a conventional phase artifact path for room evidence."""
+    """Return the actual phase output artifact path for room evidence."""
     phase_file = phase.value.upper()
     return f"generated/{project_name}/docs/{phase_file}_OUTPUT.md"
+
+
+def _write_phase_artifact(
+    project_name: str,
+    phase: DSDMPhase,
+    agent_name: str,
+    result: AgentResult,
+) -> str:
+    """Persist phase output to a real Markdown artifact and return its path."""
+    artifact_path = Path(_phase_artifact_path(project_name, phase))
+    artifact_path.parent.mkdir(parents=True, exist_ok=True)
+
+    artifact_json = json.dumps(result.artifacts or {}, indent=2, default=str)
+    tool_calls_json = json.dumps(result.tool_calls or [], indent=2, default=str)
+    content = (
+        f"# {phase.value.replace('_', ' ').title()} Output\n\n"
+        f"**Project:** {project_name}\n"
+        f"**Agent:** {agent_name}\n"
+        f"**Success:** {result.success}\n\n"
+        "## Output\n\n"
+        f"{result.output or 'No output returned.'}\n\n"
+        "## Artifacts\n\n"
+        f"```json\n{artifact_json}\n```\n\n"
+        "## Tool Calls\n\n"
+        f"```json\n{tool_calls_json}\n```\n"
+    )
+    artifact_path.write_text(content, encoding="utf-8")
+    return str(artifact_path)
 
 
 def _result_context(result: AgentResult) -> Dict[str, Any]:
@@ -70,7 +100,8 @@ def run_delivery_room(
 
     This is intentionally a light orchestration layer above the existing
     DSDMOrchestrator. It keeps the core phase execution unchanged while adding
-    room state, handoffs, decisions, blockers, health scoring, and dashboard export.
+    room state, real phase output artifacts, handoffs, decisions, blockers,
+    health scoring, and dashboard export.
     """
     room = create_delivery_room(
         mission=mission,
@@ -91,6 +122,7 @@ def run_delivery_room(
 
     previous_agent_name: Optional[str] = None
     previous_phase: Optional[DSDMPhase] = None
+    previous_artifact_path: Optional[str] = None
     last_phase: Optional[DSDMPhase] = None
     blocked = False
 
@@ -108,7 +140,7 @@ def run_delivery_room(
             "Use the delivery room context to preserve clear role ownership, blockers, decisions, and handoffs."
         )
         result = orchestrator.run_phase(phase, phase_input, context)
-        artifact_path = _phase_artifact_path(room.project_name, phase)
+        artifact_path = _write_phase_artifact(room.project_name, phase, agent_name, result)
         record_room_phase_result(
             project_name=room.project_name,
             phase=phase.value,
@@ -125,7 +157,7 @@ def run_delivery_room(
                 to_agent=agent_name,
                 summary=f"{previous_phase.value.replace('_', ' ').title()} output handed to {phase.value.replace('_', ' ').title()}.",
                 acceptance_gate=f"{phase.value.replace('_', ' ').title()} agent confirms it has enough context to proceed.",
-                artifact_refs=[_phase_artifact_path(room.project_name, previous_phase)],
+                artifact_refs=[previous_artifact_path] if previous_artifact_path else [],
             )
 
         export_delivery_room(room.project_name)
@@ -135,8 +167,10 @@ def run_delivery_room(
             break
 
         context.update(_result_context(result))
+        context["previous_artifact_path"] = artifact_path
         previous_agent_name = agent_name
         previous_phase = phase
+        previous_artifact_path = artifact_path
 
     final_status = "blocked" if blocked else "completed"
     set_room_phase(room.project_name, last_phase.value if last_phase else None, final_status)
