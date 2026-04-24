@@ -114,7 +114,7 @@ class FrontendDeveloperAgent(BaseAgent):
             ],
             mode=mode,
             llm_provider=LLMProvider.GEMINI,
-            model="gemini-2.5-flash",
+            model="gemini-3.0-pro",
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)
 
