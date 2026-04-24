@@ -76,8 +76,11 @@ def run_delivery_room(
 
     previous_agent_name: Optional[str] = None
     previous_phase: Optional[DSDMPhase] = None
+    last_phase: Optional[DSDMPhase] = None
+    blocked = False
 
     for phase in selected_phases:
+        last_phase = phase
         set_room_phase(room.project_name, phase.value, "running")
         agent = orchestrator.get_agent(phase)
         agent_name = agent.name if agent else phase.value
@@ -113,12 +116,14 @@ def run_delivery_room(
         export_delivery_room(room.project_name)
 
         if not result.success:
+            blocked = True
             break
 
         context.update(_result_context(result))
         previous_agent_name = agent_name
         previous_phase = phase
 
-    set_room_phase(room.project_name, selected_phases[-1].value if selected_phases else None, "completed")
+    final_status = "blocked" if blocked else "completed"
+    set_room_phase(room.project_name, last_phase.value if last_phase else None, final_status)
     export_delivery_room(room.project_name)
     return load_delivery_room(room.project_name)
