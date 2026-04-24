@@ -14,6 +14,7 @@ from .delivery_room import (
     record_room_phase_result,
     set_room_phase,
 )
+from .room_progress import create_room_progress_callback
 from .room_state import DeliveryRoomState
 
 
@@ -45,6 +46,18 @@ def _result_context(result: AgentResult) -> Dict[str, Any]:
     return context
 
 
+def _install_room_progress_callback(orchestrator: DSDMOrchestrator, project_name: str) -> None:
+    """Wrap the existing progress callback so room state tracks agent events."""
+    previous_callback = getattr(orchestrator, "_progress_callback", None)
+    room_callback = create_room_progress_callback(project_name, previous_callback)
+    orchestrator._progress_callback = room_callback
+
+    for agent in getattr(orchestrator, "agents", {}).values():
+        agent.set_progress_callback(room_callback)
+    for agent in getattr(orchestrator, "design_build_agents", {}).values():
+        agent.set_progress_callback(room_callback)
+
+
 def run_delivery_room(
     orchestrator: DSDMOrchestrator,
     mission: str,
@@ -57,7 +70,7 @@ def run_delivery_room(
 
     This is intentionally a light orchestration layer above the existing
     DSDMOrchestrator. It keeps the core phase execution unchanged while adding
-    room state, handoffs, decisions, blockers, and dashboard export.
+    room state, handoffs, decisions, blockers, health scoring, and dashboard export.
     """
     room = create_delivery_room(
         mission=mission,
@@ -65,6 +78,8 @@ def run_delivery_room(
         template=template,
         overwrite=overwrite,
     )
+    _install_room_progress_callback(orchestrator, room.project_name)
+
     selected_phases = list(phases or DSDMOrchestrator.PHASE_ORDER)
     context: Dict[str, Any] = {
         "delivery_room": {
