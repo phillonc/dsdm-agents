@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from .tool_registry import Tool, ToolRegistry
 from ..rooms.delivery_room import (
@@ -13,7 +13,9 @@ from ..rooms.delivery_room import (
     create_delivery_room,
     export_delivery_room,
     get_delivery_room_status,
+    load_delivery_room,
 )
+from ..rooms.room_health import calculate_room_health
 
 
 def _json(data: Dict[str, Any]) -> str:
@@ -49,7 +51,7 @@ def register_room_tools(registry: ToolRegistry) -> None:
 
     registry.register(Tool(
         name="room_get_status",
-        description="Get a compact status summary for an Autonomous Delivery Room.",
+        description="Get a compact status summary for an Autonomous Delivery Room, including health score and next actions.",
         input_schema={
             "type": "object",
             "properties": {
@@ -58,6 +60,21 @@ def register_room_tools(registry: ToolRegistry) -> None:
             "required": ["project_name"],
         },
         handler=lambda project_name: _json(get_delivery_room_status(project_name)),
+        requires_approval=False,
+        category="delivery_room",
+    ))
+
+    registry.register(Tool(
+        name="room_get_health",
+        description="Calculate delivery room health scores, weak points, confidence, and recommended actions.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "project_name": {"type": "string", "description": "Project name"},
+            },
+            "required": ["project_name"],
+        },
+        handler=lambda project_name: _json(calculate_room_health(load_delivery_room(project_name)).to_dict()),
         requires_approval=False,
         category="delivery_room",
     ))
