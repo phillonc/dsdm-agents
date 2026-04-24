@@ -32,7 +32,9 @@ from src.rooms import (
     export_delivery_room,
     get_delivery_room_status,
     load_delivery_room,
+    run_delivery_room,
 )
+from src.tools.room_tools import register_room_tools
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -93,6 +95,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--room-create",
         action="store_true",
         help="Create an Autonomous Delivery Room. Use --input for mission.",
+    )
+    parser.add_argument(
+        "--room-run",
+        action="store_true",
+        help="Create and run an Autonomous Delivery Room through the DSDM workflow.",
     )
     parser.add_argument(
         "--room-status",
@@ -176,7 +183,7 @@ def _print_room_status(console: Console, project_name: str) -> None:
 
 
 def _handle_room_commands(args: argparse.Namespace, console: Console) -> bool:
-    """Handle delivery room commands. Returns True when command was handled."""
+    """Handle local delivery room commands. Returns True when command was handled."""
     if args.room_create:
         if not args.input:
             console.print("[red]Error: --room-create requires --input mission text[/red]")
@@ -212,20 +219,8 @@ def _handle_room_commands(args: argparse.Namespace, console: Console) -> bool:
     return False
 
 
-def main():
-    """Main entry point."""
-    load_dotenv()
-    console = Console()
-    parser = _build_parser()
-    args = parser.parse_args()
-
-    if _handle_room_commands(args, console):
-        return
-
-    if _requires_llm(args):
-        _check_llm_provider(console)
-
-    # Create orchestrator with default config
+def _create_orchestrator(args: argparse.Namespace) -> DSDMOrchestrator:
+    """Create the DSDM orchestrator and register delivery-room tools."""
     config = OrchestratorConfig(
         phases=[
             PhaseConfig(DSDMPhase.FEASIBILITY, FeasibilityAgent, AgentMode(args.mode)),
@@ -245,6 +240,24 @@ def main():
         include_jira=False,    # Disable to reduce prompt size
         include_confluence=False,  # Disable to reduce prompt size
     )
+    register_room_tools(orchestrator.tool_registry)
+    return orchestrator
+
+
+def main():
+    """Main entry point."""
+    load_dotenv()
+    console = Console()
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    if _handle_room_commands(args, console):
+        return
+
+    if _requires_llm(args):
+        _check_llm_provider(console)
+
+    orchestrator = _create_orchestrator(args)
 
     # Handle commands
     if args.list_phases:
@@ -253,6 +266,23 @@ def main():
 
     if args.list_tools:
         orchestrator.list_tools()
+        return
+
+    if args.room_run:
+        if not args.input:
+            console.print("[red]Error: --room-run requires --input mission text[/red]")
+            sys.exit(1)
+        room = run_delivery_room(
+            orchestrator=orchestrator,
+            mission=args.input,
+            project_name=args.room_project,
+            template=args.room_template,
+            overwrite=args.room_overwrite,
+        )
+        export_path = export_delivery_room(room.project_name)
+        console.print(f"[green]Delivery room workflow finished:[/green] {room.project_name}")
+        console.print(f"Dashboard: {export_path}")
+        _print_room_status(console, room.project_name)
         return
 
     if args.interactive:
