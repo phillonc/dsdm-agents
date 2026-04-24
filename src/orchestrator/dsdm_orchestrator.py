@@ -110,6 +110,10 @@ class OrchestratorConfig:
     interactive: bool = True
     auto_advance: bool = False  # Automatically advance to next phase if conditions met
     default_workflow_mode: WorkflowMode = WorkflowMode.AGENT_WRITES_CODE
+    # Explicit opt-in required to push PRD/TRD to Jira/Confluence without an
+    # interactive human approval step. Defaults to False so that batch runs
+    # never silently publish unreviewed documents to shared systems.
+    auto_approve_prd_trd: bool = False
 
 
 class DSDMOrchestrator:
@@ -703,9 +707,19 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
             approval_granted = Confirm.ask(
                 "[bold]Dev Lead & Test Lead: Do you approve these documents for Jira/Confluence sync?[/bold]"
             )
-        else:
-            # In non-interactive mode, auto-approve
+        elif self.config.auto_approve_prd_trd:
+            # Explicit operator opt-in for unattended runs.
+            self.console.print(
+                "[yellow]auto_approve_prd_trd enabled — skipping human approval of PRD/TRD[/yellow]"
+            )
             approval_granted = True
+        else:
+            # Non-interactive runs default to NOT syncing unreviewed documents.
+            self.console.print(
+                "[yellow]Non-interactive run: PRD/TRD sync skipped. "
+                "Set OrchestratorConfig.auto_approve_prd_trd=True to opt in.[/yellow]"
+            )
+            approval_granted = False
 
         # Step 4: Sync to Jira and Confluence if approved and integrations are enabled
         sync_results = {}
@@ -1118,38 +1132,35 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
             roles=[t.agent.name for t in tasks],
         )
 
-        # Execute pipeline
-        pipeline_results = pipeline.execute(tasks)
-        dashboard.record_pipeline_results(pipeline_results)
+        # Execute pipeline. ``pipeline.shutdown()`` must run even on failure,
+        # otherwise the ThreadPoolExecutor's workers leak.
+        try:
+            pipeline_results = pipeline.execute(tasks)
+            dashboard.record_pipeline_results(pipeline_results)
 
-        # Collect results
-        results = {}
-        for pr in pipeline_results:
-            # Find matching role
-            for task in tasks:
-                if task.task_id == pr.task_id:
-                    for role in roles:
-                        if role.value in task.task_id:
-                            results[role] = pr.result
-                            self.role_results[role] = pr.result
-                            # Record metrics from Git Pin agents
-                            throughput = pr.result.artifacts.get("git_pin_throughput")
-                            if throughput:
-                                from ..agents.git_pin_agent_core import ThroughputMetrics
-                                dashboard.record_agent_metrics(pr.agent_name, ThroughputMetrics())
-                            break
+            results = {}
+            for pr in pipeline_results:
+                for task in tasks:
+                    if task.task_id == pr.task_id:
+                        for role in roles:
+                            if role.value in task.task_id:
+                                results[role] = pr.result
+                                self.role_results[role] = pr.result
+                                throughput = pr.result.artifacts.get("git_pin_throughput")
+                                if throughput:
+                                    from ..agents.git_pin_agent_core import ThroughputMetrics
+                                    dashboard.record_agent_metrics(pr.agent_name, ThroughputMetrics())
+                                break
 
-        # Display throughput report
-        report = dashboard.format_report()
-        self.console.print(f"\n{report}")
+            report = dashboard.format_report()
+            self.console.print(f"\n{report}")
 
-        # Display pipeline summary
-        self.formatter.format_workflow_summary(
-            {role.value: result for role, result in results.items()}
-        )
-
-        pipeline.shutdown()
-        return results
+            self.formatter.format_workflow_summary(
+                {role.value: result for role, result in results.items()}
+            )
+            return results
+        finally:
+            pipeline.shutdown()
 
     def load_trd_from_file(self, file_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Load a TRD file from the directory and parse its content."""

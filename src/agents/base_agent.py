@@ -71,7 +71,9 @@ class AgentConfig:
     workflow_mode: WorkflowMode = WorkflowMode.AGENT_WRITES_CODE  # How agent interacts
     model: Optional[str] = None  # If None, uses provider default from env
     max_tokens: int = 8192
-    max_iterations: int = 100
+    # ``None`` means "use the phase-optimized default". Callers that want to
+    # pin a specific iteration budget should pass an explicit integer.
+    max_iterations: Optional[int] = None
     llm_provider: Optional[LLMProvider] = None  # If None, uses LLM_PROVIDER from env
 
 
@@ -109,18 +111,24 @@ class BaseAgent(ABC):
             self.llm_client = llm_client
         else:
             llm_config = LLMConfig.from_env(config.llm_provider)
-            # Override model if specified in agent config
             if config.model:
                 llm_config.model = config.model
             else:
-                # Use phase-optimized model for faster execution
-                from src.llm.providers import get_model_for_phase
-                llm_config.model = get_model_for_phase(config.phase, llm_config.model)
+                # Use phase-optimized model for faster execution. Resolution is
+                # provider-aware: OpenAI/Gemini no longer get Anthropic model IDs.
+                from ..llm.providers import get_model_for_phase
+                picked = get_model_for_phase(
+                    config.phase,
+                    default_model=llm_config.model,
+                    provider=llm_config.provider,
+                )
+                if picked:
+                    llm_config.model = picked
             self.llm_client = create_llm_client(config=llm_config)
 
-        # Apply phase-specific max_iterations if not explicitly set
-        from src.llm.providers import get_max_iterations_for_phase
-        if config.max_iterations == 100:  # Default value
+        # Apply phase-specific max_iterations if the caller didn't pin one.
+        from ..llm.providers import get_max_iterations_for_phase
+        if config.max_iterations is None:
             config.max_iterations = get_max_iterations_for_phase(config.phase, 100)
 
         self.messages: List[Dict[str, Any]] = []
@@ -316,6 +324,7 @@ class BaseAgent(ABC):
 
         self.messages = [{"role": "user", "content": message_content}]
         self.tool_call_history = []
+        self._recent_responses = []
 
         # Only provide tools in AGENT_WRITES_CODE mode
         tools = self.get_tools_anthropic_format() if self._should_use_tools() else []
@@ -459,7 +468,9 @@ class BaseAgent(ABC):
                     )
 
                     return result
-                # Otherwise continue the loop to get more response
+                # Track repeated empty responses so we don't spin indefinitely.
+                if self._record_and_check_stuck(""):
+                    return self._stuck_result(tips, iterations)
                 continue
 
             elif stop_reason == "" or stop_reason is None:
@@ -478,7 +489,11 @@ class BaseAgent(ABC):
                     )
 
                     return result
-                # No content and no stop reason - continue loop
+                # No content and no stop reason — detect convergence/stuck state
+                # so we don't burn the full iteration budget calling the LLM
+                # in a tight loop with no progress.
+                if self._record_and_check_stuck(""):
+                    return self._stuck_result(tips, iterations)
                 continue
 
             elif stop_reason in ("malformed_function_call", "blocked"):
@@ -558,7 +573,32 @@ class BaseAgent(ABC):
         """Process the agent's output. Override in subclasses."""
         pass
 
+    def _record_and_check_stuck(self, response_fingerprint: str) -> bool:
+        """Track recent responses; return True if the agent appears stuck."""
+        self._recent_responses.append(response_fingerprint)
+        if len(self._recent_responses) > self._max_identical_responses:
+            self._recent_responses = self._recent_responses[-self._max_identical_responses :]
+        return (
+            len(self._recent_responses) >= self._max_identical_responses
+            and len(set(self._recent_responses)) == 1
+        )
+
+    def _stuck_result(self, tips: Optional[str], iterations: int) -> AgentResult:
+        """Return a failure result when the agent has produced no progress."""
+        self._emit_progress(
+            ProgressEvent.ERROR,
+            "No progress from LLM for several iterations; aborting",
+            iteration=iterations,
+        )
+        return AgentResult(
+            success=False,
+            output="LLM returned no content across multiple iterations.",
+            workflow_mode=self.config.workflow_mode,
+            tips=tips,
+        )
+
     def reset(self) -> None:
         """Reset the agent state."""
         self.messages = []
         self.tool_call_history = []
+        self._recent_responses = []

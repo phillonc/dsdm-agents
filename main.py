@@ -47,7 +47,15 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--interactive", "-i", action="store_true", help="Run in interactive mode")
     parser.add_argument(
         "--phase",
-        choices=["feasibility", "business_study", "functional_model", "design_build", "implementation"],
+        choices=[
+            "feasibility",
+            "business_study",
+            "prd_trd",
+            "functional_model",
+            "design_build",
+            "implementation",
+            "devops",
+        ],
         help="Run a specific phase",
     )
     parser.add_argument("--mode", choices=["manual", "automated", "hybrid"], default="automated", help="Agent mode")

@@ -1,6 +1,11 @@
 """File operation tools for DSDM Agents.
 
 Provides actual file writing capabilities so agents can persist generated code to disk.
+
+Security: all paths are resolved and verified to stay within ``DEFAULT_OUTPUT_DIR``
+(or an explicitly-configured sandbox root). ``output_dir`` is no longer an
+LLM-controlled tool argument — it can only be overridden via the
+``DSDM_OUTPUT_DIR`` environment variable at process startup.
 """
 
 import json
@@ -13,28 +18,61 @@ from typing import Optional
 from .tool_registry import Tool, ToolRegistry
 
 
-# Default output directory for generated code
-DEFAULT_OUTPUT_DIR = "generated"
+# Default output directory for generated code. May be overridden at process
+# startup via the ``DSDM_OUTPUT_DIR`` environment variable, but never via tool
+# arguments — otherwise an LLM could write anywhere on the filesystem.
+DEFAULT_OUTPUT_DIR = os.environ.get("DSDM_OUTPUT_DIR", "generated")
+
+
+class PathSandboxError(ValueError):
+    """Raised when a resolved path escapes the sandbox root."""
+
+
+def _sandbox_root() -> Path:
+    """Return the absolute, resolved sandbox root."""
+    return Path(DEFAULT_OUTPUT_DIR).resolve()
 
 
 def get_output_path(base_path: str, output_dir: Optional[str] = None) -> Path:
-    """Get the full output path, creating directories if needed."""
-    output_base = output_dir or DEFAULT_OUTPUT_DIR
-    full_path = Path(output_base) / base_path
+    """Get the full output path, constrained to the sandbox root.
+
+    ``output_dir`` is accepted for backwards compatibility but is ignored when
+    the caller is an agent tool (tools strip this parameter from their schema).
+    Only the process-wide ``DEFAULT_OUTPUT_DIR`` is trusted.
+
+    Raises:
+        PathSandboxError: if the resolved path escapes the sandbox root, or
+            if ``base_path`` is absolute.
+    """
+    if not base_path:
+        raise PathSandboxError("file path must be non-empty")
+
+    candidate = Path(base_path)
+    if candidate.is_absolute():
+        raise PathSandboxError(f"absolute paths are not allowed: {base_path!r}")
+
+    root = _sandbox_root()
+    full_path = (root / candidate).resolve()
+
+    try:
+        full_path.relative_to(root)
+    except ValueError as exc:
+        raise PathSandboxError(
+            f"path {base_path!r} escapes sandbox root {root}"
+        ) from exc
+
     return full_path
 
 
 def write_file_handler(
     file_path: str,
     content: str,
-    output_dir: Optional[str] = None,
     overwrite: bool = True,
 ) -> str:
-    """Write content to a file in the output directory."""
+    """Write content to a file in the sandbox output directory."""
     try:
-        full_path = get_output_path(file_path, output_dir)
+        full_path = get_output_path(file_path)
 
-        # Check if file exists and overwrite is not allowed
         if full_path.exists() and not overwrite:
             return json.dumps({
                 "success": False,
@@ -42,10 +80,7 @@ def write_file_handler(
                 "file_path": str(full_path),
             })
 
-        # Create parent directories
         full_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Write the file
         full_path.write_text(content, encoding="utf-8")
 
         return json.dumps({
@@ -56,23 +91,16 @@ def write_file_handler(
             "lines": len(content.splitlines()),
             "created_at": datetime.now().isoformat(),
         })
-    except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-            "file_path": file_path,
-        })
+    except PathSandboxError as e:
+        return json.dumps({"success": False, "error": str(e), "file_path": file_path})
+    except OSError as e:
+        return json.dumps({"success": False, "error": str(e), "file_path": file_path})
 
 
-def read_file_handler(file_path: str, output_dir: Optional[str] = None) -> str:
-    """Read content from a file."""
+def read_file_handler(file_path: str) -> str:
+    """Read content from a file in the sandbox output directory."""
     try:
-        # First check if it's an absolute path or exists as-is
-        path = Path(file_path)
-        if not path.exists():
-            # Try in output directory
-            path = get_output_path(file_path, output_dir)
-
+        path = get_output_path(file_path)
         if not path.exists():
             return json.dumps({
                 "success": False,
@@ -88,21 +116,16 @@ def read_file_handler(file_path: str, output_dir: Optional[str] = None) -> str:
             "size_bytes": len(content.encode("utf-8")),
             "lines": len(content.splitlines()),
         })
-    except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-            "file_path": file_path,
-        })
+    except PathSandboxError as e:
+        return json.dumps({"success": False, "error": str(e), "file_path": file_path})
+    except OSError as e:
+        return json.dumps({"success": False, "error": str(e), "file_path": file_path})
 
 
-def create_directory_handler(
-    dir_path: str,
-    output_dir: Optional[str] = None,
-) -> str:
-    """Create a directory in the output directory."""
+def create_directory_handler(dir_path: str) -> str:
+    """Create a directory in the sandbox output directory."""
     try:
-        full_path = get_output_path(dir_path, output_dir)
+        full_path = get_output_path(dir_path)
         full_path.mkdir(parents=True, exist_ok=True)
 
         return json.dumps({
@@ -111,17 +134,14 @@ def create_directory_handler(
             "absolute_path": str(full_path.absolute()),
             "created_at": datetime.now().isoformat(),
         })
-    except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-            "dir_path": dir_path,
-        })
+    except PathSandboxError as e:
+        return json.dumps({"success": False, "error": str(e), "dir_path": dir_path})
+    except OSError as e:
+        return json.dumps({"success": False, "error": str(e), "dir_path": dir_path})
 
 
 def list_directory_handler(
     dir_path: str = "",
-    output_dir: Optional[str] = None,
     recursive: bool = False,
     max_items: int = 500,
 ) -> str:
@@ -142,7 +162,7 @@ def list_directory_handler(
     }
 
     try:
-        full_path = get_output_path(dir_path, output_dir) if dir_path else Path(output_dir or DEFAULT_OUTPUT_DIR)
+        full_path = get_output_path(dir_path) if dir_path else _sandbox_root()
 
         if not full_path.exists():
             return json.dumps({
@@ -208,18 +228,16 @@ def list_directory_handler(
             result["excluded_dirs"] = list(SKIP_DIRS)
 
         return json.dumps(result)
-    except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-            "dir_path": dir_path,
-        })
+    except PathSandboxError as e:
+        return json.dumps({"success": False, "error": str(e), "dir_path": dir_path})
+    except OSError as e:
+        return json.dumps({"success": False, "error": str(e), "dir_path": dir_path})
 
 
-def delete_file_handler(file_path: str, output_dir: Optional[str] = None) -> str:
-    """Delete a file from the output directory."""
+def delete_file_handler(file_path: str) -> str:
+    """Delete a file from the sandbox output directory."""
     try:
-        full_path = get_output_path(file_path, output_dir)
+        full_path = get_output_path(file_path)
 
         if not full_path.exists():
             return json.dumps({
@@ -240,31 +258,26 @@ def delete_file_handler(file_path: str, output_dir: Optional[str] = None) -> str
             "file_path": str(full_path),
             "deleted_at": datetime.now().isoformat(),
         })
-    except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-            "file_path": file_path,
-        })
+    except PathSandboxError as e:
+        return json.dumps({"success": False, "error": str(e), "file_path": file_path})
+    except OSError as e:
+        return json.dumps({"success": False, "error": str(e), "file_path": file_path})
 
 
 def append_file_handler(
     file_path: str,
     content: str,
-    output_dir: Optional[str] = None,
 ) -> str:
-    """Append content to a file."""
+    """Append content to a file in the sandbox output directory."""
     try:
-        full_path = get_output_path(file_path, output_dir)
+        full_path = get_output_path(file_path)
 
-        # Create parent directories if file doesn't exist
         if not full_path.exists():
             full_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(full_path, "a", encoding="utf-8") as f:
             f.write(content)
 
-        # Get updated file info
         file_content = full_path.read_text(encoding="utf-8")
 
         return json.dumps({
@@ -274,23 +287,20 @@ def append_file_handler(
             "total_size_bytes": len(file_content.encode("utf-8")),
             "total_lines": len(file_content.splitlines()),
         })
-    except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-            "file_path": file_path,
-        })
+    except PathSandboxError as e:
+        return json.dumps({"success": False, "error": str(e), "file_path": file_path})
+    except OSError as e:
+        return json.dumps({"success": False, "error": str(e), "file_path": file_path})
 
 
 def copy_file_handler(
     source_path: str,
     dest_path: str,
-    output_dir: Optional[str] = None,
 ) -> str:
-    """Copy a file within the output directory."""
+    """Copy a file within the sandbox output directory."""
     try:
-        source = get_output_path(source_path, output_dir)
-        dest = get_output_path(dest_path, output_dir)
+        source = get_output_path(source_path)
+        dest = get_output_path(dest_path)
 
         if not source.exists():
             return json.dumps({
@@ -307,27 +317,22 @@ def copy_file_handler(
             "dest_path": str(dest),
             "size_bytes": dest.stat().st_size,
         })
-    except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-        })
+    except PathSandboxError as e:
+        return json.dumps({"success": False, "error": str(e)})
+    except OSError as e:
+        return json.dumps({"success": False, "error": str(e)})
 
 
-def list_projects_handler(
-    output_dir: Optional[str] = None,
-    include_all: bool = False,
-) -> str:
+def list_projects_handler(include_all: bool = False) -> str:
     """List all existing projects in the generated directory.
 
     Args:
-        output_dir: Base directory to search (default: 'generated')
         include_all: If True, include all directories. If False, only include
                      directories that look like DSDM projects (have src/, tests/,
                      docs/, or project config files).
     """
     try:
-        base_path = Path(output_dir or DEFAULT_OUTPUT_DIR)
+        base_path = _sandbox_root()
 
         if not base_path.exists():
             return json.dumps({
@@ -397,27 +402,24 @@ def list_projects_handler(
             "projects": projects,
             "count": len(projects),
         })
-    except Exception as e:
+    except OSError as e:
         return json.dumps({
             "success": False,
             "error": str(e),
         })
 
 
-def get_project_handler(
-    project_name: str,
-    output_dir: Optional[str] = None,
-) -> str:
+def get_project_handler(project_name: str) -> str:
     """Get details of a specific project if it exists."""
     try:
-        base_path = Path(output_dir or DEFAULT_OUTPUT_DIR) / project_name
+        base_path = get_output_path(project_name)
 
         if not base_path.exists():
             return json.dumps({
                 "success": False,
                 "exists": False,
                 "project_name": project_name,
-                "message": f"Project '{project_name}' does not exist in {output_dir or DEFAULT_OUTPUT_DIR}/"
+                "message": f"Project '{project_name}' does not exist in {DEFAULT_OUTPUT_DIR}/"
             })
 
         if not base_path.is_dir():
@@ -473,7 +475,13 @@ def get_project_handler(
             "exists": True,
             "project": project_info,
         })
-    except Exception as e:
+    except PathSandboxError as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "project_name": project_name,
+        })
+    except OSError as e:
         return json.dumps({
             "success": False,
             "error": str(e),
@@ -481,9 +489,12 @@ def get_project_handler(
         })
 
 
-def project_exists(project_name: str, output_dir: Optional[str] = None) -> bool:
+def project_exists(project_name: str) -> bool:
     """Check if a project already exists (helper function)."""
-    base_path = Path(output_dir or DEFAULT_OUTPUT_DIR) / project_name
+    try:
+        base_path = get_output_path(project_name)
+    except PathSandboxError:
+        return False
     return base_path.exists() and base_path.is_dir()
 
 
@@ -502,7 +513,7 @@ def init_project_handler(
     If it exists and force_recreate is False, returns the existing project info.
     """
     try:
-        base_path = Path(DEFAULT_OUTPUT_DIR) / project_name
+        base_path = get_output_path(project_name)
 
         # Check if project already exists
         if base_path.exists() and base_path.is_dir():
@@ -546,7 +557,7 @@ def init_project_handler(
         for dir_path in directories:
             full_path = base_path / dir_path
             full_path.mkdir(parents=True, exist_ok=True)
-            created_dirs.append(str(full_path.relative_to(Path(DEFAULT_OUTPUT_DIR))))
+            created_dirs.append(str(full_path.relative_to(_sandbox_root())))
 
         # Create base files based on project type
         files_created = []
@@ -702,7 +713,13 @@ build-backend = "setuptools.build_meta"
             "files_created": files_created,
             "created_at": datetime.now().isoformat(),
         })
-    except Exception as e:
+    except PathSandboxError as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "project_name": project_name,
+        })
+    except OSError as e:
         return json.dumps({
             "success": False,
             "error": str(e),
@@ -711,7 +728,12 @@ build-backend = "setuptools.build_meta"
 
 
 def register_file_tools(registry: ToolRegistry) -> None:
-    """Register file operation tools with the registry."""
+    """Register file operation tools with the registry.
+
+    Tool schemas intentionally do NOT expose ``output_dir`` — the sandbox root
+    is controlled by the operator via the ``DSDM_OUTPUT_DIR`` env var, never
+    by the LLM.
+    """
 
     registry.register(Tool(
         name="file_write",
@@ -727,10 +749,6 @@ def register_file_tools(registry: ToolRegistry) -> None:
                     "type": "string",
                     "description": "Content to write to the file"
                 },
-                "output_dir": {
-                    "type": "string",
-                    "description": "Base output directory (default: 'generated')"
-                },
                 "overwrite": {
                     "type": "boolean",
                     "description": "Whether to overwrite existing files (default: true)"
@@ -745,17 +763,13 @@ def register_file_tools(registry: ToolRegistry) -> None:
 
     registry.register(Tool(
         name="file_read",
-        description="Read content from a file in the generated code directory or any accessible path.",
+        description="Read content from a file in the generated code directory.",
         input_schema={
             "type": "object",
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Path to the file to read"
-                },
-                "output_dir": {
-                    "type": "string",
-                    "description": "Base output directory to search in (default: 'generated')"
+                    "description": "Relative path to the file to read"
                 }
             },
             "required": ["file_path"]
@@ -773,10 +787,6 @@ def register_file_tools(registry: ToolRegistry) -> None:
                 "dir_path": {
                     "type": "string",
                     "description": "Relative path for the directory (e.g., 'src/components')"
-                },
-                "output_dir": {
-                    "type": "string",
-                    "description": "Base output directory (default: 'generated')"
                 }
             },
             "required": ["dir_path"]
@@ -795,10 +805,6 @@ def register_file_tools(registry: ToolRegistry) -> None:
                 "dir_path": {
                     "type": "string",
                     "description": "Relative path to the directory (empty for root)"
-                },
-                "output_dir": {
-                    "type": "string",
-                    "description": "Base output directory (default: 'generated')"
                 },
                 "recursive": {
                     "type": "boolean",
@@ -820,10 +826,6 @@ def register_file_tools(registry: ToolRegistry) -> None:
                 "file_path": {
                     "type": "string",
                     "description": "Relative path to the file to delete"
-                },
-                "output_dir": {
-                    "type": "string",
-                    "description": "Base output directory (default: 'generated')"
                 }
             },
             "required": ["file_path"]
@@ -846,10 +848,6 @@ def register_file_tools(registry: ToolRegistry) -> None:
                 "content": {
                     "type": "string",
                     "description": "Content to append"
-                },
-                "output_dir": {
-                    "type": "string",
-                    "description": "Base output directory (default: 'generated')"
                 }
             },
             "required": ["file_path", "content"]
@@ -872,10 +870,6 @@ def register_file_tools(registry: ToolRegistry) -> None:
                 "dest_path": {
                     "type": "string",
                     "description": "Destination file path"
-                },
-                "output_dir": {
-                    "type": "string",
-                    "description": "Base output directory (default: 'generated')"
                 }
             },
             "required": ["source_path", "dest_path"]
@@ -892,10 +886,6 @@ def register_file_tools(registry: ToolRegistry) -> None:
         input_schema={
             "type": "object",
             "properties": {
-                "output_dir": {
-                    "type": "string",
-                    "description": "Base output directory to search (default: 'generated')"
-                },
                 "include_all": {
                     "type": "boolean",
                     "description": "Include all directories, not just valid projects (default: false)"
@@ -916,10 +906,6 @@ def register_file_tools(registry: ToolRegistry) -> None:
                 "project_name": {
                     "type": "string",
                     "description": "Name of the project to look up"
-                },
-                "output_dir": {
-                    "type": "string",
-                    "description": "Base output directory (default: 'generated')"
                 }
             },
             "required": ["project_name"]

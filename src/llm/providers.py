@@ -3,34 +3,51 @@
 Supports multiple LLM providers: Anthropic, OpenAI, Google Gemini, and Ollama.
 """
 
+import logging
 import os
-import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 
-# Phase-specific model optimization: Use faster models for simpler tasks
-# This can provide 5-10x speedup for feasibility and simple phases
-PHASE_MODELS = {
-    # Fast phases - use Haiku (cheaper, faster)
-    "feasibility": "claude-3-5-haiku-20241022",
-    "devops": "claude-3-5-haiku-20241022",
-    # Balanced phases - use Sonnet
-    "business_study": "claude-sonnet-4-5-20250929",
-    "prd_trd": "claude-sonnet-4-5-20250929",
-    "functional_model": "claude-sonnet-4-5-20250929",
-    # Complex phases - use best available
-    "design_build": "claude-sonnet-4-5-20250929",
-    "implementation": "claude-sonnet-4-5-20250929",
-    # Specialized roles
-    "dev_lead": "claude-sonnet-4-5-20250929",
-    "frontend_developer": "claude-sonnet-4-5-20250929",
-    "backend_developer": "claude-sonnet-4-5-20250929",
-    "automation_tester": "claude-3-5-haiku-20241022",
-    "nfr_tester": "claude-3-5-haiku-20241022",
-    "pen_tester": "claude-sonnet-4-5-20250929",
+_logger = logging.getLogger(__name__)
+
+
+# Phase-specific model optimization per provider. Keys are phase names (or
+# specialized roles); values map provider name -> model ID. When a provider
+# has no entry for a phase, the caller's default model is used.
+PHASE_MODELS_BY_PROVIDER: Dict[str, Dict[str, str]] = {
+    "anthropic": {
+        "feasibility": "claude-3-5-haiku-20241022",
+        "devops": "claude-3-5-haiku-20241022",
+        "business_study": "claude-sonnet-4-5-20250929",
+        "prd_trd": "claude-sonnet-4-5-20250929",
+        "functional_model": "claude-sonnet-4-5-20250929",
+        "design_build": "claude-sonnet-4-5-20250929",
+        "implementation": "claude-sonnet-4-5-20250929",
+        "dev_lead": "claude-sonnet-4-5-20250929",
+        "frontend_developer": "claude-sonnet-4-5-20250929",
+        "backend_developer": "claude-sonnet-4-5-20250929",
+        "automation_tester": "claude-3-5-haiku-20241022",
+        "nfr_tester": "claude-3-5-haiku-20241022",
+        "pen_tester": "claude-sonnet-4-5-20250929",
+    },
+    "openai": {
+        "feasibility": "gpt-4o-mini",
+        "devops": "gpt-4o-mini",
+        "automation_tester": "gpt-4o-mini",
+        "nfr_tester": "gpt-4o-mini",
+    },
+    "gemini": {
+        "feasibility": "gemini-2.5-flash",
+        "devops": "gemini-2.5-flash",
+        "automation_tester": "gemini-2.5-flash",
+        "nfr_tester": "gemini-2.5-flash",
+    },
+    # Ollama: phase-specific routing doesn't make sense for locally-hosted
+    # single-model setups. The configured OLLAMA_MODEL is always used.
+    "ollama": {},
 }
 
 # Phase-specific max iterations to avoid wasted cycles
@@ -52,13 +69,44 @@ PHASE_MAX_ITERATIONS = {
 }
 
 
-def get_model_for_phase(phase: str, default_model: str = None) -> str:
-    """Get the optimized model for a specific phase."""
-    env_model = os.environ.get("ANTHROPIC_MODEL")
-    if env_model:
-        # If user explicitly set a model, respect that
-        return env_model
-    return PHASE_MODELS.get(phase, default_model or "claude-sonnet-4-5-20250929")
+def _provider_name(provider: Any) -> str:
+    """Return the lowercase provider name for a provider enum or string."""
+    if isinstance(provider, Enum):
+        return provider.value.lower()
+    if isinstance(provider, str):
+        return provider.lower()
+    return "anthropic"
+
+
+def get_model_for_phase(
+    phase: str,
+    default_model: Optional[str] = None,
+    provider: Any = None,
+) -> str:
+    """Return the optimized model ID for a phase, scoped to ``provider``.
+
+    If the user set the provider-specific ``*_MODEL`` env var, that value wins.
+    Otherwise, fall back to the phase→model table for the provider, then to
+    ``default_model``, then to a provider-appropriate default.
+    """
+    name = _provider_name(provider) if provider is not None else os.environ.get(
+        "LLM_PROVIDER", "anthropic"
+    ).lower()
+
+    env_var_map = {
+        "anthropic": "ANTHROPIC_MODEL",
+        "openai": "OPENAI_MODEL",
+        "gemini": "GEMINI_MODEL",
+        "ollama": "OLLAMA_MODEL",
+    }
+    env_var = env_var_map.get(name)
+    if env_var:
+        env_model = os.environ.get(env_var)
+        if env_model:
+            return env_model
+
+    phase_map = PHASE_MODELS_BY_PROVIDER.get(name, {})
+    return phase_map.get(phase) or default_model or ""
 
 
 def get_max_iterations_for_phase(phase: str, default: int = 100) -> int:
@@ -663,8 +711,7 @@ class GeminiClient(BaseLLMClient):
                             if hasattr(part, "text"):
                                 partial_content += part.text
 
-                    # Log the malformed call for debugging
-                    print(f"[WARN] Gemini MALFORMED_FUNCTION_CALL: {finish_reason_str}", file=sys.stderr)
+                    _logger.warning("Gemini MALFORMED_FUNCTION_CALL: %s", finish_reason_str)
 
                     return {
                         "content": partial_content or f"Gemini returned MALFORMED_FUNCTION_CALL. The function call format was invalid. Please try rephrasing your request or simplifying the parameters.",
@@ -689,15 +736,13 @@ class GeminiClient(BaseLLMClient):
                 func_name = part.function_call.name
                 raw_args = part.function_call.args
 
-                # Debug: Log raw args type and value
-                print(f"[DEBUG] Tool: {func_name}, Raw args type: {type(raw_args).__name__}", file=sys.stderr)
+                _logger.debug("Tool: %s, Raw args type: %s", func_name, type(raw_args).__name__)
 
                 # Convert Protobuf args to native Python dict
                 # This handles RepeatedCompositeFieldContainer and other Protobuf types
                 args = self._convert_protobuf_to_dict(raw_args)
 
-                # Debug: Log converted args
-                print(f"[DEBUG] Tool: {func_name}, Converted args: {args}", file=sys.stderr)
+                _logger.debug("Tool: %s, Converted args: %s", func_name, args)
 
                 tool_calls.append({
                     # Encode function name in ID for proper response mapping

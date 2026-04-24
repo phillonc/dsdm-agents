@@ -29,7 +29,8 @@ class ConfluenceClient:
         """Get or create authenticated session."""
         if self._session is None:
             self._session = requests.Session()
-            self._session.auth = (self.username, self.api_token)
+            # HTTPBasicAuth masks the token in its repr().
+            self._session.auth = requests.auth.HTTPBasicAuth(self.username, self.api_token)
             self._session.headers.update({
                 "Content-Type": "application/json",
                 "Accept": "application/json",

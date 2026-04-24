@@ -1,7 +1,10 @@
 """Jira integration tools for DSDM agents."""
 
+import html
 import json
 import os
+import threading
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -10,35 +13,59 @@ import requests
 from ..tool_registry import Tool, ToolRegistry
 
 
-# Forward declaration for Confluence sync
-_confluence_sync_enabled: bool = False
-_confluence_space_key: Optional[str] = None
-_confluence_page_mapping: Dict[str, str] = {}  # Maps Jira issue key to Confluence page ID
+@dataclass
+class _ConfluenceSyncState:
+    """Thread-safe Confluence sync configuration.
+
+    Previously this was a set of module globals mutated from multiple handlers;
+    under the Git Pin parallel pipeline those mutations could race. All reads
+    and writes now go through the lock held on this instance.
+    """
+
+    enabled: bool = False
+    space_key: Optional[str] = None
+    page_mapping: Dict[str, str] = field(default_factory=dict)
+    _lock: threading.RLock = field(default_factory=threading.RLock)
+
+    def enable(self, space_key: str, page_mapping: Optional[Dict[str, str]] = None) -> None:
+        with self._lock:
+            self.enabled = True
+            self.space_key = space_key
+            self.page_mapping = dict(page_mapping or {})
+
+    def disable(self) -> None:
+        with self._lock:
+            self.enabled = False
+
+    def set_page_mapping(self, issue_key: str, page_id: str) -> None:
+        with self._lock:
+            self.page_mapping[issue_key] = page_id
+
+    def get_page_id(self, issue_key: str) -> Optional[str]:
+        with self._lock:
+            return self.page_mapping.get(issue_key)
+
+    def snapshot(self) -> "tuple[bool, Optional[str]]":
+        with self._lock:
+            return self.enabled, self.space_key
+
+
+_sync_state = _ConfluenceSyncState()
 
 
 def enable_confluence_sync(space_key: str, page_mapping: Optional[Dict[str, str]] = None) -> None:
-    """Enable automatic Confluence sync when Jira issues are updated.
-
-    Args:
-        space_key: The Confluence space key to sync to
-        page_mapping: Optional mapping of Jira issue keys to Confluence page IDs
-    """
-    global _confluence_sync_enabled, _confluence_space_key, _confluence_page_mapping
-    _confluence_sync_enabled = True
-    _confluence_space_key = space_key
-    _confluence_page_mapping = page_mapping or {}
+    """Enable automatic Confluence sync when Jira issues are updated."""
+    _sync_state.enable(space_key, page_mapping)
 
 
 def disable_confluence_sync() -> None:
     """Disable automatic Confluence sync."""
-    global _confluence_sync_enabled
-    _confluence_sync_enabled = False
+    _sync_state.disable()
 
 
 def set_confluence_page_mapping(issue_key: str, page_id: str) -> None:
     """Set mapping between a Jira issue and its Confluence documentation page."""
-    global _confluence_page_mapping
-    _confluence_page_mapping[issue_key] = page_id
+    _sync_state.set_page_mapping(issue_key, page_id)
 
 
 class JiraClient:
@@ -60,7 +87,10 @@ class JiraClient:
         """Get or create authenticated session."""
         if self._session is None:
             self._session = requests.Session()
-            self._session.auth = (self.username, self.api_token)
+            # HTTPBasicAuth masks the token in its repr(), so stray logs of
+            # session objects won't leak the credential as they would with a
+            # plain tuple.
+            self._session.auth = requests.auth.HTTPBasicAuth(self.username, self.api_token)
             self._session.headers.update({
                 "Content-Type": "application/json",
                 "Accept": "application/json",
@@ -1006,46 +1036,104 @@ def _sync_issue_to_confluence(
     Returns:
         Dict with sync result or None if sync is disabled/failed
     """
-    if not _confluence_sync_enabled:
+    enabled, space_key = _sync_state.snapshot()
+    if not enabled:
         return None
 
     try:
         from .confluence_tools import get_confluence_client
+    except ImportError:
+        return {"error": "Confluence tools not available"}
 
-        confluence = get_confluence_client()
-        if not confluence.is_configured:
-            return {"error": "Confluence not configured for sync"}
+    confluence = get_confluence_client()
+    if not confluence.is_configured:
+        return {"error": "Confluence not configured for sync"}
 
-        # Check if there's a specific page mapping for this issue
-        page_id = _confluence_page_mapping.get(issue_key)
+    # HTML-escape all user-controlled values before inserting into storage-format
+    # content. Jira summaries/statuses are attacker-controlled and would
+    # otherwise produce stored XSS on Confluence pages.
+    safe_issue_key = html.escape(issue_key)
+    safe_summary = html.escape(summary)
+    safe_status = html.escape(status)
+    safe_update_type = html.escape(update_type)
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    page_id = _sync_state.get_page_id(issue_key)
+    timestamp = html.escape(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-        if page_id:
-            # Update existing page with status change
-            try:
+    if page_id:
+        try:
+            current_page = confluence.get_page(page_id)
+            current_content = current_page.get("body", {}).get("storage", {}).get("value", "")
+            version = current_page["version"]["number"]
+
+            status_update = (
+                f"\n<h3>Status Update - {timestamp}</h3>\n<table>\n"
+                f"<tr><th>Issue</th><td>{safe_issue_key}</td></tr>\n"
+                f"<tr><th>Summary</th><td>{safe_summary}</td></tr>\n"
+                f"<tr><th>Status</th><td><strong>{safe_status}</strong></td></tr>\n"
+                f"<tr><th>Update Type</th><td>{safe_update_type}</td></tr>\n"
+                "</table>\n<hr/>\n"
+            )
+
+            if "<h1>" in current_content:
+                h1_end = current_content.find("</h1>") + 5
+                updated_content = current_content[:h1_end] + status_update + current_content[h1_end:]
+            else:
+                updated_content = status_update + current_content
+
+            confluence.update_page(
+                page_id=page_id,
+                title=current_page["title"],
+                content=updated_content,
+                version_number=version + 1,
+            )
+
+            return {
+                "success": True,
+                "action": "page_updated",
+                "page_id": page_id,
+                "issue_key": issue_key,
+                "status": status,
+            }
+        except requests.RequestException as e:
+            return {"error": f"Failed to update Confluence page: {str(e)}"}
+        except (KeyError, ValueError) as e:
+            return {"error": f"Unexpected Confluence page shape: {str(e)}"}
+
+    if space_key:
+        try:
+            # CQL: literal space key embedded in a quoted literal. Escape any
+            # embedded quotes to prevent breaking out of the literal.
+            safe_space_key_cql = space_key.replace('"', '\\"')
+            search_result = confluence.search(
+                f'space="{safe_space_key_cql}" AND title~"Work Item Status"',
+                limit=1,
+            )
+
+            if search_result.get("results"):
+                existing_page = search_result["results"][0]
+                page_id = existing_page["id"]
                 current_page = confluence.get_page(page_id)
                 current_content = current_page.get("body", {}).get("storage", {}).get("value", "")
                 version = current_page["version"]["number"]
 
-                # Add status update section
-                status_update = f"""
-<h3>Status Update - {timestamp}</h3>
-<table>
-<tr><th>Issue</th><td>{issue_key}</td></tr>
-<tr><th>Summary</th><td>{summary}</td></tr>
-<tr><th>Status</th><td><strong>{status}</strong></td></tr>
-<tr><th>Update Type</th><td>{update_type}</td></tr>
-</table>
-<hr/>
-"""
-                # Prepend the status update after the first heading or at the beginning
-                if "<h1>" in current_content:
-                    # Insert after the first h1 closing tag
-                    h1_end = current_content.find("</h1>") + 5
-                    updated_content = current_content[:h1_end] + status_update + current_content[h1_end:]
+                new_row = (
+                    "<tr>\n"
+                    f"<td>{timestamp}</td>\n"
+                    f"<td>{safe_issue_key}</td>\n"
+                    f"<td>{safe_summary}</td>\n"
+                    f"<td><strong>{safe_status}</strong></td>\n"
+                    f"<td>{safe_update_type}</td>\n"
+                    "</tr>"
+                )
+
+                if "</thead>" in current_content:
+                    insert_pos = current_content.find("</thead>") + 8
+                    if "<tbody>" in current_content:
+                        insert_pos = current_content.find("<tbody>") + 7
+                    updated_content = current_content[:insert_pos] + new_row + current_content[insert_pos:]
                 else:
-                    updated_content = status_update + current_content
+                    updated_content = current_content + new_row
 
                 confluence.update_page(
                     page_id=page_id,
@@ -1056,116 +1144,45 @@ def _sync_issue_to_confluence(
 
                 return {
                     "success": True,
-                    "action": "page_updated",
+                    "action": "status_page_updated",
                     "page_id": page_id,
                     "issue_key": issue_key,
                     "status": status,
                 }
-            except Exception as e:
-                return {"error": f"Failed to update Confluence page: {str(e)}"}
 
-        elif _confluence_space_key:
-            # Search for existing page or create a work item status page
-            try:
-                # Search for a project status page
-                search_result = confluence.search(
-                    f'space="{_confluence_space_key}" AND title~"Work Item Status"',
-                    limit=1
-                )
+            safe_space_key = html.escape(space_key)
+            status_page_content = (
+                "<h1>Work Item Status Log</h1>\n"
+                f"<p><strong>Space:</strong> {safe_space_key}</p>\n"
+                f"<p><strong>Last Updated:</strong> {timestamp}</p>\n"
+                "<p>This page tracks status changes for Jira work items automatically synced from the DSDM workflow.</p>\n"
+                "<hr/>\n<h2>Status History</h2>\n<table>\n<thead>\n<tr>\n"
+                "<th>Timestamp</th>\n<th>Issue Key</th>\n<th>Summary</th>\n"
+                "<th>Status</th>\n<th>Update Type</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n"
+                f"<td>{timestamp}</td>\n<td>{safe_issue_key}</td>\n<td>{safe_summary}</td>\n"
+                f"<td><strong>{safe_status}</strong></td>\n<td>{safe_update_type}</td>\n"
+                "</tr>\n</tbody>\n</table>\n"
+            )
+            new_page = confluence.create_page(
+                space_key=space_key,
+                title="Work Item Status Log",
+                content=status_page_content,
+            )
 
-                if search_result.get("results"):
-                    # Update existing status page
-                    existing_page = search_result["results"][0]
-                    page_id = existing_page["id"]
-                    current_page = confluence.get_page(page_id)
-                    current_content = current_page.get("body", {}).get("storage", {}).get("value", "")
-                    version = current_page["version"]["number"]
+            return {
+                "success": True,
+                "action": "status_page_created",
+                "page_id": new_page["id"],
+                "issue_key": issue_key,
+                "status": status,
+            }
 
-                    # Add new status entry to the table
-                    new_row = f"""<tr>
-<td>{timestamp}</td>
-<td>{issue_key}</td>
-<td>{summary}</td>
-<td><strong>{status}</strong></td>
-<td>{update_type}</td>
-</tr>"""
+        except requests.RequestException as e:
+            return {"error": f"Failed to sync to Confluence: {str(e)}"}
+        except (KeyError, ValueError) as e:
+            return {"error": f"Unexpected Confluence response shape: {str(e)}"}
 
-                    # Insert row after table header
-                    if "</thead>" in current_content:
-                        insert_pos = current_content.find("</thead>") + 8
-                        if "<tbody>" in current_content:
-                            insert_pos = current_content.find("<tbody>") + 7
-                        updated_content = current_content[:insert_pos] + new_row + current_content[insert_pos:]
-                    else:
-                        # Add to end of content
-                        updated_content = current_content + new_row
-
-                    confluence.update_page(
-                        page_id=page_id,
-                        title=current_page["title"],
-                        content=updated_content,
-                        version_number=version + 1,
-                    )
-
-                    return {
-                        "success": True,
-                        "action": "status_page_updated",
-                        "page_id": page_id,
-                        "issue_key": issue_key,
-                        "status": status,
-                    }
-                else:
-                    # Create new Work Item Status page
-                    status_page_content = f"""<h1>Work Item Status Log</h1>
-<p><strong>Space:</strong> {_confluence_space_key}</p>
-<p><strong>Last Updated:</strong> {timestamp}</p>
-<p>This page tracks status changes for Jira work items automatically synced from the DSDM workflow.</p>
-<hr/>
-<h2>Status History</h2>
-<table>
-<thead>
-<tr>
-<th>Timestamp</th>
-<th>Issue Key</th>
-<th>Summary</th>
-<th>Status</th>
-<th>Update Type</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>{timestamp}</td>
-<td>{issue_key}</td>
-<td>{summary}</td>
-<td><strong>{status}</strong></td>
-<td>{update_type}</td>
-</tr>
-</tbody>
-</table>
-"""
-                    new_page = confluence.create_page(
-                        space_key=_confluence_space_key,
-                        title="Work Item Status Log",
-                        content=status_page_content,
-                    )
-
-                    return {
-                        "success": True,
-                        "action": "status_page_created",
-                        "page_id": new_page["id"],
-                        "issue_key": issue_key,
-                        "status": status,
-                    }
-
-            except Exception as e:
-                return {"error": f"Failed to sync to Confluence: {str(e)}"}
-
-        return {"success": False, "reason": "No page mapping or space key configured"}
-
-    except ImportError:
-        return {"error": "Confluence tools not available"}
-    except Exception as e:
-        return {"error": str(e)}
+    return {"success": False, "reason": "No page mapping or space key configured"}
 
 
 def _handle_enable_confluence_sync(
@@ -1173,30 +1190,24 @@ def _handle_enable_confluence_sync(
     page_mappings: Optional[Dict[str, str]] = None
 ) -> str:
     """Handle enable Confluence sync request."""
-    try:
-        enable_confluence_sync(space_key, page_mappings)
-        return json.dumps({
-            "success": True,
-            "message": "Confluence sync enabled",
-            "space_key": space_key,
-            "page_mappings_count": len(page_mappings) if page_mappings else 0,
-            "info": "All Jira transitions and updates will now automatically sync to Confluence"
-        })
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+    enable_confluence_sync(space_key, page_mappings)
+    return json.dumps({
+        "success": True,
+        "message": "Confluence sync enabled",
+        "space_key": space_key,
+        "page_mappings_count": len(page_mappings) if page_mappings else 0,
+        "info": "All Jira transitions and updates will now automatically sync to Confluence"
+    })
 
 
 def _handle_disable_confluence_sync() -> str:
     """Handle disable Confluence sync request."""
-    try:
-        disable_confluence_sync()
-        return json.dumps({
-            "success": True,
-            "message": "Confluence sync disabled",
-            "info": "Jira updates will no longer automatically sync to Confluence"
-        })
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+    disable_confluence_sync()
+    return json.dumps({
+        "success": True,
+        "message": "Confluence sync disabled",
+        "info": "Jira updates will no longer automatically sync to Confluence"
+    })
 
 
 def _handle_manual_sync_to_confluence(
@@ -1204,45 +1215,41 @@ def _handle_manual_sync_to_confluence(
     confluence_page_id: Optional[str] = None
 ) -> str:
     """Handle manual sync to Confluence request."""
-    global _confluence_sync_enabled
-
     client = get_jira_client()
     if not client.is_configured:
         return json.dumps({"error": "Jira not configured"})
 
     try:
-        # Get issue details
         issue = client.get_issue(issue_key)
         fields = issue.get("fields", {})
         summary = fields.get("summary", "")
         status = fields.get("status", {}).get("name", "Unknown")
 
-        # If specific page ID provided, temporarily add to mapping
         if confluence_page_id:
             set_confluence_page_mapping(issue_key, confluence_page_id)
 
-        # Ensure sync is enabled for this operation
-        was_enabled = _confluence_sync_enabled
+        was_enabled, space_key = _sync_state.snapshot()
+        temporarily_enabled = False
         if not was_enabled:
-            if not _confluence_space_key and not confluence_page_id:
+            if not space_key and not confluence_page_id:
                 return json.dumps({
                     "error": "Confluence sync not configured. Either enable sync with a space key or provide a confluence_page_id"
                 })
-            # Temporarily enable if we have a page ID
             if confluence_page_id:
-                _confluence_sync_enabled = True
+                # Temporarily enable for this single call; restore afterwards.
+                _sync_state.enabled = True
+                temporarily_enabled = True
 
-        # Perform sync
-        result = _sync_issue_to_confluence(
-            issue_key=issue_key,
-            status=status,
-            summary=summary,
-            update_type="manual_sync",
-        )
-
-        # Restore previous state if we temporarily enabled
-        if not was_enabled and confluence_page_id:
-            _confluence_sync_enabled = was_enabled
+        try:
+            result = _sync_issue_to_confluence(
+                issue_key=issue_key,
+                status=status,
+                summary=summary,
+                update_type="manual_sync",
+            )
+        finally:
+            if temporarily_enabled:
+                _sync_state.disable()
 
         if result:
             return json.dumps({
@@ -1252,10 +1259,9 @@ def _handle_manual_sync_to_confluence(
                 "summary": summary,
                 "confluence_result": result
             })
-        else:
-            return json.dumps({
-                "error": "Sync failed - Confluence sync may not be properly configured"
-            })
+        return json.dumps({
+            "error": "Sync failed - Confluence sync may not be properly configured"
+        })
 
     except requests.RequestException as e:
         return json.dumps({"error": str(e)})
@@ -1263,13 +1269,10 @@ def _handle_manual_sync_to_confluence(
 
 def _handle_set_page_mapping(issue_key: str, page_id: str) -> str:
     """Handle set page mapping request."""
-    try:
-        set_confluence_page_mapping(issue_key, page_id)
-        return json.dumps({
-            "success": True,
-            "issue_key": issue_key,
-            "page_id": page_id,
-            "message": f"Mapped {issue_key} to Confluence page {page_id}"
-        })
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+    set_confluence_page_mapping(issue_key, page_id)
+    return json.dumps({
+        "success": True,
+        "issue_key": issue_key,
+        "page_id": page_id,
+        "message": f"Mapped {issue_key} to Confluence page {page_id}"
+    })
