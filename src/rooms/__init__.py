@@ -8,7 +8,11 @@ from .delivery_room import (
     export_delivery_room,
     get_delivery_room_status,
     load_delivery_room,
+    mark_room_agent_status,
+    record_room_phase_result,
+    set_room_phase,
 )
+from .room_runner import run_delivery_room
 from .room_state import (
     DeliveryRoomState,
     RoomAgentAssignment,
@@ -32,4 +36,8 @@ __all__ = [
     "export_delivery_room",
     "get_delivery_room_status",
     "load_delivery_room",
+    "mark_room_agent_status",
+    "record_room_phase_result",
+    "run_delivery_room",
+    "set_room_phase",
 ]
