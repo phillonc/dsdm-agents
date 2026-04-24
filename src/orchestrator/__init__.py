@@ -1,14 +1,11 @@
 from .dsdm_orchestrator import (
-    DSDMOrchestrator,
     DSDMPhase,
     DesignBuildRole,
     PhaseConfig,
     RoleConfig,
     OrchestratorConfig,
 )
-from ..rooms.orchestrator_extension import install_delivery_room_extensions
-
-install_delivery_room_extensions()
+from .delivery_room_orchestrator import DSDMOrchestrator
 
 __all__ = [
     "DSDMOrchestrator",
