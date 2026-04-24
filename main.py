@@ -14,7 +14,7 @@ from rich.table import Table
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.orchestrator.dsdm_orchestrator import (
+from src.orchestrator import (
     DSDMOrchestrator,
     DSDMPhase,
     OrchestratorConfig,
@@ -34,11 +34,9 @@ from src.rooms import (
     export_delivery_room,
     get_delivery_room_status,
     load_delivery_room,
-    run_delivery_room,
 )
 from src.rooms.delivery_room import get_room_base_path
 from src.rooms.room_dashboard import RoomDashboardFilters, build_room_dashboard_markdown
-from src.tools.room_tools import register_room_tools
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -198,7 +196,7 @@ def _handle_room_commands(args: argparse.Namespace, console: Console) -> bool:
 
 
 def _create_orchestrator(args: argparse.Namespace) -> DSDMOrchestrator:
-    """Create the DSDM orchestrator and register delivery-room tools."""
+    """Create the DSDM orchestrator. Delivery-room tools are registered natively."""
     config = OrchestratorConfig(
         phases=[
             PhaseConfig(DSDMPhase.FEASIBILITY, FeasibilityAgent, AgentMode(args.mode)),
@@ -211,9 +209,7 @@ def _create_orchestrator(args: argparse.Namespace) -> DSDMOrchestrator:
         interactive=args.interactive or not args.input,
         auto_advance=False,
     )
-    orchestrator = DSDMOrchestrator(config, include_devops=False, include_jira=False, include_confluence=False)
-    register_room_tools(orchestrator.tool_registry)
-    return orchestrator
+    return DSDMOrchestrator(config, include_devops=False, include_jira=False, include_confluence=False)
 
 
 def main():
@@ -240,7 +236,7 @@ def main():
         if not args.input:
             console.print("[red]Error: --room-run requires --input mission text[/red]")
             sys.exit(1)
-        room = run_delivery_room(orchestrator, args.input, args.room_project, args.room_template, overwrite=args.room_overwrite)
+        room = orchestrator.run_delivery_room(args.input, args.room_project, args.room_template, overwrite=args.room_overwrite)
         export_path = export_delivery_room(room.project_name)
         console.print(f"[green]Delivery room workflow finished:[/green] {room.project_name}")
         console.print(f"Dashboard: {export_path}")
