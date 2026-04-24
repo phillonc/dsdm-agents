@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
+from .room_health import calculate_room_health
 from .room_state import (
     DeliveryRoomState,
     RoomArtifact,
@@ -243,6 +244,7 @@ def get_delivery_room_status(project_name: str) -> Dict[str, Any]:
     room = load_delivery_room(project_name)
     open_blockers = [blocker for blocker in room.blockers if blocker.status != "resolved"]
     completed_agents = [agent for agent in room.agents if agent.status == "completed"]
+    health = calculate_room_health(room)
     return {
         "project_name": room.project_name,
         "mission": room.mission,
@@ -254,6 +256,7 @@ def get_delivery_room_status(project_name: str) -> Dict[str, Any]:
         "decision_count": len(room.decisions),
         "open_blocker_count": len(open_blockers),
         "handoff_count": len(room.handoffs),
+        "health": health.to_dict(),
         "next_actions": room.next_actions,
         "updated_at": room.updated_at,
     }
@@ -261,6 +264,7 @@ def get_delivery_room_status(project_name: str) -> Dict[str, Any]:
 
 def format_delivery_room_markdown(room: DeliveryRoomState) -> str:
     """Format delivery room state as Markdown."""
+    health = calculate_room_health(room)
     lines = [
         f"# Delivery Room: {room.project_name}",
         "",
@@ -270,11 +274,32 @@ def format_delivery_room_markdown(room: DeliveryRoomState) -> str:
         f"**Active phase:** {room.active_phase or 'None'}",
         f"**Updated:** {room.updated_at}",
         "",
+        "## Health",
+        "",
+        f"**Overall:** {health.overall}/100 ({health.status})",
+        f"**Confidence:** {health.confidence}/100",
+        "",
+        "| Dimension | Score |",
+        "|---|---:|",
+        f"| Delivery | {health.delivery} |",
+        f"| Blockers | {health.blockers} |",
+        f"| Agents | {health.agents} |",
+        f"| Decisions | {health.decisions} |",
+        f"| Handoffs | {health.handoffs} |",
+        "",
+        "### Weak Points",
+        "",
+    ]
+    lines.extend([f"- {item}" for item in health.weak_points] or ["- No weak points detected from current room data."])
+    lines.extend(["", "### Recommended Actions", ""])
+    lines.extend([f"- {item}" for item in health.recommended_actions] or ["- Continue with the next planned DSDM phase."])
+    lines.extend([
+        "",
         "## Agents",
         "",
         "| Role | Agent | Phase | Status | Responsibilities |",
         "|---|---|---|---|---|",
-    ]
+    ])
     for agent in room.agents:
         responsibilities = "<br>".join(agent.responsibilities)
         lines.append(
