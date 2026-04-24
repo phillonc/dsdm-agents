@@ -157,12 +157,18 @@ def _print_room_status(console: Console, project_name: str) -> None:
     """Print a delivery room status summary."""
     status = get_delivery_room_status(project_name)
     room = load_delivery_room(project_name)
+    health = status.get("health", {})
 
     console.print(f"\n[bold cyan]Delivery Room: {status['project_name']}[/bold cyan]")
     console.print(f"Mission: {status['mission']}")
     console.print(f"Template: {status['template']}")
     console.print(f"Status: {status['status']}")
     console.print(f"Active phase: {status['active_phase']}")
+    if health:
+        console.print(
+            f"Health: {health.get('overall')}/100 "
+            f"({health.get('status')}, confidence {health.get('confidence')}/100)"
+        )
     console.print(f"Open blockers: {status['open_blocker_count']}")
     console.print(f"Decisions: {status['decision_count']}")
     console.print(f"Handoffs: {status['handoff_count']}")
@@ -176,9 +182,15 @@ def _print_room_status(console: Console, project_name: str) -> None:
         table.add_row(agent.role, agent.agent_name, agent.phase, agent.status)
     console.print(table)
 
-    if status["next_actions"]:
-        console.print("\n[bold]Next actions[/bold]")
-        for action in status["next_actions"]:
+    if health.get("weak_points"):
+        console.print("\n[bold]Weak points[/bold]")
+        for item in health["weak_points"]:
+            console.print(f"  • {item}")
+
+    recommended_actions = health.get("recommended_actions") or status["next_actions"]
+    if recommended_actions:
+        console.print("\n[bold]Recommended actions[/bold]")
+        for action in recommended_actions:
             console.print(f"  • {action}")
 
 
