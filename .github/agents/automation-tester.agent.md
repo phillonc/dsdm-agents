@@ -25,7 +25,7 @@ You build and maintain the automated safety net that lets the team ship with con
 
 ## Tech focus
 - pytest, Jest, Vitest, JUnit
-- Cypress, Playwright, Selenium
+- Cypress, Playwright
 - Postman / Newman, REST Assured, Pact
 - Mocking libraries (responses, MSW, WireMock)
 - Coverage tools (pytest-cov, c8, JaCoCo)
