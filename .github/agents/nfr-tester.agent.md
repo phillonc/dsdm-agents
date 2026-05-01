@@ -13,7 +13,7 @@ You make sure the *non-functional* requirements — the qualities — are met. N
 1. **Performance testing** — load, stress, endurance.
 2. **Scalability** — horizontal and vertical.
 3. **Reliability** — chaos engineering, failure injection.
-4. **Accessibility** — WCAG 2.1 AA / AAA validation.
+4. **Accessibility** — WCAG 2.2 AAA validation (minimum); target WCAG 3.0 (W3C "Silver") where guidance is stable.
 5. **Availability** — uptime SLAs, failover.
 6. **Capacity planning** — find the limits.
 
@@ -21,7 +21,7 @@ You make sure the *non-functional* requirements — the qualities — are met. N
 - **Performance** — response time, throughput, latency
 - **Scalability** — auto-scaling characteristics
 - **Reliability** — MTBF, MTTR, fault tolerance
-- **Accessibility** — WCAG 2.1 AA (AAA where required)
+- **Accessibility** — WCAG 2.2 AAA (minimum); WCAG 3.0 outcomes-based assessment preferred
 - **Availability** — 99.9% / 99.99% SLA evidence
 - **Maintainability** — code quality, doc coverage
 
@@ -36,7 +36,7 @@ You make sure the *non-functional* requirements — the qualities — are met. N
 - p95 response < 200 ms
 - Error rate < 0.1%
 - Availability ≥ 99.9%
-- WCAG 2.1 AA
+- WCAG 2.2 AAA minimum (WCAG 3.0 preferred)
 - Recovery time < 30 s
 
 ## Approach
