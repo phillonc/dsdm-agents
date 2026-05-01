@@ -2,6 +2,52 @@
 
 AI-powered agents implementing the Dynamic Systems Development Method (DSDM) framework using the Claude Agent SDK.
 
+## Key Features
+
+### ✨ Core Capabilities
+
+- **Full DSDM Workflow Automation** - Run complete project lifecycle from feasibility to implementation
+- **6 DSDM Phase Agents** - Specialized agents for each phase of the methodology
+- **6 Design & Build Specialized Roles** - Granular control with Dev Lead, Frontend/Backend Developers, Testers
+- **Multiple LLM Provider Support** - Anthropic Claude, OpenAI GPT, Google Gemini, Ollama local
+- **3 Agent Execution Modes** - Automated, Manual (approval required), or Hybrid (balanced)
+- **3 Workflow Modes** - Agent-writes code, provides tips, or assists with manual development
+- **Enterprise Integrations** - Confluence for docs, Jira for task management, DevOps tools
+- **28 DevOps Tools** - Based on 14 Development Principles for CI/CD, testing, monitoring, infrastructure
+- **42+ DSDM Tools** - File management, code generation, testing, documentation, deployment
+
+### 🚀 Automation Features
+
+- **Project Generation** - Auto-create folder structures with code, tests, docs, config
+- **Code Generation** - Write production-ready code for frontend, backend, and APIs
+- **Test Generation** - Unit, integration, and E2E tests with coverage analysis
+- **Documentation Generation** - PRD, TRD, API docs, architecture diagrams, user guides
+- **Prototype Creation** - Build functional prototypes for user validation
+- **MoSCoW Prioritization** - Automated requirement prioritization (Must/Should/Could/Won't)
+- **Jira-Confluence Sync** - Auto-sync work items and status to documentation
+
+### 🔧 Advanced Capabilities
+
+- **Interactive Menu System** - Browse phases, configure agents, run workflows
+- **CLI Commands** - Full command-line interface with 11 flags and options
+- **Programmatic API** - Python library for custom automation
+- **Agent Mode Configuration** - Per-phase or per-role execution settings
+- **Workflow Mode Configuration** - Customize interaction styles (code writing, tips, manual)
+- **Requirements File Support** - Build from Markdown, text, or DOCX files
+- **Quick Feasibility Checks** - Rapid assessment with caching
+- **Output Formatting** - Rich terminal UI with tables, panels, progress bars
+- **Multi-Provider LLM** - Switch between Anthropic, OpenAI, Gemini, Ollama
+
+### 📊 DSDM Methodology Support
+
+- **8 Core DSDM Principles** - Business focus, timely delivery, collaboration, quality, incremental build, iteration, communication, control
+- **MoSCoW Method** - Must/Should/Could/Won't have prioritization
+- **Timeboxing** - Fixed-duration iterations and sprints
+- **Iterative Development** - Continuous refinement via feedback loops
+- **Prototyping** - Early validation with working models
+
+---
+
 ## Overview
 
 DSDM Agents provides a set of specialized AI agents for each phase of the DSDM methodology, plus a DevOps agent based on the Development Principles.
@@ -31,6 +77,207 @@ The Design & Build phase can be broken down into specialized roles for more gran
 | **Penetration Tester** | PenTesterAgent | Manual | Security scans, vulnerability assessment, OWASP |
 
 Each agent has specialized tools and can operate in **Manual**, **Automated**, or **Hybrid** mode, with configurable **Workflow Modes** for how agents interact with developers.
+
+## Feature Categories
+
+### Phase-Specific Features
+
+#### Feasibility Phase
+- Requirement analysis and parsing
+- Technical feasibility assessment
+- Resource and budget estimation
+- Risk identification and mitigation
+- DSDM suitability checks
+- Quick feasibility with caching
+- Project initialization
+
+#### Business Study Phase
+- Business process mapping
+- Stakeholder analysis and documentation
+- MoSCoW prioritization
+- Architecture and system design
+- Timebox and iteration planning
+- Risk log management
+- Detailed requirements documentation
+
+#### Functional Model Phase
+- Prototype generation (HTML, React, etc.)
+- Code scaffolding
+- User feedback collection
+- Requirements refinement
+- Functional testing
+- Iteration documentation
+- Prototype validation
+
+#### Design & Build Phase
+- Technical design documentation
+- Production-ready code generation
+- Automated testing (unit, integration, E2E)
+- Code review and quality checks
+- Security scanning
+- Technical requirements documentation
+- Multi-language support (Python, JavaScript, TypeScript)
+
+#### Implementation Phase
+- Deployment planning
+- Environment setup
+- Production deployment
+- Smoke testing
+- Rollback preparation
+- Training material generation
+- Stakeholder communication
+- Operations handover documentation
+
+#### DevOps Phase (28 Tools)
+- **Testing & Quality** (5 tools) - Run tests, check coverage, linting, security scans, code quality
+- **CI/CD & Automation** (4 tools) - Pipelines, deployment, rollback, task automation
+- **Infrastructure** (4 tools) - Provisioning, Terraform validation, containers, scaling
+- **Monitoring & Health** (4 tools) - Health checks, monitoring setup, service status, chaos testing
+- **NFRs & Dependencies** (4 tools) - Dependency analysis, performance testing, accessibility, validation
+- **Documentation** (2 tools) - Architecture Decision Records, documentation generation
+- **Task Management** (2 tools) - Track incomplete tasks, monitor toil
+- **Backup & Recovery** (2 tools) - Database backups, restore testing
+
+### Agent Specialized Features
+
+#### Dev Lead Agent
+- Architecture design and decisions
+- ADR (Architecture Decision Records) creation
+- Code review and quality oversight
+- Team coordination and planning
+- Technical design documentation
+- System design validation
+
+#### Frontend Developer Agent
+- UI/UX component development
+- React/Vue component creation
+- Responsive design implementation
+- Accessibility (WCAG) compliance
+- Responsive testing
+- CSS/styling frameworks support
+- Component reusability patterns
+
+#### Backend Developer Agent
+- REST API development
+- Business logic implementation
+- Database schema design
+- Integration implementation
+- Data validation and sanitization
+- Error handling and logging
+- Multi-database support (PostgreSQL, MongoDB, etc.)
+
+#### Automation Tester Agent
+- Unit test generation
+- Integration test generation
+- E2E test creation
+- Test coverage analysis
+- CI/CD pipeline integration
+- Test reporting
+- Mock and fixture generation
+
+#### NFR Tester Agent
+- Performance testing and benchmarking
+- Scalability testing
+- Reliability and uptime testing
+- Accessibility testing (WCAG)
+- Load testing
+- Security baseline validation
+- NFR metrics reporting
+
+#### Penetration Tester Agent
+- Security vulnerability scanning
+- OWASP Top 10 assessment
+- Penetration testing scenarios
+- Security report generation
+- Risk ranking and prioritization
+- Remediation recommendations
+- Security documentation
+
+### Tool Ecosystems
+
+#### File Management (10 tools)
+- Project listing and discovery
+- Project initialization
+- File read/write/append operations
+- File copying and deletion
+- Directory creation and listing
+
+#### Documentation Tools
+- Markdown generation
+- API documentation (OpenAPI/Swagger)
+- Architecture Decision Records (ADRs)
+- Technical design documents
+- User guides and manuals
+- Training materials
+- Deployment runbooks
+
+#### Code Generation Tools
+- Function-level code generation
+- Full project scaffolding
+- Component generation
+- API endpoint generation
+- Database schema generation
+- Configuration file generation
+- Test file generation
+
+#### Integration Capabilities
+- **Confluence** - Page creation/update, CQL search, page hierarchy, comments
+- **Jira** - Issue creation, sprint management, bulk operations, MoSCoW tracking
+- **Jira-Confluence Sync** - Automatic status propagation, issue-to-page mapping
+
+### Configuration & Customization
+
+#### Agent Modes (Per-Phase or Per-Role)
+- **AUTOMATED** - Tools execute without approval
+- **MANUAL** - Every tool requires explicit user approval
+- **HYBRID** - Critical tools require approval, others auto-run
+
+#### Workflow Modes (Interaction Styles)
+- **AGENT_WRITES_CODE** - Agent generates code autonomously
+- **AGENT_PROVIDES_TIPS** - Agent provides guidance without writing
+- **MANUAL_WITH_TIPS** - Human writes code, agent advises
+
+#### LLM Providers
+- **Anthropic Claude** - claude-sonnet-4-5, claude-opus-4-5 (default)
+- **OpenAI GPT** - gpt-4o, gpt-4-turbo, gpt-3.5-turbo
+- **Google Gemini** - gemini-2.5-pro, gemini-2.5-flash
+- **Ollama Local** - kimi-k2-thinking, llama3.2, codellama, or any Ollama model
+
+### Output & Project Management
+
+#### Auto-Generated Artifacts
+- Project folder structure creation
+- Source code (production & test)
+- Configuration files
+- Documentation
+- Architecture diagrams
+- API specifications
+- Deployment plans
+- Training materials
+
+#### Project Structure
+- Organized under `generated/<project-name>/`
+- Automatic directory creation
+- Type detection (Python/Node)
+- Version control ready (.gitignore, .env)
+- Package configuration (pyproject.toml, package.json)
+
+### Demo Application
+
+#### OPTIX Trading Platform
+- Full-stack trading platform with 11 pages
+- React frontend with TypeScript
+- FastAPI/Node.js backend
+- PostgreSQL + Redis stack
+- Real-time data visualization
+- Authentication system
+- Portfolio management
+- Options pricing engine
+- Test suite included
+- API documentation
+- Docker support
+
+---
 
 ## Getting Started
 
@@ -560,27 +807,6 @@ Tips include:
 - Performance optimization
 - Testing strategies
 - Links to official documentation
-
-## DevOps Agent
-
-The DevOps agent is based on the 14 Development Principles:
-
-| # | Principle | Tools |
-|---|-----------|-------|
-| 1 | Decision Making should be distributed | `create_adr`, `track_decision` |
-| 2 | If it's not tested, it's broken | `run_tests`, `check_coverage` |
-| 3 | Transparency dispels myth | `run_linter`, `check_code_quality`, `generate_docs` |
-| 4 | Mean Time To Innocence (MTTI) | `health_check`, `setup_monitoring`, `check_service_status` |
-| 5 | No Dead Cats over the fence | `run_ci_pipeline`, `deploy_to_environment` |
-| 6 | Friends would not let friends build data centres | `provision_infrastructure`, `scale_service` |
-| 7 | Non Functional Requirements are first class citizens | `run_performance_test`, `check_accessibility`, `validate_nfr` |
-| 8 | Cattle not Pets | `validate_terraform`, `manage_containers` |
-| 9 | Keep the Hostage | `backup_database`, `test_restore` |
-| 10 | Elimination of Toil | `automate_task`, `track_toil` |
-| 11 | Failure is Normal | `rollback_deployment`, `run_chaos_test` |
-| 12 | Dependencies create latency as a service | `analyze_dependencies` |
-| 13 | Focus on differentiating code | Use managed services |
-| 14 | Stop Starting and Start Stopping | `check_incomplete_tasks` |
 
 ## Integrations
 
