@@ -808,27 +808,6 @@ Tips include:
 - Testing strategies
 - Links to official documentation
 
-## DevOps Agent
-
-The DevOps agent is based on the 14 Development Principles:
-
-| # | Principle | Tools |
-|---|-----------|-------|
-| 1 | Decision Making should be distributed | `create_adr`, `track_decision` |
-| 2 | If it's not tested, it's broken | `run_tests`, `check_coverage` |
-| 3 | Transparency dispels myth | `run_linter`, `check_code_quality`, `generate_docs` |
-| 4 | Mean Time To Innocence (MTTI) | `health_check`, `setup_monitoring`, `check_service_status` |
-| 5 | No Dead Cats over the fence | `run_ci_pipeline`, `deploy_to_environment` |
-| 6 | Friends would not let friends build data centres | `provision_infrastructure`, `scale_service` |
-| 7 | Non Functional Requirements are first class citizens | `run_performance_test`, `check_accessibility`, `validate_nfr` |
-| 8 | Cattle not Pets | `validate_terraform`, `manage_containers` |
-| 9 | Keep the Hostage | `backup_database`, `test_restore` |
-| 10 | Elimination of Toil | `automate_task`, `track_toil` |
-| 11 | Failure is Normal | `rollback_deployment`, `run_chaos_test` |
-| 12 | Dependencies create latency as a service | `analyze_dependencies` |
-| 13 | Focus on differentiating code | Use managed services |
-| 14 | Stop Starting and Start Stopping | `check_incomplete_tasks` |
-
 ## Integrations
 
 ### Confluence Integration
