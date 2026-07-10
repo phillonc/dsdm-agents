@@ -61,6 +61,14 @@ generated/<project>/docs/architecture/decisions/001-database-choice.md
 generated/<project>/docs/architecture/decisions/002-api-style.md
 ```
 
+## MCP CLI integration (optional)
+Publish the TRD / ADRs and coordinate work through **MCP servers** when
+available (see `../instructions/mcp.instructions.md`):
+- `mcp_call_tool(server="atlassian", tool="confluence_create_dsdm_doc", arguments={...})` to publish the TRD.
+- `mcp_call_tool(server="github", tool="create_issue", arguments={...})` to raise implementation tasks for the specialist agents.
+Discover names with `mcp_list_tools` first; calls are dry-run unless `MCP_EXECUTE=1`
+and require approval. Skip silently if no server is configured.
+
 ## Hand-offs
 For deep work in a specific layer, delegate to the specialised agents listed under `handoffs`. Provide them with the relevant TRD section + ADR(s) as context.
 

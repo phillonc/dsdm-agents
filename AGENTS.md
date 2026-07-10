@@ -15,8 +15,9 @@ This file is the project-level instruction file read by **GitHub Copilot CLI**, 
 | `docs/` | Source-of-truth requirements, workflow diagram, technical reqs |
 | `generated/` | **All agent output goes here** — one folder per project |
 | `.github/agents/` | Copilot CLI custom agents (one `.agent.md` per role) |
-| `.github/instructions/` | Scoped instruction files (tools, integrations, conventions) |
-| `.github/prompts/` | Reusable task prompts (workflows, single-phase runs, deploys) |
+| `.github/instructions/` | Scoped instruction files (tools, integrations, MCP, conventions) |
+| `.github/prompts/` | Reusable task prompts (workflows, single-phase runs, deploys, MCP sync) |
+| `.github/copilot/mcp-config.json` | MCP server catalogue for the Copilot CLI / MCP CLI tools |
 
 ## DSDM phase agents
 
@@ -55,6 +56,7 @@ Run with `copilot --prompt-file .github/prompts/<file>.prompt.md` (or via the in
 | Implementation / deploy | `.github/prompts/run-implementation.prompt.md` |
 | Code review | `.github/prompts/code-review.prompt.md` |
 | Security review | `.github/prompts/security-review.prompt.md` |
+| MCP sync (Jira/Confluence/GitHub) | `.github/prompts/mcp-sync.prompt.md` |
 
 ## Conventions every agent must follow
 
@@ -63,7 +65,7 @@ Run with `copilot --prompt-file .github/prompts/<file>.prompt.md` (or via the in
 3. **No shortcuts on quality** — DSDM Principle #5: *Never compromise quality*. Tests must run, lint must pass, security scans must be clean before marking a phase complete.
 4. **MoSCoW everywhere** — requirements, user stories, and roadmap items must be tagged Must / Should / Could / Won't.
 5. **Hand-off contract** — when a phase finishes, summarise the artefacts produced and the inputs the next phase needs.
-6. **Jira / Confluence sync** — when those MCP servers are available, mirror status changes (`jira_transition_issue`, `sync_work_item_status`, `confluence_update_page`).
+6. **Jira / Confluence sync** — when those integrations are available, mirror status changes (`jira_transition_issue`, `sync_work_item_status`, `confluence_update_page`). If a system is reachable only as an **MCP server**, use the MCP CLI tools (`mcp_list_servers` → `mcp_list_tools` → `mcp_call_tool`) to execute the same command prompts — see `.github/instructions/mcp.instructions.md`.
 7. **Stop when done** — once the deliverables exist on disk, write a final summary and stop. Do not loop on tool calls.
 
 ## Environment

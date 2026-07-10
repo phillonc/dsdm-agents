@@ -46,12 +46,17 @@ generated/<project>/docs/RISK_LOG.md
 The project folder is expected to exist already (created by Feasibility). If not, create it.
 
 ## Jira / Confluence sync
-When the Atlassian MCP server is available:
+Prefer the named Python tools:
 - `jira_create_user_story` per requirement (with MoSCoW label)
 - `jira_bulk_create_requirements` to batch
 - `jira_transition_issue` for status changes
 - `sync_work_item_status` → keeps Confluence in sync
 - `confluence_create_dsdm_doc` to publish the business study
+
+When Atlassian is reachable only as an **MCP server**, use the MCP CLI tools
+(`mcp_list_servers` → `mcp_list_tools(server="atlassian")` →
+`mcp_call_tool(server="atlassian", tool="jira_bulk_create_requirements", arguments={...})`).
+See `../instructions/mcp.instructions.md`. Skip silently if no server is configured.
 
 ## Stop conditions
 Once the three docs are on disk and (optionally) synced, write a one-paragraph summary listing the count of Must/Should/Could/Won't items and the next-phase inputs, then stop.

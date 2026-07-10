@@ -19,6 +19,7 @@ def create_dsdm_tool_registry(
     include_devops: bool = False,
     include_file_tools: bool = True,
     include_git_pin: bool = True,
+    include_mcp: bool = True,
 ) -> ToolRegistry:
     """Create a tool registry with all DSDM tools."""
     registry = ToolRegistry()
@@ -1310,6 +1311,10 @@ def create_dsdm_tool_registry(
     if include_devops:
         from .integrations.devops_tools import register_devops_tools
         register_devops_tools(registry)
+
+    if include_mcp:
+        from .integrations.mcp_tools import register_mcp_tools
+        register_mcp_tools(registry)
 
     if include_file_tools:
         from .file_tools import register_file_tools

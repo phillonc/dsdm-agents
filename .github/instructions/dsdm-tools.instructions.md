@@ -138,6 +138,19 @@ All paths are placed under `generated/` automatically.
 ### Sync helpers (`src/tools/dsdm_tools.py`)
 - `sync_work_item_status`, `setup_jira_confluence_sync`, `get_sync_status`
 
+## MCP CLI tools (`src/tools/integrations/mcp_tools.py`)
+
+Reach any configured MCP server (Atlassian, GitHub, filesystem, …) by executing
+command prompts through a CLI client. See `mcp.instructions.md` for the full
+guide.
+
+| Tool | Purpose |
+|------|---------|
+| `mcp_list_servers` | List configured MCP servers (read-only) |
+| `mcp_list_tools` | Discover a server's tools via `tools/list` (read-only) |
+| `mcp_call_tool` | Call a server tool (`tools/call`) with JSON arguments (requires approval; dry-run unless `MCP_EXECUTE`) |
+| `mcp_run_command` | Run a raw MCP method — escape hatch (requires approval) |
+
 ## Tool registration
 
 Every tool above is wired in `src/tools/tool_registry.py` via `register_tool(...)`. To add a new tool, register it there and reference its name in the relevant agent's prompt body.

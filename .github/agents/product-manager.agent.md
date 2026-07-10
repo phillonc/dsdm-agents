@@ -50,5 +50,13 @@ If the project folder doesn't exist yet, create the standard skeleton (`generate
 - Mark every feature **Must / Should / Could / Won't** with rationale.
 - The PRD must be detailed enough that the **dev-lead** agent can derive a TRD from it without re-asking the user.
 
+## Jira / Confluence sync (optional)
+Publish the PRD and seed the backlog with the named Python tools, or — when
+Atlassian is reachable only as an **MCP server** — via the MCP CLI tools
+(`mcp_call_tool(server="atlassian", tool="confluence_create_dsdm_doc", arguments={...})`
+to publish the PRD; `mcp_call_tool(server="atlassian", tool="jira_create_user_story", ...)`
+per Must/Should feature). Discover names first with `mcp_list_tools`. Skip
+silently if no server is configured. See `../instructions/mcp.instructions.md`.
+
 ## Stop conditions
 After the PRD is on disk, write a one-paragraph summary listing feature counts per MoSCoW bucket and the path to the PRD, then stop.

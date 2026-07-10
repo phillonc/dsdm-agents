@@ -141,6 +141,7 @@ class DSDMOrchestrator:
         include_devops: bool = True,
         include_confluence: bool = True,
         include_jira: bool = True,
+        include_mcp: bool = True,
         show_progress: bool = True,
     ):
         self.config = config or self._default_config()
@@ -149,6 +150,7 @@ class DSDMOrchestrator:
             include_confluence=include_confluence,
             include_jira=include_jira,
             include_devops=include_devops,
+            include_mcp=include_mcp,
         )
         self.console = Console()
         self.formatter = get_formatter(self.console)

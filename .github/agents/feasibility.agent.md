@@ -41,10 +41,17 @@ generated/<project>/docs/FEASIBILITY_REPORT.md
 If the project folder does not exist, create the skeleton first (`generated/<project>/docs/`, `generated/<project>/src/`, `generated/<project>/tests/`).
 
 ## Jira / Confluence sync (optional)
-When the Atlassian MCP server is configured:
+Prefer the named Python tools when available:
 - `jira_create_issue` for the feasibility epic
 - `jira_transition_issue` to mark "In Review" / "Done"
 - `confluence_create_dsdm_doc` to publish the report
+
+If the Atlassian integration is only reachable as an **MCP server**, reach it via
+the MCP CLI tools (see `../instructions/mcp.instructions.md`):
+- `mcp_list_servers` → confirm `atlassian` is configured (skip silently if not)
+- `mcp_list_tools(server="atlassian")` → discover exact tool names
+- `mcp_call_tool(server="atlassian", tool="jira_create_issue", arguments={...})`
+  to execute the command prompt (dry-run unless `MCP_EXECUTE=1`; pause for approval)
 
 ## Stop conditions
 After writing the report and (optionally) syncing to Jira/Confluence, output a one-paragraph summary including the recommendation and stop. Do not iterate further.

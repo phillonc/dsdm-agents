@@ -33,6 +33,18 @@ Use `confluence_create_dsdm_doc(phase=..., title=..., content=...)` for canonica
 - Technical Requirements Document (TRD)
 - Implementation / Handover
 
+## MCP servers (CLI)
+
+Beyond the first-party Python integrations above, agents can reach **any
+configured MCP server** — Atlassian, GitHub, filesystem, … — by executing
+command prompts through the MCP CLI tools (`mcp_list_servers`, `mcp_list_tools`,
+`mcp_call_tool`, `mcp_run_command`). Servers are declared in
+`.github/copilot/mcp-config.json`. See `mcp.instructions.md` for the full guide.
+
+- **Prefer a named Python tool** when one exists (it handles paths, validation, sync).
+- **Fall back to `mcp_call_tool`** for capabilities only exposed by an MCP server.
+- Mutating MCP calls are dry-run unless `MCP_EXECUTE=1` and require approval.
+
 ## GitHub
 
 ### Branching
