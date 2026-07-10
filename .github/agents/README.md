@@ -64,10 +64,19 @@ handoffs:                 # optional — ordered hand-off targets
 ---
 ```
 
+## MCP servers
+
+Every agent can reach configured **MCP servers** (Atlassian, GitHub, filesystem)
+through the MCP CLI tools — `mcp_list_servers`, `mcp_list_tools`, `mcp_call_tool`,
+`mcp_run_command` — which execute command prompts against the servers declared in
+[`../copilot/mcp-config.json`](../copilot/mcp-config.json). See
+[`../instructions/mcp.instructions.md`](../instructions/mcp.instructions.md) and
+the [`mcp-sync`](../prompts/mcp-sync.prompt.md) task.
+
 ## Related
 
 - `../../AGENTS.md` — repo-wide project instructions
-- `../instructions/` — scoped guidance (tools catalogue, integrations, conventions)
+- `../instructions/` — scoped guidance (tools catalogue, integrations, MCP, conventions)
 - `../prompts/` — reusable task prompts
 - `../../README.md` — full project overview
 - `../../GETTING_STARTED.md` — walkthrough

@@ -26,6 +26,7 @@ class DSDMOrchestrator(BaseDSDMOrchestrator):
         include_devops: bool = True,
         include_confluence: bool = True,
         include_jira: bool = True,
+        include_mcp: bool = True,
         show_progress: bool = True,
         include_delivery_room: bool = True,
     ):
@@ -34,6 +35,7 @@ class DSDMOrchestrator(BaseDSDMOrchestrator):
             include_devops=include_devops,
             include_confluence=include_confluence,
             include_jira=include_jira,
+            include_mcp=include_mcp,
             show_progress=show_progress,
         )
         self.include_delivery_room = include_delivery_room

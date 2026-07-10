@@ -57,5 +57,13 @@ generated/<project>/docs/LESSONS_LEARNED.md
 - `confluence_update_page` with actual outcomes
 - `confluence_create_dsdm_doc` for handover and training docs
 
+When those systems are reachable only as **MCP servers**, run the same
+operations via the MCP CLI tools, e.g.
+`mcp_call_tool(server="atlassian", tool="jira_transition_issue", arguments={"issue_key": ..., "target_status": "Deployed"})`.
+Because these are release actions, they inherit this agent's approval rules —
+inspect the dry-run `rendered_command` and get approval before executing
+(`MCP_EXECUTE=1`). See `../instructions/mcp.instructions.md`. You can also open a
+release/GitHub issue via `mcp_call_tool(server="github", tool="create_issue", ...)`.
+
 ## Stop conditions
 Once the system is deployed (or explicitly skipped), smoke tests pass, and handover docs are written, summarise outcomes, link the docs, and stop.

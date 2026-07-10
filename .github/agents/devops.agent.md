@@ -67,6 +67,14 @@ generated/<project>/docs/MONITORING.md
 generated/<project>/docs/SECURITY.md
 ```
 
+## MCP CLI integration (optional)
+Where CI/CD, issue tracking, or docs live behind an **MCP server**, drive them
+via the MCP CLI tools (see `../instructions/mcp.instructions.md`):
+- `mcp_list_tools(server="github")` then `mcp_call_tool(server="github", tool="list_workflow_runs"|"create_issue", arguments={...})` to inspect pipelines or file findings.
+- `mcp_call_tool(server="atlassian", tool="jira_add_comment", arguments={...})` to post scan / quality-gate results.
+These execute command prompts through the client CLI; they are dry-run unless
+`MCP_EXECUTE=1` and require approval. Cite the principle that motivates each call.
+
 ## Working style
 Whenever you act, **cite the principle** that motivates the action (e.g. "applying #2 — adding pytest-cov to the CI step").
 
