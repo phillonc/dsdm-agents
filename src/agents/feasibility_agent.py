@@ -49,6 +49,28 @@ The tools now return detailed structured analysis:
 Use these rich results directly - no need to re-analyze.
 """
 
+# Tools this agent is configured with. Module-level so callers that need the
+# tool set (e.g. scripts/spike_feasibility_bridge.py) can import it directly
+# instead of duplicating it or instantiating a full agent (which requires a
+# configured LLM provider).
+FEASIBILITY_TOOLS: List[str] = [
+    "analyze_requirements",
+    "assess_technical_feasibility",
+    "identify_risks",
+    # File Operations (for saving reports)
+    "project_init",
+    "file_write",
+    "directory_create",
+    # Jira/Confluence Integration (for syncing work item status)
+    "jira_create_issue",
+    "jira_transition_issue",
+    "jira_add_comment",
+    "jira_enable_confluence_sync",
+    "sync_work_item_status",
+    "confluence_create_page",
+    "confluence_create_dsdm_doc",
+]
+
 
 class FeasibilityAgent(BaseAgent):
     """Agent for DSDM Feasibility Study phase."""
@@ -65,23 +87,7 @@ class FeasibilityAgent(BaseAgent):
             description="Assesses project viability and DSDM suitability",
             phase="feasibility",
             system_prompt=FEASIBILITY_SYSTEM_PROMPT,
-            tools=[
-                "analyze_requirements",
-                "assess_technical_feasibility",
-                "identify_risks",
-                # File Operations (for saving reports)
-                "project_init",
-                "file_write",
-                "directory_create",
-                # Jira/Confluence Integration (for syncing work item status)
-                "jira_create_issue",
-                "jira_transition_issue",
-                "jira_add_comment",
-                "jira_enable_confluence_sync",
-                "sync_work_item_status",
-                "confluence_create_page",
-                "confluence_create_dsdm_doc",
-            ],
+            tools=FEASIBILITY_TOOLS,
             mode=mode,
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)

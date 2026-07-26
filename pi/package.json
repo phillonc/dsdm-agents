@@ -1,0 +1,12 @@
+{
+  "name": "dsdm-pi-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "description": "pi.dev workspace for the DSDM Agents Pi Agent Runtime migration. See docs/category-defining-features/11-pi-agent-runtime/{PRD,TRD}.md. Phase 1 scope: dsdm-tools-bridge only.",
+  "workspaces": [
+    "extensions/*"
+  ],
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.82.1"
+  }
+}

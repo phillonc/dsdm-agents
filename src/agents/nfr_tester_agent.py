@@ -58,6 +58,27 @@ Your role is to test and validate non-functional requirements including performa
 Remember: NFRs are first-class citizens. Fix NFR issues before adding new features.
 """
 
+NFR_TESTER_TOOLS = [
+    # Performance Testing
+    "run_performance_test",
+    "validate_nfr",
+    # Accessibility
+    "check_accessibility",
+    # Reliability & Chaos
+    "run_chaos_test",
+    "health_check",
+    "check_service_status",
+    # Monitoring
+    "setup_monitoring",
+    # Quality
+    "check_code_quality",
+    # Scaling
+    "scale_service",
+    # Documentation
+    "create_documentation",
+    "generate_docs",
+]
+
 
 class NFRTesterAgent(BaseAgent):
     """Agent for non-functional requirements testing."""
@@ -74,26 +95,7 @@ class NFRTesterAgent(BaseAgent):
             description="Performance, reliability, and non-functional testing",
             phase="design_build",
             system_prompt=NFR_TESTER_SYSTEM_PROMPT,
-            tools=[
-                # Performance Testing
-                "run_performance_test",
-                "validate_nfr",
-                # Accessibility
-                "check_accessibility",
-                # Reliability & Chaos
-                "run_chaos_test",
-                "health_check",
-                "check_service_status",
-                # Monitoring
-                "setup_monitoring",
-                # Quality
-                "check_code_quality",
-                # Scaling
-                "scale_service",
-                # Documentation
-                "create_documentation",
-                "generate_docs",
-            ],
+            tools=NFR_TESTER_TOOLS,
             mode=mode,
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)

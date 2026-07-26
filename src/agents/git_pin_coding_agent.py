@@ -79,6 +79,40 @@ After all tool calls, provide a final summary including:
 4. Any issues or recommendations for next steps
 """
 
+GIT_PIN_CODING_TOOLS = [
+    # Code Generation
+    "generate_code",
+    "write_file",
+    "generate_code_scaffold",
+    # File Operations (parallel execution target)
+    "project_init",
+    "file_write",
+    "file_read",
+    "file_append",
+    "file_copy",
+    "file_delete",
+    "directory_create",
+    "directory_list",
+    # Architecture & Design
+    "create_technical_design",
+    "define_architecture",
+    # Testing
+    "run_tests",
+    "run_functional_tests",
+    # Quality
+    "run_linter",
+    "check_code_quality",
+    "review_code",
+    "security_check",
+    # Documentation
+    "create_documentation",
+    "generate_docs",
+    # Dependencies
+    "analyze_dependencies",
+    # TRD Generation
+    "generate_technical_requirements_document",
+]
+
 
 class GitPinCodingAgent(GitPinBaseAgent):
     """High-throughput coding agent using the Git pin event-driven loop.
@@ -113,39 +147,7 @@ class GitPinCodingAgent(GitPinBaseAgent):
             description="High-throughput coding agent with parallel tool execution",
             phase="design_build",
             system_prompt=GIT_PIN_CODING_SYSTEM_PROMPT,
-            tools=[
-                # Code Generation
-                "generate_code",
-                "write_file",
-                "generate_code_scaffold",
-                # File Operations (parallel execution target)
-                "project_init",
-                "file_write",
-                "file_read",
-                "file_append",
-                "file_copy",
-                "file_delete",
-                "directory_create",
-                "directory_list",
-                # Architecture & Design
-                "create_technical_design",
-                "define_architecture",
-                # Testing
-                "run_tests",
-                "run_functional_tests",
-                # Quality
-                "run_linter",
-                "check_code_quality",
-                "review_code",
-                "security_check",
-                # Documentation
-                "create_documentation",
-                "generate_docs",
-                # Dependencies
-                "analyze_dependencies",
-                # TRD Generation
-                "generate_technical_requirements_document",
-            ],
+            tools=GIT_PIN_CODING_TOOLS,
             mode=mode,
             max_iterations=60,
         )
@@ -255,6 +257,22 @@ operating within the DSDM framework.
 5. Generate review report
 """
 
+GIT_PIN_REVIEW_TOOLS = [
+    # File Operations (parallel read target)
+    "file_read",
+    "file_write",
+    "directory_list",
+    # Quality Tools (parallel execution target)
+    "run_linter",
+    "check_code_quality",
+    "review_code",
+    "security_check",
+    # Testing
+    "run_tests",
+    # Documentation
+    "create_documentation",
+]
+
 
 class GitPinReviewAgent(GitPinBaseAgent):
     """High-throughput code review agent using the Git pin loop.
@@ -283,21 +301,7 @@ class GitPinReviewAgent(GitPinBaseAgent):
             description="High-throughput code review with parallel analysis",
             phase="design_build",
             system_prompt=GIT_PIN_REVIEW_SYSTEM_PROMPT,
-            tools=[
-                # File Operations (parallel read target)
-                "file_read",
-                "file_write",
-                "directory_list",
-                # Quality Tools (parallel execution target)
-                "run_linter",
-                "check_code_quality",
-                "review_code",
-                "security_check",
-                # Testing
-                "run_tests",
-                # Documentation
-                "create_documentation",
-            ],
+            tools=GIT_PIN_REVIEW_TOOLS,
             mode=mode,
             max_iterations=30,
         )

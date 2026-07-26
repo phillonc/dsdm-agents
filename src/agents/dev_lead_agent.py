@@ -68,6 +68,37 @@ File will be saved to: `generated/my-project/docs/TECHNICAL_REQUIREMENTS.md`
 When leading development, coordinate with specialized developers and testers to deliver quality systems.
 """
 
+DEV_LEAD_TOOLS = [
+    # Architecture & Design
+    "create_technical_design",
+    "define_architecture",
+    "create_adr",
+    "track_decision",
+    # TRD Generation
+    "generate_technical_requirements_document",
+    # File Operations (actual file writing)
+    "project_init",
+    "file_write",
+    "file_read",
+    "file_append",
+    "directory_create",
+    "directory_list",
+    # Code Review & Quality
+    "review_code",
+    "check_code_quality",
+    "run_linter",
+    # Documentation
+    "create_documentation",
+    "generate_docs",
+    # Risk & Planning
+    "identify_risks",
+    "update_risk_log",
+    "analyze_dependencies",
+    # Testing oversight
+    "run_tests",
+    "check_coverage",
+]
+
 
 class DevLeadAgent(BaseAgent):
     """Agent for technical leadership and architecture."""
@@ -84,36 +115,7 @@ class DevLeadAgent(BaseAgent):
             description="Technical leadership and architecture coordination",
             phase="design_build",
             system_prompt=DEV_LEAD_SYSTEM_PROMPT,
-            tools=[
-                # Architecture & Design
-                "create_technical_design",
-                "define_architecture",
-                "create_adr",
-                "track_decision",
-                # TRD Generation
-                "generate_technical_requirements_document",
-                # File Operations (actual file writing)
-                "project_init",
-                "file_write",
-                "file_read",
-                "file_append",
-                "directory_create",
-                "directory_list",
-                # Code Review & Quality
-                "review_code",
-                "check_code_quality",
-                "run_linter",
-                # Documentation
-                "create_documentation",
-                "generate_docs",
-                # Risk & Planning
-                "identify_risks",
-                "update_risk_log",
-                "analyze_dependencies",
-                # Testing oversight
-                "run_tests",
-                "check_coverage",
-            ],
+            tools=DEV_LEAD_TOOLS,
             mode=mode,
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)

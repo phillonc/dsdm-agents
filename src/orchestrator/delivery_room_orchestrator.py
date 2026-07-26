@@ -29,6 +29,7 @@ class DSDMOrchestrator(BaseDSDMOrchestrator):
         include_mcp: bool = True,
         show_progress: bool = True,
         include_delivery_room: bool = True,
+        agent_runtime: Optional[str] = None,
     ):
         super().__init__(
             config=config,
@@ -37,6 +38,7 @@ class DSDMOrchestrator(BaseDSDMOrchestrator):
             include_jira=include_jira,
             include_mcp=include_mcp,
             show_progress=show_progress,
+            agent_runtime=agent_runtime,
         )
         self.include_delivery_room = include_delivery_room
         if include_delivery_room:

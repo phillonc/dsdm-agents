@@ -70,6 +70,33 @@ Files will be saved to: `generated/my-app/src/components/`
 When developing frontend code, focus on user experience, accessibility, and maintainability.
 """
 
+FRONTEND_DEVELOPER_TOOLS = [
+    # Code Development
+    "generate_code",
+    "write_file",
+    "generate_code_scaffold",
+    # File Operations (actual file writing)
+    "project_init",
+    "file_write",
+    "file_read",
+    "file_append",
+    "directory_create",
+    "directory_list",
+    # Testing
+    "run_tests",
+    "run_functional_tests",
+    # Quality
+    "run_linter",
+    "check_code_quality",
+    "review_code",
+    # Accessibility
+    "check_accessibility",
+    # Documentation
+    "create_documentation",
+    # Prototyping
+    "create_prototype",
+]
+
 
 class FrontendDeveloperAgent(BaseAgent):
     """Agent for frontend UI/UX development."""
@@ -86,32 +113,7 @@ class FrontendDeveloperAgent(BaseAgent):
             description="UI/UX implementation and frontend development",
             phase="design_build",
             system_prompt=FRONTEND_DEVELOPER_SYSTEM_PROMPT,
-            tools=[
-                # Code Development
-                "generate_code",
-                "write_file",
-                "generate_code_scaffold",
-                # File Operations (actual file writing)
-                "project_init",
-                "file_write",
-                "file_read",
-                "file_append",
-                "directory_create",
-                "directory_list",
-                # Testing
-                "run_tests",
-                "run_functional_tests",
-                # Quality
-                "run_linter",
-                "check_code_quality",
-                "review_code",
-                # Accessibility
-                "check_accessibility",
-                # Documentation
-                "create_documentation",
-                # Prototyping
-                "create_prototype",
-            ],
+            tools=FRONTEND_DEVELOPER_TOOLS,
             mode=mode,
             llm_provider=LLMProvider.GEMINI,
             model="gemini-3.0-pro",

@@ -1,0 +1,11 @@
+{
+  "name": "dsdm-approval-gate",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Reimplements BaseAgent's Manual/Automated/Hybrid tool-approval semantics at the pi.dev extension layer for tools registered by dsdm-tools-bridge.",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
