@@ -1,0 +1,14 @@
+{
+  "name": "dsdm-tools-bridge",
+  "version": "0.1.0",
+  "description": "Registers every tool from the DSDM Python ToolRegistry as a native pi.dev tool, forwarding execution to tool_service.py over localhost HTTP.",
+  "dependencies": {
+    "typebox": "1.1.24",
+    "@mariozechner/pi-ai": "0.73.1"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

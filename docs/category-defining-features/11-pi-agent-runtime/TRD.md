@@ -283,3 +283,14 @@ Mirrors the PRD's phased rollout, with the `AGENT_RUNTIME` flag providing the te
 
 ### Phase 6
 - Delete `base_agent.py`'s loop, `git_pin_agent_core.py`, `orchestrator_extension.py`, and non-Anthropic clients in `src/llm/providers.py`; update `AGENTS.md` and `.github/instructions/*` to reflect the retired paths.
+
+## 16. Phase 1 Implementation Notes (verified)
+
+Phase 1 (`tool_service.py`, `dsdm-tools-bridge`, spike harness) has been implemented and verified against the real `pi` CLI, not just written against documentation:
+
+- `src/tools/tool_service.py` — localhost-only `ThreadingHTTPServer` bridge (`GET /tools`, `POST /tools/<name>/execute`, `GET /health`), zero new dependencies. 13 tests in `tests/test_tools_bridge.py`, all passing.
+- `pi/` — npm workspace pinning `@mariozechner/pi-coding-agent@0.73.1`; `pi/extensions/dsdm-tools-bridge` fetches the manifest at extension-init time and dynamically calls `pi.registerTool()` once per tool, converting each JSON-Schema `input_schema` into a `typebox` parameter schema (including `StringEnum` for string enums, per pi.dev's Google-provider-compatibility requirement).
+- **Live verification**: with the bridge unreachable, `pi` correctly reports `Failed to load extension: dsdm-tools-bridge: could not reach the Python tool service...`. With the bridge running the full 79-tool DSDM registry, the same invocation loads cleanly and proceeds all the way to a real Anthropic API call (which fails only on the deliberately-invalid API key used for the test, with a normal `401 authentication_error` — i.e. every one of the 79 tools' converted schemas was accepted by pi's real tool registration, not just plausible-looking code).
+- `scripts/spike_feasibility_bridge.py` — Phase 0 spike harness; `--check` (free, no LLM calls) verifies the environment end-to-end and passes in this repo; `--live` runs the actual legacy-vs-pi.dev Feasibility comparison but requires a real `ANTHROPIC_API_KEY`, which was not available in the environment this was built in, so the live comparison itself is still outstanding.
+- **Correction to README.md**: while wiring the spike harness's tool allowlist to `FeasibilityAgent`'s real `AgentConfig.tools`, two tools README.md lists under "Feasibility Phase" (`estimate_resources`, `check_dsdm_suitability`) turned out not to exist in `ToolRegistry` at all — the README's tool inventory is aspirational/stale in places and should not be trusted as ground truth for role definitions in Phase 2.
+- **Dependency note**: `npm install` reports `@mariozechner/pi-coding-agent` (and its sibling `pi-ai`/`pi-agent-core`/`pi-tui` packages) as deprecated in favor of `@earendil-works/pi-coding-agent` — the project appears to have moved npm scope after this TRD was drafted. Before Phase 2, re-pin `pi/package.json` to whichever scope is current upstream; this is a live instance of the "pinned version and upgrade process" risk called out in the PRD.
