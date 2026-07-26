@@ -39,18 +39,24 @@ PI_DIR = REPO_ROOT / "pi"
 PI_BIN = PI_DIR / "node_modules" / ".bin" / "pi"
 BRIDGE_EXTENSION = PI_DIR / "extensions" / "dsdm-tools-bridge"
 
-# The tool set FeasibilityAgent.__init__ actually configures (src/agents/feasibility_agent.py)
-# — kept in sync manually until PAR-PRD-FR-002 (unified role definitions) lands. Note this
-# deliberately omits Jira/Confluence tools (excluded from the registry by _start_bridge()/
-# check_readiness() below, matching --live's include_jira=False / include_confluence=False).
-FEASIBILITY_TOOLS = [
-    "analyze_requirements",
-    "assess_technical_feasibility",
-    "identify_risks",
-    "project_init",
-    "file_write",
-    "directory_create",
-]
+# Imported, not duplicated: FeasibilityAgent.FEASIBILITY_TOOLS (src/agents/feasibility_agent.py)
+# is the single source of truth for this agent's tool list. Importing the module has no side
+# effects (no LLM client is built until an agent is instantiated), so this stays free to import
+# even without a configured LLM provider.
+from src.agents.feasibility_agent import FEASIBILITY_TOOLS  # noqa: E402
+
+# This harness runs with Jira/Confluence off (_scoped_registry() below passes
+# include_jira=False, include_confluence=False) to keep the spike scoped to local file/analysis
+# tools. Filter the full agent tool list down to whatever's actually registered in that scope —
+# checked against the real registry rather than guessed from name prefixes, since not every
+# integration tool follows a jira_/confluence_ naming convention (e.g. sync_work_item_status).
+def _scoped_registry():
+    from src.tools.dsdm_tools import create_dsdm_tool_registry
+
+    return create_dsdm_tool_registry(include_jira=False, include_confluence=False, include_devops=False)
+
+
+SPIKE_SCOPE_TOOLS = [name for name in FEASIBILITY_TOOLS if _scoped_registry().get(name) is not None]
 
 
 def check_readiness() -> dict:
@@ -64,14 +70,16 @@ def check_readiness() -> dict:
         "anthropic_api_key_set": bool(os.environ.get("ANTHROPIC_API_KEY")),
     }
     try:
-        from src.tools.dsdm_tools import create_dsdm_tool_registry
-
-        registry = create_dsdm_tool_registry(include_jira=False, include_confluence=False, include_devops=False)
-        checks["feasibility_tools_registered"] = all(registry.get(name) is not None for name in FEASIBILITY_TOOLS)
+        checks["feasibility_tools_registered"] = all(
+            _scoped_registry().get(name) is not None for name in SPIKE_SCOPE_TOOLS
+        )
         checks["tool_registry_importable"] = True
     except Exception as exc:  # noqa: BLE001 - surfaced to the operator
         checks["tool_registry_importable"] = False
         checks["tool_registry_error"] = str(exc)
+    excluded = len(FEASIBILITY_TOOLS) - len(SPIKE_SCOPE_TOOLS)
+    if excluded:
+        checks["spike_scope_excludes_integration_tools"] = f"{excluded} (Jira/Confluence, by design)"
     return checks
 
 
@@ -105,7 +113,7 @@ def run_pi_bridged(input_text: str, bridge_url: str, model: str, provider: str, 
         "-e",
         str(BRIDGE_EXTENSION),
         "--tools",
-        ",".join(FEASIBILITY_TOOLS),
+        ",".join(SPIKE_SCOPE_TOOLS),
         "--provider",
         provider,
         "--model",
@@ -123,12 +131,9 @@ def run_pi_bridged(input_text: str, bridge_url: str, model: str, provider: str, 
 
 
 def _start_bridge():
-    from src.tools.dsdm_tools import create_dsdm_tool_registry
     from src.tools.tool_service import run_tool_service_in_background
 
-    registry = create_dsdm_tool_registry(include_jira=False, include_confluence=False, include_devops=False)
-    server = run_tool_service_in_background(registry)
-    return server
+    return run_tool_service_in_background(_scoped_registry())
 
 
 def main() -> int:
