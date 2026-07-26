@@ -719,9 +719,10 @@ cp .env.example .env
 #### Feasibility Phase
 - `analyze_requirements`
 - `assess_technical_feasibility`
-- `estimate_resources`
 - `identify_risks`
-- `check_dsdm_suitability`
+- `project_init`
+- `file_write`
+- `directory_create`
 
 #### Business Study Phase
 - `analyze_business_process`

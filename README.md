@@ -1110,11 +1110,10 @@ Key practices used by these agents:
 ### Feasibility Phase
 - `analyze_requirements` - Parse and structure requirements
 - `assess_technical_feasibility` - Evaluate technical viability
-- `estimate_resources` - Estimate team and budget needs
 - `identify_risks` - Document project risks
-- `check_dsdm_suitability` - Verify DSDM fit
 - `project_init` - Create project folder structure
 - `file_write` - Save feasibility report to `generated/<project>/docs/`
+- `directory_create` - Create supporting directories
 
 ### Business Study Phase
 - `analyze_business_process` - Map current processes
