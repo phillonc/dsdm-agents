@@ -62,6 +62,25 @@ IMPORTANT: All testing must be authorized and conducted ethically within the def
 Security findings should be classified by severity (Critical, High, Medium, Low, Informational).
 """
 
+PEN_TESTER_TOOLS = [
+    # Security Scanning
+    "run_security_scan",
+    "security_check",
+    # Dependency Analysis
+    "analyze_dependencies",
+    # Code Review
+    "review_code",
+    "check_code_quality",
+    # Testing
+    "run_tests",
+    # Documentation
+    "create_documentation",
+    "generate_docs",
+    # Risk Management
+    "identify_risks",
+    "update_risk_log",
+]
+
 
 class PenTesterAgent(BaseAgent):
     """Agent for penetration testing and security assessment."""
@@ -78,24 +97,7 @@ class PenTesterAgent(BaseAgent):
             description="Security testing and vulnerability assessment",
             phase="design_build",
             system_prompt=PEN_TESTER_SYSTEM_PROMPT,
-            tools=[
-                # Security Scanning
-                "run_security_scan",
-                "security_check",
-                # Dependency Analysis
-                "analyze_dependencies",
-                # Code Review
-                "review_code",
-                "check_code_quality",
-                # Testing
-                "run_tests",
-                # Documentation
-                "create_documentation",
-                "generate_docs",
-                # Risk Management
-                "identify_risks",
-                "update_risk_log",
-            ],
+            tools=PEN_TESTER_TOOLS,
             mode=mode,
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)

@@ -76,6 +76,31 @@ When work items status changes during deployment, sync to Jira and Confluence:
 This ensures all stakeholders have visibility into deployment progress and system status across both platforms.
 """
 
+IMPLEMENTATION_TOOLS = [
+    "create_deployment_plan",
+    "setup_environment",
+    "deploy_system",
+    "run_smoke_tests",
+    "create_rollback",
+    "execute_rollback",
+    "create_training_materials",
+    "notify_stakeholders",
+    "generate_handover_docs",
+    # File Operations (for saving documentation)
+    "file_write",
+    "file_read",
+    "directory_create",
+    # Jira/Confluence Integration (for syncing work item status)
+    "jira_transition_issue",
+    "jira_update_issue",
+    "jira_add_comment",
+    "jira_search",
+    "sync_work_item_status",
+    "confluence_update_page",
+    "confluence_add_comment",
+    "confluence_create_dsdm_doc",
+]
+
 
 class ImplementationAgent(BaseAgent):
     """Agent for DSDM Implementation phase."""
@@ -92,30 +117,7 @@ class ImplementationAgent(BaseAgent):
             description="Deploys system to production and ensures successful transition",
             phase="implementation",
             system_prompt=IMPLEMENTATION_SYSTEM_PROMPT,
-            tools=[
-                "create_deployment_plan",
-                "setup_environment",
-                "deploy_system",
-                "run_smoke_tests",
-                "create_rollback",
-                "execute_rollback",
-                "create_training_materials",
-                "notify_stakeholders",
-                "generate_handover_docs",
-                # File Operations (for saving documentation)
-                "file_write",
-                "file_read",
-                "directory_create",
-                # Jira/Confluence Integration (for syncing work item status)
-                "jira_transition_issue",
-                "jira_update_issue",
-                "jira_add_comment",
-                "jira_search",
-                "sync_work_item_status",
-                "confluence_update_page",
-                "confluence_add_comment",
-                "confluence_create_dsdm_doc",
-            ],
+            tools=IMPLEMENTATION_TOOLS,
             mode=mode,
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)

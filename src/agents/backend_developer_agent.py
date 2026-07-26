@@ -70,6 +70,37 @@ Files will be saved to: `generated/my-api/src/` and `generated/my-api/tests/`
 When developing backend code, focus on security, scalability, and maintainability.
 """
 
+BACKEND_DEVELOPER_TOOLS = [
+    # Code Development
+    "generate_code",
+    "write_file",
+    "generate_code_scaffold",
+    # File Operations (actual file writing)
+    "project_init",
+    "file_write",
+    "file_read",
+    "file_append",
+    "directory_create",
+    "directory_list",
+    # Architecture
+    "create_technical_design",
+    "define_architecture",
+    # Testing
+    "run_tests",
+    # Quality
+    "run_linter",
+    "check_code_quality",
+    "review_code",
+    "security_check",
+    # Database
+    "backup_database",
+    # Documentation
+    "create_documentation",
+    "generate_docs",
+    # Dependencies
+    "analyze_dependencies",
+]
+
 
 class BackendDeveloperAgent(BaseAgent):
     """Agent for backend server-side development."""
@@ -86,36 +117,7 @@ class BackendDeveloperAgent(BaseAgent):
             description="Server-side logic and API development",
             phase="design_build",
             system_prompt=BACKEND_DEVELOPER_SYSTEM_PROMPT,
-            tools=[
-                # Code Development
-                "generate_code",
-                "write_file",
-                "generate_code_scaffold",
-                # File Operations (actual file writing)
-                "project_init",
-                "file_write",
-                "file_read",
-                "file_append",
-                "directory_create",
-                "directory_list",
-                # Architecture
-                "create_technical_design",
-                "define_architecture",
-                # Testing
-                "run_tests",
-                # Quality
-                "run_linter",
-                "check_code_quality",
-                "review_code",
-                "security_check",
-                # Database
-                "backup_database",
-                # Documentation
-                "create_documentation",
-                "generate_docs",
-                # Dependencies
-                "analyze_dependencies",
-            ],
+            tools=BACKEND_DEVELOPER_TOOLS,
             mode=mode,
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)

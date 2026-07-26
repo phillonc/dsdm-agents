@@ -56,6 +56,26 @@ Your role is to design, implement, and maintain automated test suites to ensure 
 When testing, focus on catching bugs early and maintaining confidence in the codebase.
 """
 
+AUTOMATION_TESTER_TOOLS = [
+    # Test Execution
+    "run_tests",
+    "run_functional_tests",
+    "check_coverage",
+    # Test Development
+    "generate_code",
+    "write_file",
+    # Quality Analysis
+    "run_linter",
+    "check_code_quality",
+    # CI/CD
+    "run_ci_pipeline",
+    # Documentation
+    "create_documentation",
+    "document_iteration",
+    # Reporting
+    "generate_docs",
+]
+
 
 class AutomationTesterAgent(BaseAgent):
     """Agent for automated testing and QA."""
@@ -72,25 +92,7 @@ class AutomationTesterAgent(BaseAgent):
             description="Automated testing and quality assurance",
             phase="design_build",
             system_prompt=AUTOMATION_TESTER_SYSTEM_PROMPT,
-            tools=[
-                # Test Execution
-                "run_tests",
-                "run_functional_tests",
-                "check_coverage",
-                # Test Development
-                "generate_code",
-                "write_file",
-                # Quality Analysis
-                "run_linter",
-                "check_code_quality",
-                # CI/CD
-                "run_ci_pipeline",
-                # Documentation
-                "create_documentation",
-                "document_iteration",
-                # Reporting
-                "generate_docs",
-            ],
+            tools=AUTOMATION_TESTER_TOOLS,
             mode=mode,
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)

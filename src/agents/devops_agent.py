@@ -183,6 +183,45 @@ Your role is to enable and enforce development best practices throughout the sof
 When helping with DevOps tasks, always reference the relevant principle and explain how the action aligns with it.
 """
 
+DEVOPS_TOOLS = [
+    # Testing & Quality (Principle 2, 3)
+    "run_tests",
+    "check_coverage",
+    "run_linter",
+    "run_security_scan",
+    "check_code_quality",
+    # CI/CD & Automation (Principle 5, 10)
+    "run_ci_pipeline",
+    "deploy_to_environment",
+    "rollback_deployment",
+    "automate_task",
+    # Infrastructure (Principle 6, 8)
+    "provision_infrastructure",
+    "validate_terraform",
+    "manage_containers",
+    "scale_service",
+    # Monitoring & Health (Principle 4, 11)
+    "health_check",
+    "setup_monitoring",
+    "check_service_status",
+    "run_chaos_test",
+    # Dependencies & NFRs (Principle 7, 12)
+    "analyze_dependencies",
+    "run_performance_test",
+    "check_accessibility",
+    "validate_nfr",
+    # Documentation & Decisions (Principle 1, 3)
+    "create_adr",
+    "generate_docs",
+    "track_decision",
+    # Task Management (Principle 14)
+    "check_incomplete_tasks",
+    "track_toil",
+    # Backup & Recovery (Principle 9)
+    "backup_database",
+    "test_restore",
+]
+
 
 class DevOpsAgent(BaseAgent):
     """Agent for DevOps tasks based on development principles."""
@@ -199,51 +238,7 @@ class DevOpsAgent(BaseAgent):
             description="Enables development principles through DevOps practices",
             phase="devops",
             system_prompt=DEVOPS_SYSTEM_PROMPT,
-            tools=[
-                # Testing & Quality (Principle 2, 3)
-                "run_tests",
-                "check_coverage",
-                "run_linter",
-                "run_security_scan",
-                "check_code_quality",
-
-                # CI/CD & Automation (Principle 5, 10)
-                "run_ci_pipeline",
-                "deploy_to_environment",
-                "rollback_deployment",
-                "automate_task",
-
-                # Infrastructure (Principle 6, 8)
-                "provision_infrastructure",
-                "validate_terraform",
-                "manage_containers",
-                "scale_service",
-
-                # Monitoring & Health (Principle 4, 11)
-                "health_check",
-                "setup_monitoring",
-                "check_service_status",
-                "run_chaos_test",
-
-                # Dependencies & NFRs (Principle 7, 12)
-                "analyze_dependencies",
-                "run_performance_test",
-                "check_accessibility",
-                "validate_nfr",
-
-                # Documentation & Decisions (Principle 1, 3)
-                "create_adr",
-                "generate_docs",
-                "track_decision",
-
-                # Task Management (Principle 14)
-                "check_incomplete_tasks",
-                "track_toil",
-
-                # Backup & Recovery (Principle 9)
-                "backup_database",
-                "test_restore",
-            ],
+            tools=DEVOPS_TOOLS,
             mode=mode,
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)

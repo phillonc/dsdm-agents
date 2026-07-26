@@ -64,6 +64,29 @@ When work items are created or their status changes, sync to Jira and Confluence
 This ensures all stakeholders have visibility into requirements and priorities across both platforms.
 """
 
+BUSINESS_STUDY_TOOLS = [
+    "analyze_business_process",
+    "identify_stakeholders",
+    "prioritize_requirements",
+    "define_architecture",
+    "create_timebox_plan",
+    "update_risk_log",
+    # File Operations (for saving reports)
+    "project_init",
+    "file_write",
+    "directory_create",
+    # Jira/Confluence Integration (for syncing work item status)
+    "jira_create_issue",
+    "jira_create_user_story",
+    "jira_transition_issue",
+    "jira_add_comment",
+    "jira_bulk_create_requirements",
+    "sync_work_item_status",
+    "confluence_create_page",
+    "confluence_update_page",
+    "confluence_create_dsdm_doc",
+]
+
 
 class BusinessStudyAgent(BaseAgent):
     """Agent for DSDM Business Study phase."""
@@ -80,28 +103,7 @@ class BusinessStudyAgent(BaseAgent):
             description="Defines business context and prioritizes requirements",
             phase="business_study",
             system_prompt=BUSINESS_STUDY_SYSTEM_PROMPT,
-            tools=[
-                "analyze_business_process",
-                "identify_stakeholders",
-                "prioritize_requirements",
-                "define_architecture",
-                "create_timebox_plan",
-                "update_risk_log",
-                # File Operations (for saving reports)
-                "project_init",
-                "file_write",
-                "directory_create",
-                # Jira/Confluence Integration (for syncing work item status)
-                "jira_create_issue",
-                "jira_create_user_story",
-                "jira_transition_issue",
-                "jira_add_comment",
-                "jira_bulk_create_requirements",
-                "sync_work_item_status",
-                "confluence_create_page",
-                "confluence_update_page",
-                "confluence_create_dsdm_doc",
-            ],
+            tools=BUSINESS_STUDY_TOOLS,
             mode=mode,
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)

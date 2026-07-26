@@ -72,6 +72,28 @@ When creating a PRD:
 Always ensure the PRD is actionable for the Dev Lead to create a Technical Requirements Document (TRD).
 """
 
+PRODUCT_MANAGER_TOOLS = [
+    # PRD Creation
+    "generate_product_requirements_document",
+    # Requirements Analysis
+    "analyze_requirements",
+    "prioritize_requirements",
+    # Stakeholder Management
+    "identify_stakeholders",
+    # Risk Management
+    "identify_risks",
+    "update_risk_log",
+    # File Operations (actual file writing)
+    "project_init",
+    "file_write",
+    "file_read",
+    "file_append",
+    "directory_create",
+    "directory_list",
+    # Documentation
+    "create_documentation",
+]
+
 
 class ProductManagerAgent(BaseAgent):
     """Agent for Product Management and PRD creation."""
@@ -88,27 +110,7 @@ class ProductManagerAgent(BaseAgent):
             description="Creates PRD and defines product requirements based on feasibility",
             phase="prd_trd",
             system_prompt=PRODUCT_MANAGER_SYSTEM_PROMPT,
-            tools=[
-                # PRD Creation
-                "generate_product_requirements_document",
-                # Requirements Analysis
-                "analyze_requirements",
-                "prioritize_requirements",
-                # Stakeholder Management
-                "identify_stakeholders",
-                # Risk Management
-                "identify_risks",
-                "update_risk_log",
-                # File Operations (actual file writing)
-                "project_init",
-                "file_write",
-                "file_read",
-                "file_append",
-                "directory_create",
-                "directory_list",
-                # Documentation
-                "create_documentation",
-            ],
+            tools=PRODUCT_MANAGER_TOOLS,
             mode=mode,
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)

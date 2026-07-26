@@ -95,6 +95,32 @@ When work items status changes during design and build, sync to Jira and Conflue
 This ensures all stakeholders have visibility into development progress across both platforms.
 """
 
+DESIGN_BUILD_TOOLS = [
+    "create_technical_design",
+    "generate_code",
+    "write_file",
+    # File Operations (actual file writing)
+    "project_init",
+    "file_write",
+    "file_read",
+    "directory_create",
+    "directory_list",
+    "run_tests",
+    "review_code",
+    "create_documentation",
+    "security_check",
+    # Technical Requirements Document generation
+    "generate_technical_requirements_document",
+    # Jira/Confluence Integration (for syncing work item status)
+    "jira_transition_issue",
+    "jira_update_issue",
+    "jira_add_comment",
+    "jira_search",
+    "sync_work_item_status",
+    "confluence_update_page",
+    "confluence_add_comment",
+]
+
 
 class DesignBuildAgent(BaseAgent):
     """Agent for DSDM Design and Build Iteration phase."""
@@ -111,31 +137,7 @@ class DesignBuildAgent(BaseAgent):
             description="Builds production-ready system from prototypes",
             phase="design_build",
             system_prompt=DESIGN_BUILD_SYSTEM_PROMPT,
-            tools=[
-                "create_technical_design",
-                "generate_code",
-                "write_file",
-                # File Operations (actual file writing)
-                "project_init",
-                "file_write",
-                "file_read",
-                "directory_create",
-                "directory_list",
-                "run_tests",
-                "review_code",
-                "create_documentation",
-                "security_check",
-                # Technical Requirements Document generation
-                "generate_technical_requirements_document",
-                # Jira/Confluence Integration (for syncing work item status)
-                "jira_transition_issue",
-                "jira_update_issue",
-                "jira_add_comment",
-                "jira_search",
-                "sync_work_item_status",
-                "confluence_update_page",
-                "confluence_add_comment",
-            ],
+            tools=DESIGN_BUILD_TOOLS,
             mode=mode,
             max_iterations=100,  # Allow more iterations for complex builds
         )

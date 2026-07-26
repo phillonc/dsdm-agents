@@ -67,6 +67,27 @@ When work items status changes during prototyping iterations, sync to Jira and C
 This ensures all stakeholders have visibility into prototype progress and feedback across both platforms.
 """
 
+FUNCTIONAL_MODEL_TOOLS = [
+    "create_prototype",
+    "generate_code_scaffold",
+    "collect_user_feedback",
+    "refine_requirements",
+    "run_functional_tests",
+    "document_iteration",
+    # File Operations (for saving prototypes and reports)
+    "project_init",
+    "file_write",
+    "file_read",
+    "directory_create",
+    # Jira/Confluence Integration (for syncing work item status)
+    "jira_transition_issue",
+    "jira_update_issue",
+    "jira_add_comment",
+    "sync_work_item_status",
+    "confluence_update_page",
+    "confluence_add_comment",
+]
+
 
 class FunctionalModelAgent(BaseAgent):
     """Agent for DSDM Functional Model Iteration phase."""
@@ -83,26 +104,7 @@ class FunctionalModelAgent(BaseAgent):
             description="Creates and refines functional prototypes iteratively",
             phase="functional_model",
             system_prompt=FUNCTIONAL_MODEL_SYSTEM_PROMPT,
-            tools=[
-                "create_prototype",
-                "generate_code_scaffold",
-                "collect_user_feedback",
-                "refine_requirements",
-                "run_functional_tests",
-                "document_iteration",
-                # File Operations (for saving prototypes and reports)
-                "project_init",
-                "file_write",
-                "file_read",
-                "directory_create",
-                # Jira/Confluence Integration (for syncing work item status)
-                "jira_transition_issue",
-                "jira_update_issue",
-                "jira_add_comment",
-                "sync_work_item_status",
-                "confluence_update_page",
-                "confluence_add_comment",
-            ],
+            tools=FUNCTIONAL_MODEL_TOOLS,
             mode=mode,
         )
         super().__init__(config, tool_registry, approval_callback, progress_callback=progress_callback)

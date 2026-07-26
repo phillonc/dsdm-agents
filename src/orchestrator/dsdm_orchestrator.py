@@ -1,5 +1,7 @@
 """DSDM Orchestrator - Manages agent selection and workflow."""
 
+import json
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Type
@@ -45,6 +47,11 @@ from ..tools.feasibility_optimizer import (
     generate_quick_feasibility_report,
     get_feasibility_cache,
 )
+
+# Pi Agent Runtime (Phase 3) - PAR-PRD-FR-012's AGENT_RUNTIME=legacy|pi cutover.
+# See docs/category-defining-features/11-pi-agent-runtime/TRD.md section 8.
+from ..agents.role_definitions import get_role
+from . import pi_session_runner
 
 
 def _moscow_to_jira_priority(moscow: str) -> str:
@@ -135,6 +142,20 @@ class DSDMOrchestrator:
         DesignBuildRole.PEN_TESTER,
     ]
 
+    # Phases the "pi" agent runtime can run today (Phase 3, partial). PRD_TRD is
+    # deliberately excluded: _run_prd_trd_phase is a hardcoded two-agent
+    # (Product Manager + Dev Lead) sub-workflow with its own approval/sync
+    # logic that hasn't been ported to pi_session_runner yet — it always runs
+    # on the legacy path regardless of AGENT_RUNTIME.
+    _PI_PHASE_TO_ROLE_ID = {
+        DSDMPhase.FEASIBILITY: "feasibility",
+        DSDMPhase.BUSINESS_STUDY: "business-study",
+        DSDMPhase.FUNCTIONAL_MODEL: "functional-model",
+        DSDMPhase.DESIGN_BUILD: "design-build",
+        DSDMPhase.IMPLEMENTATION: "implementation",
+        DSDMPhase.DEVOPS: "devops",
+    }
+
     def __init__(
         self,
         config: Optional[OrchestratorConfig] = None,
@@ -143,6 +164,7 @@ class DSDMOrchestrator:
         include_jira: bool = True,
         include_mcp: bool = True,
         show_progress: bool = True,
+        agent_runtime: Optional[str] = None,
     ):
         self.config = config or self._default_config()
         self.show_progress = show_progress
@@ -160,6 +182,13 @@ class DSDMOrchestrator:
         self.role_results: Dict[DesignBuildRole, AgentResult] = {}
         self.current_phase: Optional[DSDMPhase] = None
         self.current_role: Optional[DesignBuildRole] = None
+
+        # AGENT_RUNTIME=legacy|pi (PAR-PRD-FR-012). Explicit constructor arg wins over
+        # the env var; anything unrecognized falls back to "legacy" rather than erroring,
+        # since this is a rollout flag, not a required setting.
+        resolved_runtime = (agent_runtime or os.environ.get("AGENT_RUNTIME") or "legacy").strip().lower()
+        self.agent_runtime = resolved_runtime if resolved_runtime in ("legacy", "pi") else "legacy"
+        self._pi_bridge = None  # lazily started; see _ensure_pi_bridge()
 
         # Create progress callback if enabled
         self._progress_callback = self.formatter.create_progress_callback() if show_progress else None
@@ -223,6 +252,53 @@ class DSDMOrchestrator:
         self.console.print(f"\n[yellow]Tool approval required:[/yellow] {tool_name}")
         self.console.print(f"[dim]Input: {tool_input}[/dim]")
         return Confirm.ask("Approve this tool execution?")
+
+    def _ensure_pi_bridge(self):
+        """Start the DSDM tools bridge (src/tools/tool_service.py) on first use, reused
+        across every phase run through pi.dev for the lifetime of this orchestrator —
+        one bridge serving the same self.tool_registry every legacy agent already uses,
+        not one per phase."""
+        if self._pi_bridge is None:
+            from ..tools.tool_service import run_tool_service_in_background
+
+            self._pi_bridge = run_tool_service_in_background(self.tool_registry)
+        return self._pi_bridge
+
+    def shutdown_pi_bridge(self) -> None:
+        """Stop the tools bridge if one was started. Safe to call even if it wasn't."""
+        if self._pi_bridge is not None:
+            self._pi_bridge.shutdown()
+            self._pi_bridge = None
+
+    def _use_pi_runtime(self, phase: DSDMPhase) -> bool:
+        return self.agent_runtime == "pi" and phase in self._PI_PHASE_TO_ROLE_ID
+
+    def _run_phase_via_pi(
+        self,
+        phase: DSDMPhase,
+        agent: BaseAgent,
+        user_input: str,
+        context: Optional[Dict[str, Any]],
+    ) -> AgentResult:
+        """Run `phase` through pi.dev instead of `agent.run()`. `agent` is still used for
+        its current `.mode` (respects any set_agent_mode() override), matching legacy
+        behavior exactly other than the execution engine underneath."""
+        role_id = self._PI_PHASE_TO_ROLE_ID[phase]
+        role = get_role(role_id)
+        try:
+            bridge = self._ensure_pi_bridge()
+            pi_result = pi_session_runner.run_role(
+                role,
+                user_input,
+                bridge_url=bridge.base_url,
+                mode=agent.mode,
+                approval_callback=self._approval_callback if self.config.interactive else None,
+                progress_callback=self._progress_callback,
+                context=json.dumps(context) if context else None,
+            )
+        except pi_session_runner.PiCliNotFoundError as exc:
+            return AgentResult(success=False, output=str(exc))
+        return pi_result.to_agent_result()
 
     def get_agent(self, phase: DSDMPhase) -> Optional[BaseAgent]:
         """Get agent for a specific phase."""
@@ -438,7 +514,10 @@ class DSDMOrchestrator:
             if prev_phase in self.results and self.results[prev_phase].next_phase_input:
                 full_context.update(self.results[prev_phase].next_phase_input)
 
-        result = agent.run(user_input, full_context if full_context else None)
+        if self._use_pi_runtime(phase):
+            result = self._run_phase_via_pi(phase, agent, user_input, full_context if full_context else None)
+        else:
+            result = agent.run(user_input, full_context if full_context else None)
         self.results[phase] = result
         self.current_phase = None
 
