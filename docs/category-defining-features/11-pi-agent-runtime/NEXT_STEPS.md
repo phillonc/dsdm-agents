@@ -12,12 +12,14 @@ This is the actionable, priority-ordered follow-up to `PRD.md`/`TRD.md` (section
 | Session runner (RPC client) | Built, tested against a protocol-faithful fake process (29 tests) | `src/orchestrator/pi_session_runner.py` |
 | Orchestrator cutover (`AGENT_RUNTIME`) | 6 of 7 phases wired (not PRD_TRD), tested (13 tests) | `src/orchestrator/dsdm_orchestrator.py` |
 | Private vLLM provider | Built, config-generation tested (11 tests); no real vLLM server to verify against | `pi_session_runner.py` section 22 |
+| CLI wiring (`--agent-runtime`, `--llm-provider`, `--pi-doctor`) | Built, smoke-tested manually against the real CLI | `main.py` |
+| Lazy LLM client construction | Built, regression-tested (5 tests) | `src/agents/base_agent.py` |
 | Git Pin replacement | Not started | — |
 | Native MCP client | Not started | — |
 | Session-tree/audit trail | Not started | — |
 | Legacy code retirement | Not started (nothing has reached `migrated`+bake-in yet) | — |
 
-Full test suite: 85 passing, 1 pre-existing failure unrelated to this work (`test_orchestrator_extension_registers_room_tools` needs a real `ANTHROPIC_API_KEY`, absent in every environment this was built in).
+Full test suite: 91 passing, 0 failures. (The previous pre-existing failure, `test_orchestrator_extension_registers_room_tools`, was fixed as a side effect of making `BaseAgent`'s LLM client construction lazy — see TRD section 23.)
 
 **The single thread running through almost every "not yet verified" note in the TRD**: nothing in this migration has ever been exercised against the real `pi` binary with a real LLM call. Every test either talks to the real CLI without completing a turn (Phase 1's load/unload check) or talks to a fake process that faithfully implements pi.dev's *documented* protocol (Phases 2/3, vLLM). That gap is step 1 below for a reason — nothing after it can be trusted with full confidence until it's closed.
 
@@ -68,6 +70,6 @@ Delete `base_agent.py`'s loop, `git_pin_agent_core.py`, `orchestrator_extension.
 
 ## Not blocking, but worth doing opportunistically
 
-- `main.py --generate-agents` / `--pi-doctor` flags were mentioned in the original TRD's CLI-commands sketch (section 10) but were never built — low priority since nothing currently depends on them.
+- `main.py --generate-agents` was mentioned in the original TRD's CLI-commands sketch (section 10) but was never built — low priority since nothing currently depends on it. (`--pi-doctor` *was* built — see TRD section 23.)
 - README.md and `AGENTS.md` still describe the legacy-only architecture; update once `AGENT_RUNTIME=pi` is the default for at least one phase, not before (premature docs churn otherwise).
 - Decide, and record the answer to, the PRD's open question about vLLM role suitability: is this an all-or-nothing environment setting, or should specific roles (e.g. only low-stakes/high-volume phases like Feasibility) be allowed onto an open-weight model while higher-stakes roles (Dev Lead, Pen Tester) stay on a frontier hosted model? Nothing currently encodes this distinction — it's an operational policy decision, not a code gap, but it should be made explicitly before vLLM is used for real work.

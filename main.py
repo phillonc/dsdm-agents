@@ -29,6 +29,7 @@ from src.agents import (
     DesignBuildAgent,
     ImplementationAgent,
 )
+from src.agents.devops_agent import DevOpsAgent
 from src.rooms import (
     create_delivery_room,
     export_delivery_room,
@@ -37,6 +38,7 @@ from src.rooms import (
 )
 from src.rooms.delivery_room import get_room_base_path
 from src.rooms.room_dashboard import RoomDashboardFilters, build_room_dashboard_markdown
+from src.orchestrator import pi_session_runner
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -47,7 +49,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--interactive", "-i", action="store_true", help="Run in interactive mode")
     parser.add_argument(
         "--phase",
-        choices=["feasibility", "business_study", "functional_model", "design_build", "implementation"],
+        choices=["feasibility", "business_study", "functional_model", "design_build", "implementation", "devops"],
         help="Run a specific phase",
     )
     parser.add_argument("--mode", choices=["manual", "automated", "hybrid"], default="automated", help="Agent mode")
@@ -57,6 +59,26 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--list-tools", action="store_true", help="List all available tools")
     parser.add_argument("--git-pin-pipeline", action="store_true", help="Run Git Pin high-throughput parallel pipeline")
     parser.add_argument("--max-concurrent", type=int, default=4, help="Max concurrent agents for Git Pin pipeline")
+
+    parser.add_argument(
+        "--agent-runtime",
+        choices=["legacy", "pi"],
+        default=None,
+        help="Execution runtime for eligible phases (feasibility, business_study, functional_model, "
+        "design_build, implementation, devops). Defaults to the AGENT_RUNTIME env var, or 'legacy'.",
+    )
+    parser.add_argument(
+        "--llm-provider",
+        choices=["anthropic", "openai", "gemini", "ollama", "vllm"],
+        default=None,
+        help="LLM provider to use. Defaults to the LLM_PROVIDER env var, or 'anthropic'. "
+        "'vllm' targets a private/self-hosted vLLM endpoint and requires --agent-runtime pi.",
+    )
+    parser.add_argument(
+        "--pi-doctor",
+        action="store_true",
+        help="Diagnose pi.dev agent runtime setup (pi CLI, extensions, vLLM config) and exit",
+    )
 
     parser.add_argument("--room-create", action="store_true", help="Create an Autonomous Delivery Room")
     parser.add_argument("--room-run", action="store_true", help="Create and run an Autonomous Delivery Room")
@@ -80,19 +102,110 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _requires_llm(args: argparse.Namespace) -> bool:
     """Return True when the selected command needs an LLM provider."""
-    return not (args.room_create or args.room_status or args.room_export or args.room_dashboard)
+    return not (
+        args.pi_doctor
+        or args.room_create
+        or args.room_status
+        or args.room_export
+        or args.room_dashboard
+    )
 
 
-def _check_llm_provider(console: Console) -> None:
+def _resolve_agent_runtime(args: argparse.Namespace) -> str:
+    """Mirror DSDMOrchestrator's own --agent-runtime / AGENT_RUNTIME / default precedence."""
+    resolved = (args.agent_runtime or os.environ.get("AGENT_RUNTIME") or "legacy").strip().lower()
+    return resolved if resolved in ("legacy", "pi") else "legacy"
+
+
+def _check_llm_provider(console: Console, agent_runtime: str) -> None:
     """Validate LLM provider configuration for agent commands."""
     provider = os.environ.get("LLM_PROVIDER", "anthropic").lower()
-    api_key_map = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY", "ollama": None}
+    api_key_map = {
+        "anthropic": "ANTHROPIC_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+        "ollama": None,
+        "vllm": None,
+    }
+    if provider not in api_key_map:
+        console.print(f"[red]Error: unknown LLM_PROVIDER '{provider}'[/red]")
+        console.print("\nAvailable providers: anthropic, openai, gemini, ollama, vllm")
+        sys.exit(1)
+
+    if provider == "vllm":
+        if agent_runtime != "pi":
+            console.print("[red]Error: LLM_PROVIDER=vllm requires --agent-runtime pi (or AGENT_RUNTIME=pi)[/red]")
+            console.print("The private vLLM provider is only wired up through the pi.dev agent runtime.")
+            sys.exit(1)
+        missing = [
+            var for var in ("DSDM_VLLM_BASE_URL", "DSDM_VLLM_MODEL_ID") if not os.environ.get(var)
+        ]
+        if missing:
+            console.print(f"[red]Error: missing required env var(s) for vllm: {', '.join(missing)}[/red]")
+            console.print("Set DSDM_VLLM_BASE_URL (the private/VPC vLLM endpoint) and DSDM_VLLM_MODEL_ID "
+                           "(the model the vLLM server was launched with) in your .env file.")
+            sys.exit(1)
+        return
+
     required_key = api_key_map.get(provider)
     if required_key and not os.environ.get(required_key):
         console.print(f"[red]Error: {required_key} not set[/red]")
         console.print(f"Please set your API key in .env file for provider: {provider}")
-        console.print("\nAvailable providers: anthropic, openai, gemini, ollama")
+        console.print("\nAvailable providers: anthropic, openai, gemini, ollama, vllm")
         sys.exit(1)
+
+
+def _run_pi_doctor(console: Console, agent_runtime: str) -> None:
+    """Diagnose pi.dev agent runtime setup without running any agent."""
+    console.print("[bold cyan]Pi Agent Runtime Doctor[/bold cyan]\n")
+
+    table = Table(show_header=False)
+    table.add_column("Check", style="cyan")
+    table.add_column("Result")
+
+    ok = True
+
+    table.add_row("AGENT_RUNTIME", agent_runtime)
+
+    pi_bin_ok = pi_session_runner.PI_BIN.exists()
+    ok = ok and pi_bin_ok
+    table.add_row(
+        "pi CLI binary",
+        f"[green]found[/green] ({pi_session_runner.PI_BIN})" if pi_bin_ok else f"[red]missing[/red] ({pi_session_runner.PI_BIN})",
+    )
+
+    for label, path in (
+        ("dsdm-tools-bridge extension", pi_session_runner.TOOLS_BRIDGE_EXTENSION),
+        ("dsdm-approval-gate extension", pi_session_runner.APPROVAL_GATE_EXTENSION),
+    ):
+        exists = path.exists()
+        ok = ok and exists
+        table.add_row(label, f"[green]found[/green] ({path})" if exists else f"[red]missing[/red] ({path})")
+
+    provider = os.environ.get("LLM_PROVIDER", "anthropic").lower()
+    resolved_provider = pi_session_runner._resolve_provider(provider)
+    table.add_row("LLM_PROVIDER", f"{provider} -> pi provider '{resolved_provider}'")
+
+    if provider == "vllm":
+        import tempfile
+
+        tmp_dir = Path(tempfile.mkdtemp(prefix="dsdm-pi-doctor-"))
+        try:
+            pi_session_runner._write_vllm_models_config(tmp_dir)
+            table.add_row("vLLM models.json", "[green]valid[/green] (DSDM_VLLM_BASE_URL / DSDM_VLLM_MODEL_ID set)")
+        except pi_session_runner.VllmConfigurationError as exc:
+            ok = False
+            table.add_row("vLLM models.json", f"[red]invalid[/red]: {exc}")
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    console.print(table)
+    if not ok:
+        console.print("\n[red]One or more checks failed.[/red]")
+        sys.exit(1)
+    console.print("\n[green]All checks passed.[/green]")
 
 
 def _dashboard_filters_from_args(args: argparse.Namespace) -> RoomDashboardFilters:
@@ -195,7 +308,7 @@ def _handle_room_commands(args: argparse.Namespace, console: Console) -> bool:
     return False
 
 
-def _create_orchestrator(args: argparse.Namespace) -> DSDMOrchestrator:
+def _create_orchestrator(args: argparse.Namespace, agent_runtime: str) -> DSDMOrchestrator:
     """Create the DSDM orchestrator. Delivery-room tools are registered natively."""
     config = OrchestratorConfig(
         phases=[
@@ -205,11 +318,18 @@ def _create_orchestrator(args: argparse.Namespace) -> DSDMOrchestrator:
             PhaseConfig(DSDMPhase.FUNCTIONAL_MODEL, FunctionalModelAgent, AgentMode(args.mode)),
             PhaseConfig(DSDMPhase.DESIGN_BUILD, DesignBuildAgent, AgentMode(args.mode)),
             PhaseConfig(DSDMPhase.IMPLEMENTATION, ImplementationAgent, AgentMode.MANUAL if args.mode == "automated" else AgentMode(args.mode)),
+            PhaseConfig(DSDMPhase.DEVOPS, DevOpsAgent, AgentMode.HYBRID if args.mode == "automated" else AgentMode(args.mode)),
         ],
         interactive=args.interactive or not args.input,
         auto_advance=False,
     )
-    return DSDMOrchestrator(config, include_devops=False, include_jira=False, include_confluence=False)
+    return DSDMOrchestrator(
+        config,
+        include_devops=True,
+        include_jira=False,
+        include_confluence=False,
+        agent_runtime=agent_runtime,
+    )
 
 
 def main():
@@ -219,43 +339,54 @@ def main():
     parser = _build_parser()
     args = parser.parse_args()
 
+    if args.llm_provider:
+        os.environ["LLM_PROVIDER"] = args.llm_provider
+
+    agent_runtime = _resolve_agent_runtime(args)
+
+    if args.pi_doctor:
+        _run_pi_doctor(console, agent_runtime)
+        return
+
     if _handle_room_commands(args, console):
         return
     if _requires_llm(args):
-        _check_llm_provider(console)
+        _check_llm_provider(console, agent_runtime)
 
-    orchestrator = _create_orchestrator(args)
+    orchestrator = _create_orchestrator(args, agent_runtime)
+    try:
+        if args.list_phases:
+            orchestrator.list_phases()
+            return
+        if args.list_tools:
+            orchestrator.list_tools()
+            return
+        if args.room_run:
+            if not args.input:
+                console.print("[red]Error: --room-run requires --input mission text[/red]")
+                sys.exit(1)
+            room = orchestrator.run_delivery_room(args.input, args.room_project, args.room_template, overwrite=args.room_overwrite)
+            export_path = export_delivery_room(room.project_name)
+            console.print(f"[green]Delivery room workflow finished:[/green] {room.project_name}")
+            console.print(f"Dashboard: {export_path}")
+            _print_room_status(console, room.project_name)
+            return
+        if args.interactive:
+            orchestrator.interactive_menu()
+            return
+        if args.phase and args.input:
+            orchestrator.run_phase(DSDMPhase(args.phase), args.input)
+            return
+        if args.workflow and args.input:
+            orchestrator.run_workflow(args.input)
+            return
+        if args.git_pin_pipeline and args.input:
+            orchestrator.run_git_pin_pipeline(args.input, max_concurrent=args.max_concurrent)
+            return
 
-    if args.list_phases:
-        orchestrator.list_phases()
-        return
-    if args.list_tools:
-        orchestrator.list_tools()
-        return
-    if args.room_run:
-        if not args.input:
-            console.print("[red]Error: --room-run requires --input mission text[/red]")
-            sys.exit(1)
-        room = orchestrator.run_delivery_room(args.input, args.room_project, args.room_template, overwrite=args.room_overwrite)
-        export_path = export_delivery_room(room.project_name)
-        console.print(f"[green]Delivery room workflow finished:[/green] {room.project_name}")
-        console.print(f"Dashboard: {export_path}")
-        _print_room_status(console, room.project_name)
-        return
-    if args.interactive:
         orchestrator.interactive_menu()
-        return
-    if args.phase and args.input:
-        orchestrator.run_phase(DSDMPhase(args.phase), args.input)
-        return
-    if args.workflow and args.input:
-        orchestrator.run_workflow(args.input)
-        return
-    if args.git_pin_pipeline and args.input:
-        orchestrator.run_git_pin_pipeline(args.input, max_concurrent=args.max_concurrent)
-        return
-
-    orchestrator.interactive_menu()
+    finally:
+        orchestrator.shutdown_pi_bridge()
 
 
 if __name__ == "__main__":
