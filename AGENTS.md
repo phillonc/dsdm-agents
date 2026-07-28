@@ -8,10 +8,11 @@ This file is the project-level instruction file read by **GitHub Copilot CLI**, 
 
 | Path | Purpose |
 |------|---------|
-| `src/agents/` | Python agent classes (one per role) |
-| `src/orchestrator/` | DSDM workflow orchestrator that chains phases together |
-| `src/tools/` | Tool registry consumed by every agent (DSDM tools, file tools, integrations) |
+| `src/agents/` | Python agent classes (one per role); `role_definitions.py` is the single source of truth for tools/system-prompt/mode per role |
+| `src/orchestrator/` | DSDM workflow orchestrator that chains phases together; `pi_session_runner.py` runs a role through the pi.dev runtime when `AGENT_RUNTIME=pi` |
+| `src/tools/` | Tool registry consumed by every agent (DSDM tools, file tools, integrations); `tool_service.py` bridges the registry to pi.dev |
 | `src/rooms/` | Multi-agent "delivery room" runtime |
+| `pi/` | pi.dev TypeScript workspace (`dsdm-tools-bridge`, `dsdm-approval-gate` extensions) — the `pi` agent execution runtime |
 | `docs/` | Source-of-truth requirements, workflow diagram, technical reqs |
 | `generated/` | **All agent output goes here** — one folder per project |
 | `.github/agents/` | Copilot CLI custom agents (one `.agent.md` per role) |
@@ -74,6 +75,10 @@ Run with `copilot --prompt-file .github/prompts/<file>.prompt.md` (or via the in
 - Install: `pip install -r requirements.txt`.
 - Configure secrets in `.env` (see `.env.example`) — `ANTHROPIC_API_KEY` is required; `JIRA_*` / `CONFLUENCE_*` are optional.
 - Entry point: `python main.py --workflow --input "..."` or `python main.py --phase <phase> --input "..."`.
+
+## Agent execution runtime
+
+By default every phase runs on the legacy Python agent loop (`src/agents/base_agent.py`). Pass `--agent-runtime pi` (or set `AGENT_RUNTIME=pi`) to route eligible phases (feasibility, business_study, functional_model, design_build, implementation, devops) through [pi.dev](https://pi.dev/) instead — same tool registry and approval semantics, different execution engine. This is also how a private/self-hosted vLLM model is used: set `LLM_PROVIDER=vllm` plus `DSDM_VLLM_BASE_URL`/`DSDM_VLLM_MODEL_ID` alongside `--agent-runtime pi`. Any role may be configured onto vLLM — there is no built-in restriction reserving specific roles for a hosted provider. Run `python main.py --pi-doctor` to check the setup, and `python main.py --generate-agents` to check `role_definitions.py` for drift against `ToolRegistry`/`.github/agents/*.agent.md`. See `docs/category-defining-features/11-pi-agent-runtime/` for the full design and current migration state.
 
 ## Locked paths
 

@@ -296,7 +296,7 @@ class DSDMOrchestrator:
                 progress_callback=self._progress_callback,
                 context=json.dumps(context) if context else None,
             )
-        except pi_session_runner.PiCliNotFoundError as exc:
+        except (pi_session_runner.PiCliNotFoundError, pi_session_runner.VllmConfigurationError) as exc:
             return AgentResult(success=False, output=str(exc))
         return pi_result.to_agent_result()
 

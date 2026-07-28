@@ -104,19 +104,13 @@ class BaseAgent(ABC):
         self.approval_callback = approval_callback
         self.progress_callback = progress_callback
 
-        # Initialize LLM client - use provided client, or create from config/env
-        if llm_client is not None:
-            self.llm_client = llm_client
-        else:
-            llm_config = LLMConfig.from_env(config.llm_provider)
-            # Override model if specified in agent config
-            if config.model:
-                llm_config.model = config.model
-            else:
-                # Use phase-optimized model for faster execution
-                from src.llm.providers import get_model_for_phase
-                llm_config.model = get_model_for_phase(config.phase, llm_config.model)
-            self.llm_client = create_llm_client(config=llm_config)
+        # LLM client is built lazily (see the llm_client property below), not here.
+        # Instantiating an agent must not require a configured LLM provider: with
+        # AGENT_RUNTIME=pi, DSDMOrchestrator still constructs one BaseAgent per phase
+        # (for its .mode/.name/.config metadata) even though phases routed through
+        # pi.dev never call run() on it — that path may be using a private vLLM
+        # endpoint with no hosted-provider API key configured at all.
+        self._llm_client = llm_client
 
         # Apply phase-specific max_iterations if not explicitly set
         from src.llm.providers import get_max_iterations_for_phase
@@ -145,6 +139,23 @@ class BaseAgent(ABC):
     def set_progress_callback(self, callback: Optional[ProgressCallback]) -> None:
         """Set or update the progress callback."""
         self.progress_callback = callback
+
+    @property
+    def llm_client(self) -> BaseLLMClient:
+        """Built and cached on first access, not at construction time.
+
+        Raises the same ValueError create_llm_client always raised, just deferred
+        until something actually needs the client (run()) instead of at __init__.
+        """
+        if self._llm_client is None:
+            llm_config = LLMConfig.from_env(self.config.llm_provider)
+            if self.config.model:
+                llm_config.model = self.config.model
+            else:
+                from src.llm.providers import get_model_for_phase
+                llm_config.model = get_model_for_phase(self.config.phase, llm_config.model)
+            self._llm_client = create_llm_client(config=llm_config)
+        return self._llm_client
 
     @property
     def name(self) -> str:

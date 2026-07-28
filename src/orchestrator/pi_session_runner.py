@@ -29,7 +29,9 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
+import tempfile
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,13 +46,20 @@ PI_BIN = PI_DIR / "node_modules" / ".bin" / "pi"
 TOOLS_BRIDGE_EXTENSION = PI_DIR / "extensions" / "dsdm-tools-bridge"
 APPROVAL_GATE_EXTENSION = PI_DIR / "extensions" / "dsdm-approval-gate"
 
+# The custom provider key this runner defines in the generated models.json
+# (section 22.2 of the TRD) — not a pi.dev built-in provider name.
+VLLM_PROVIDER_NAME = "dsdm-vllm"
+
 # DSDM's LLM_PROVIDER values -> pi.dev's --provider names. pi.dev calls Google's
-# provider "google", not "gemini" — a real naming mismatch, not a typo.
+# provider "google", not "gemini" — a real naming mismatch, not a typo. "vllm"
+# resolves to a custom provider this runner defines itself via a generated
+# models.json (see _write_vllm_models_config), not a pi.dev built-in.
 _PROVIDER_TO_PI = {
     "anthropic": "anthropic",
     "openai": "openai",
     "gemini": "google",
     "ollama": "ollama",
+    "vllm": VLLM_PROVIDER_NAME,
 }
 
 DEFAULT_TIMEOUT_SECONDS = 600
@@ -58,6 +67,15 @@ DEFAULT_TIMEOUT_SECONDS = 600
 
 class PiCliNotFoundError(RuntimeError):
     """Raised when the pi.dev CLI isn't installed at pi/node_modules/.bin/pi."""
+
+
+class VllmConfigurationError(RuntimeError):
+    """Raised when LLM_PROVIDER=vllm is selected but required env vars are missing.
+
+    Deliberately fails closed (PAR-PRD-FR-015): there is no fallback to a
+    hosted provider when the private vLLM configuration is incomplete or the
+    endpoint is unreachable.
+    """
 
 
 @dataclass
@@ -149,16 +167,62 @@ def _extract_last_assistant_text(messages: List[Dict[str, Any]]) -> str:
 
 
 def _resolve_provider(explicit: Optional[str]) -> Optional[str]:
-    if explicit:
-        return explicit
-    env_provider = (os.environ.get("LLM_PROVIDER") or "").strip().lower()
-    return _PROVIDER_TO_PI.get(env_provider)
+    """Resolve a DSDM provider name (explicit arg or LLM_PROVIDER env var) to the
+    pi.dev provider name to pass on the CLI.
+
+    Both sources are normalized through the same _PROVIDER_TO_PI mapping — an
+    earlier version returned `explicit` unmapped, so passing "gemini" or "vllm"
+    explicitly silently skipped the "google"/"dsdm-vllm" translation that the
+    env-var path applied correctly. A value that doesn't match any known DSDM
+    name is passed through as-is, so a caller can still name any raw pi.dev
+    provider directly (PAR-PRD-FR-004: "any provider pi-ai supports").
+    """
+    candidate = explicit or os.environ.get("LLM_PROVIDER")
+    if not candidate:
+        return None
+    candidate = candidate.strip().lower()
+    return _PROVIDER_TO_PI.get(candidate, candidate)
+
+
+def _write_vllm_models_config(config_dir: Path, model_id: Optional[str] = None) -> None:
+    """Write models.json declaring the private vLLM endpoint as a custom provider
+    (TRD section 22.2), sourced entirely from environment variables — the endpoint
+    URL and any bearer token are never hardcoded (PAR-PRD-FR-016).
+
+    Raises VllmConfigurationError (fails closed, no hosted-provider fallback —
+    PAR-PRD-FR-015) if the required env vars aren't set.
+    """
+    base_url = os.environ.get("DSDM_VLLM_BASE_URL")
+    resolved_model_id = model_id or os.environ.get("DSDM_VLLM_MODEL_ID")
+    if not base_url:
+        raise VllmConfigurationError(
+            "LLM_PROVIDER=vllm requires DSDM_VLLM_BASE_URL (the private/VPC vLLM endpoint) to be set."
+        )
+    if not resolved_model_id:
+        raise VllmConfigurationError(
+            "LLM_PROVIDER=vllm requires DSDM_VLLM_MODEL_ID (the model the vLLM server was launched with) to be set."
+        )
+
+    api_key = os.environ.get("DSDM_VLLM_API_KEY") or "dsdm-vllm-unused"
+    config = {
+        "providers": {
+            VLLM_PROVIDER_NAME: {
+                "baseUrl": base_url,
+                "api": "openai-completions",
+                "apiKey": api_key,
+                # vLLM is explicitly named in pi.dev's own docs as commonly needing this.
+                "compat": {"supportsDeveloperRole": False},
+                "models": [{"id": resolved_model_id}],
+            }
+        }
+    }
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "models.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
 
 
 def _build_command(
     role: RoleDefinition,
-    mode: AgentMode,
-    provider: Optional[str],
+    resolved_provider: Optional[str],
     model: Optional[str],
     session_dir: Optional[Path],
 ) -> List[str]:
@@ -177,7 +241,6 @@ def _build_command(
         "--mode",
         "rpc",
     ]
-    resolved_provider = _resolve_provider(provider)
     resolved_model = model or role.model
     if resolved_provider:
         cmd += ["--provider", resolved_provider]
@@ -229,7 +292,25 @@ def run_role(
     if project:
         env["DSDM_PROJECT"] = project
 
-    cmd = _build_command(role, effective_mode, provider, model, session_dir)
+    resolved_provider = _resolve_provider(provider)
+
+    # Private vLLM provider (TRD section 22): models.json's baseUrl has no env-var
+    # indirection, so the endpoint is written into a per-run, per-invocation config
+    # directory rather than a static checked-in file — never persisted past this one
+    # subprocess call. PI_CODING_AGENT_DIR here only scopes THIS Popen's environment,
+    # not the whole orchestrator process, so other roles using a hosted provider in
+    # the same run are unaffected.
+    vllm_config_dir: Optional[str] = None
+    if resolved_provider == VLLM_PROVIDER_NAME:
+        vllm_config_dir = tempfile.mkdtemp(prefix="dsdm-vllm-config-")
+        try:
+            _write_vllm_models_config(Path(vllm_config_dir), model_id=model or role.model)
+        except VllmConfigurationError:
+            shutil.rmtree(vllm_config_dir, ignore_errors=True)
+            raise
+        env["PI_CODING_AGENT_DIR"] = vllm_config_dir
+
+    cmd = _build_command(role, resolved_provider, model, session_dir)
     prompt = f"Context: {context}\n\n{user_input}" if context else user_input
 
     if progress_callback:
@@ -327,6 +408,8 @@ def run_role(
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=5)
+        if vllm_config_dir:
+            shutil.rmtree(vllm_config_dir, ignore_errors=True)
 
     if error is None and not saw_agent_end:
         stderr_tail = ""
