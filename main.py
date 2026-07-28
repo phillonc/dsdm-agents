@@ -39,6 +39,8 @@ from src.rooms import (
 from src.rooms.delivery_room import get_room_base_path
 from src.rooms.room_dashboard import RoomDashboardFilters, build_room_dashboard_markdown
 from src.orchestrator import pi_session_runner
+from src.agents.role_definitions_check import check_role_definitions
+from src.tools.dsdm_tools import create_dsdm_tool_registry
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -79,6 +81,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Diagnose pi.dev agent runtime setup (pi CLI, extensions, vLLM config) and exit",
     )
+    parser.add_argument(
+        "--generate-agents",
+        action="store_true",
+        help="Check role_definitions.py for drift against ToolRegistry and .github/agents/*.agent.md, and exit",
+    )
 
     parser.add_argument("--room-create", action="store_true", help="Create an Autonomous Delivery Room")
     parser.add_argument("--room-run", action="store_true", help="Create and run an Autonomous Delivery Room")
@@ -104,6 +111,7 @@ def _requires_llm(args: argparse.Namespace) -> bool:
     """Return True when the selected command needs an LLM provider."""
     return not (
         args.pi_doctor
+        or args.generate_agents
         or args.room_create
         or args.room_status
         or args.room_export
@@ -206,6 +214,36 @@ def _run_pi_doctor(console: Console, agent_runtime: str) -> None:
         console.print("\n[red]One or more checks failed.[/red]")
         sys.exit(1)
     console.print("\n[green]All checks passed.[/green]")
+
+
+def _run_generate_agents(console: Console) -> None:
+    """Check role_definitions.py (the single source of truth for every DSDM role)
+    for drift against ToolRegistry and .github/agents/*.agent.md.
+
+    Does not overwrite .agent.md content: that file's prose is intentionally
+    hand-authored, not generated from RoleDefinition — see
+    src/agents/role_definitions_check.py and role_definitions.py's module
+    docstring for why. This is a structural consistency check, the same one
+    tests/test_role_definitions.py runs in CI, exposed here so an operator can
+    run it without pytest after editing a role's tools or handoffs.
+    """
+    console.print("[bold cyan]Role Definitions Consistency Check[/bold cyan]\n")
+    registry = create_dsdm_tool_registry(include_jira=True, include_confluence=True, include_devops=True)
+    issues = check_role_definitions(registry)
+
+    if not issues:
+        console.print("[green]No drift found: every role's tools resolve, and every "
+                       ".agent.md file matches its RoleDefinition.[/green]")
+        return
+
+    table = Table(title="Consistency Issues")
+    table.add_column("Role", style="cyan")
+    table.add_column("Problem", style="red")
+    for issue in issues:
+        table.add_row(issue.role_id, issue.problem)
+    console.print(table)
+    console.print(f"\n[red]{len(issues)} issue(s) found.[/red]")
+    sys.exit(1)
 
 
 def _dashboard_filters_from_args(args: argparse.Namespace) -> RoomDashboardFilters:
@@ -346,6 +384,9 @@ def main():
 
     if args.pi_doctor:
         _run_pi_doctor(console, agent_runtime)
+        return
+    if args.generate_agents:
+        _run_generate_agents(console)
         return
 
     if _handle_room_commands(args, console):

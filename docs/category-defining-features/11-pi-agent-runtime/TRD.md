@@ -408,6 +408,8 @@ This only affects the *one* role's subprocess invocation. Other roles in the sam
 - Does not provision, deploy, or health-check the vLLM server itself. This is provider *plumbing* on the pi.dev/DSDM side; the GPU cluster, VPC networking, and vLLM process are assumed to already exist and be reachable at `DSDM_VLLM_BASE_URL` (PRD non-goal).
 - Does not change `role_definitions.py`. Provider/endpoint selection is an orchestrator/environment-level concern (which backend serves the model), orthogonal to which role is running — no `RoleDefinition` field encodes "must run on vLLM."
 
+**Role-suitability decision (resolves PRD section 13's open question):** every role is eligible to run on vLLM/an open-weight model — Dev Lead, Pen Tester, and every other role included, not just low-stakes/high-volume phases like Feasibility. This matches the implementation as built: `LLM_PROVIDER=vllm` is a single environment-level setting that applies uniformly to every phase `_run_phase_via_pi()` routes through `pi_session_runner.run_role()` in one orchestrator run (section 8), with no per-role override or restriction anywhere in `RoleDefinition`, `pi_session_runner.py`, or `DSDMOrchestrator`. An operator who wants a specific role kept on a frontier hosted provider does so by leaving that phase's `AGENT_RUNTIME` at `legacy`, or by running a separate invocation with a different `LLM_PROVIDER` — not through a built-in allowlist/denylist, since none was built and none is needed given this decision.
+
 ## 23. Lazy LLM Client Construction and CLI Wiring
 
 ### 23.1 Bug: constructing an agent required a hosted-provider API key even under `AGENT_RUNTIME=pi`

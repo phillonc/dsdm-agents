@@ -12,7 +12,7 @@ This is the actionable, priority-ordered follow-up to `PRD.md`/`TRD.md` (section
 | Session runner (RPC client) | Built, tested against a protocol-faithful fake process (29 tests) | `src/orchestrator/pi_session_runner.py` |
 | Orchestrator cutover (`AGENT_RUNTIME`) | 6 of 7 phases wired (not PRD_TRD), tested (13 tests) | `src/orchestrator/dsdm_orchestrator.py` |
 | Private vLLM provider | Built, config-generation tested (11 tests); no real vLLM server to verify against | `pi_session_runner.py` section 22 |
-| CLI wiring (`--agent-runtime`, `--llm-provider`, `--pi-doctor`) | Built, smoke-tested manually against the real CLI | `main.py` |
+| CLI wiring (`--agent-runtime`, `--llm-provider`, `--pi-doctor`, `--generate-agents`) | Built, smoke-tested manually against the real CLI | `main.py`, `src/agents/role_definitions_check.py` |
 | Lazy LLM client construction | Built, regression-tested (5 tests) | `src/agents/base_agent.py` |
 | Git Pin replacement | Not started | — |
 | Native MCP client | Not started | — |
@@ -70,6 +70,8 @@ Delete `base_agent.py`'s loop, `git_pin_agent_core.py`, `orchestrator_extension.
 
 ## Not blocking, but worth doing opportunistically
 
-- `main.py --generate-agents` was mentioned in the original TRD's CLI-commands sketch (section 10) but was never built — low priority since nothing currently depends on it. (`--pi-doctor` *was* built — see TRD section 23.)
-- README.md and `AGENTS.md` still describe the legacy-only architecture; update once `AGENT_RUNTIME=pi` is the default for at least one phase, not before (premature docs churn otherwise).
-- Decide, and record the answer to, the PRD's open question about vLLM role suitability: is this an all-or-nothing environment setting, or should specific roles (e.g. only low-stakes/high-volume phases like Feasibility) be allowed onto an open-weight model while higher-stakes roles (Dev Lead, Pen Tester) stay on a frontier hosted model? Nothing currently encodes this distinction — it's an operational policy decision, not a code gap, but it should be made explicitly before vLLM is used for real work.
+All three items originally listed here are now done:
+
+- **`main.py --generate-agents`**: built as a structural drift check (`src/agents/role_definitions_check.py`), not a content generator — `.github/agents/*.agent.md` prose stays intentionally hand-authored (see `role_definitions.py`'s module docstring for why regenerating it would destroy real content rather than produce it). Checks every role's tools resolve in `ToolRegistry` and every `.agent.md` file matches its `RoleDefinition`.
+- **README.md / AGENTS.md**: updated ahead of `AGENT_RUNTIME=pi` becoming any phase's default (the original gating condition), since the CLI flags and vLLM provider are now real, operator-reachable functionality worth documenting regardless of what the default is. `legacy` is still the default runtime — nothing here changed that.
+- **vLLM role-suitability policy**: decided — every role may be configured onto vLLM/an open-weight model, no per-role restriction. Recorded in PRD.md section 13 and TRD section 22.5.

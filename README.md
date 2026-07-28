@@ -242,6 +242,28 @@ Each agent has specialized tools and can operate in **Manual**, **Automated**, o
 - **OpenAI GPT** - gpt-4o, gpt-4-turbo, gpt-3.5-turbo
 - **Google Gemini** - gemini-2.5-pro, gemini-2.5-flash
 - **Ollama Local** - kimi-k2-thinking, llama3.2, codellama, or any Ollama model
+- **vLLM (private/self-hosted)** - any open-weight model served behind a private VPC endpoint or on-prem GPU cluster; requires `--agent-runtime pi` (see below)
+
+#### Agent Execution Runtime
+
+Every phase can run on one of two execution engines, selected with `--agent-runtime` (or the `AGENT_RUNTIME` env var):
+
+- **`legacy` (default)** - the original hand-rolled Python agent loop in `src/agents/base_agent.py`.
+- **`pi`** - routes eligible phases (feasibility, business_study, functional_model, design_build, implementation, devops) through [pi.dev](https://pi.dev/)'s TypeScript agent harness, using the same tool registry and approval semantics via a local bridge (`src/tools/tool_service.py`, `pi/extensions/`). This is what makes the vLLM/private-GPU provider above reachable — set `LLM_PROVIDER=vllm` plus `DSDM_VLLM_BASE_URL`/`DSDM_VLLM_MODEL_ID` and pass `--agent-runtime pi`.
+
+```bash
+# Run one phase through pi.dev instead of the legacy loop
+python main.py --phase feasibility --agent-runtime pi --input "..."
+
+# Point it at a private vLLM endpoint
+DSDM_VLLM_BASE_URL=http://vllm.internal:8000/v1 DSDM_VLLM_MODEL_ID=my-open-model \
+  python main.py --phase feasibility --agent-runtime pi --llm-provider vllm --input "..."
+
+# Diagnose the pi.dev setup (pi CLI, extensions, vLLM config) without running anything
+python main.py --pi-doctor --agent-runtime pi --llm-provider vllm
+```
+
+`PRD_TRD` always runs on the legacy path (its two-agent Product Manager/Dev Lead sub-workflow hasn't been ported yet). See `docs/category-defining-features/11-pi-agent-runtime/` for the full PRD/TRD and migration roadmap.
 
 ### Output & Project Management
 
@@ -505,6 +527,10 @@ python main.py --list-tools
 | `--interactive` | Launch interactive menu | `python main.py --interactive` |
 | `--list-phases` | List all available phases | `python main.py --list-phases` |
 | `--list-tools` | List all available tools | `python main.py --list-tools` |
+| `--agent-runtime <runtime>` | Execution engine: `legacy` (default) or `pi` (pi.dev) | `python main.py --phase feasibility --agent-runtime pi --input "..."` |
+| `--llm-provider <provider>` | `anthropic`, `openai`, `gemini`, `ollama`, or `vllm` | `python main.py --llm-provider vllm --agent-runtime pi --input "..."` |
+| `--pi-doctor` | Diagnose the pi.dev runtime setup and exit | `python main.py --pi-doctor` |
+| `--generate-agents` | Check role definitions for drift and exit | `python main.py --generate-agents` |
 
 #### Valid Phase Names
 
@@ -515,6 +541,7 @@ python main.py --list-tools
 | `functional_model` | Create prototypes |
 | `design_build` | Develop production code |
 | `implementation` | Deploy to production |
+| `devops` | Quality gates, CI/CD, IaC, security scans |
 
 #### Common Command Patterns
 
