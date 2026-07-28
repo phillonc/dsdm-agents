@@ -178,9 +178,26 @@ def test_resolve_provider_explicit_overrides_env(monkeypatch):
     assert runner._resolve_provider("anthropic") == "anthropic"
 
 
-def test_resolve_provider_unknown_env_returns_none(monkeypatch):
-    monkeypatch.setenv("LLM_PROVIDER", "not-a-real-provider")
+def test_resolve_provider_unrecognized_value_passes_through_raw(monkeypatch):
+    # Not in _PROVIDER_TO_PI -> assumed to be a raw pi.dev provider name the
+    # caller wants passed straight through (PAR-PRD-FR-004: "any provider
+    # pi-ai supports"), not silently dropped to None.
+    monkeypatch.setenv("LLM_PROVIDER", "some-raw-pi-provider")
+    assert runner._resolve_provider(None) == "some-raw-pi-provider"
+
+
+def test_resolve_provider_no_value_anywhere_returns_none(monkeypatch):
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
     assert runner._resolve_provider(None) is None
+
+
+def test_resolve_provider_explicit_vllm_maps_to_dsdm_vllm(monkeypatch):
+    # Regression test: an earlier version returned an explicit `provider=`
+    # argument unmapped, so "vllm"/"gemini" passed explicitly silently skipped
+    # the DSDM -> pi.dev name translation the env-var path applied correctly.
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    assert runner._resolve_provider("vllm") == runner.VLLM_PROVIDER_NAME
+    assert runner._resolve_provider("gemini") == "google"
 
 
 def test_jsonl_reader_frames_on_newline_only():
@@ -188,3 +205,119 @@ def test_jsonl_reader_frames_on_newline_only():
 
     buf = io.BytesIO(b'{"a":1}\n{"b":2}\r\n')
     assert list(runner._JsonlReader(buf)) == [{"a": 1}, {"b": 2}]
+
+
+# -- private vLLM provider (TRD section 22) --------------------------------------
+def test_write_vllm_models_config_requires_base_url(tmp_path, monkeypatch):
+    monkeypatch.delenv("DSDM_VLLM_BASE_URL", raising=False)
+    monkeypatch.setenv("DSDM_VLLM_MODEL_ID", "meta-llama/Llama-3.1-70B-Instruct")
+    with pytest.raises(runner.VllmConfigurationError, match="DSDM_VLLM_BASE_URL"):
+        runner._write_vllm_models_config(tmp_path)
+
+
+def test_write_vllm_models_config_requires_model_id(tmp_path, monkeypatch):
+    monkeypatch.setenv("DSDM_VLLM_BASE_URL", "http://vllm.internal.example:8000/v1")
+    monkeypatch.delenv("DSDM_VLLM_MODEL_ID", raising=False)
+    with pytest.raises(runner.VllmConfigurationError, match="DSDM_VLLM_MODEL_ID"):
+        runner._write_vllm_models_config(tmp_path)
+
+
+def test_write_vllm_models_config_matches_documented_schema(tmp_path, monkeypatch):
+    monkeypatch.setenv("DSDM_VLLM_BASE_URL", "http://vllm.internal.example:8000/v1")
+    monkeypatch.setenv("DSDM_VLLM_MODEL_ID", "meta-llama/Llama-3.1-70B-Instruct")
+    monkeypatch.delenv("DSDM_VLLM_API_KEY", raising=False)
+
+    runner._write_vllm_models_config(tmp_path)
+    config = json.loads((tmp_path / "models.json").read_text())
+
+    provider = config["providers"][runner.VLLM_PROVIDER_NAME]
+    assert provider["baseUrl"] == "http://vllm.internal.example:8000/v1"
+    assert provider["api"] == "openai-completions"
+    assert provider["apiKey"]  # some non-empty placeholder when unset
+    assert provider["compat"] == {"supportsDeveloperRole": False}
+    assert provider["models"] == [{"id": "meta-llama/Llama-3.1-70B-Instruct"}]
+
+
+def test_write_vllm_models_config_uses_real_api_key_when_set(tmp_path, monkeypatch):
+    monkeypatch.setenv("DSDM_VLLM_BASE_URL", "http://vllm.internal.example:8000/v1")
+    monkeypatch.setenv("DSDM_VLLM_MODEL_ID", "qwen2.5-coder:32b")
+    monkeypatch.setenv("DSDM_VLLM_API_KEY", "internal-proxy-token")
+
+    runner._write_vllm_models_config(tmp_path)
+    config = json.loads((tmp_path / "models.json").read_text())
+    assert config["providers"][runner.VLLM_PROVIDER_NAME]["apiKey"] == "internal-proxy-token"
+
+
+def test_write_vllm_models_config_model_id_param_overrides_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("DSDM_VLLM_BASE_URL", "http://vllm.internal.example:8000/v1")
+    monkeypatch.setenv("DSDM_VLLM_MODEL_ID", "env-default-model")
+
+    runner._write_vllm_models_config(tmp_path, model_id="explicit-override-model")
+    config = json.loads((tmp_path / "models.json").read_text())
+    assert config["providers"][runner.VLLM_PROVIDER_NAME]["models"] == [{"id": "explicit-override-model"}]
+
+
+def test_run_role_with_vllm_provider_missing_config_raises(role, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "vllm")
+    monkeypatch.delenv("DSDM_VLLM_BASE_URL", raising=False)
+    with pytest.raises(runner.VllmConfigurationError):
+        _run(role, "happy_path")
+
+
+def test_run_role_with_vllm_provider_wires_config_dir_and_cleans_up(role, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "vllm")
+    monkeypatch.setenv("DSDM_VLLM_BASE_URL", "http://vllm.internal.example:8000/v1")
+    monkeypatch.setenv("DSDM_VLLM_MODEL_ID", "meta-llama/Llama-3.1-70B-Instruct")
+
+    captured_env = {}
+    real_popen = runner.subprocess.Popen
+
+    def spy_popen(cmd, **kwargs):
+        captured_env.update(kwargs.get("env") or {})
+        return real_popen(cmd, **kwargs)
+
+    monkeypatch.setattr(runner.subprocess, "Popen", spy_popen)
+    result = _run(role, "happy_path")
+
+    assert result.success is True
+    config_dir = captured_env.get("PI_CODING_AGENT_DIR")
+    assert config_dir, "PI_CODING_AGENT_DIR should be set for the vllm provider"
+    assert "--provider" in runner._build_command(role, "dsdm-vllm", None, None)
+    # the temp config directory is cleaned up once the subprocess call completes
+    assert not Path(config_dir).exists()
+
+
+def test_run_role_with_vllm_provider_generates_correct_models_json(role, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "vllm")
+    monkeypatch.setenv("DSDM_VLLM_BASE_URL", "http://vllm.internal.example:8000/v1")
+    monkeypatch.setenv("DSDM_VLLM_MODEL_ID", "meta-llama/Llama-3.1-70B-Instruct")
+
+    seen_config = {}
+    real_popen = runner.subprocess.Popen
+
+    def spy_popen(cmd, **kwargs):
+        config_dir = (kwargs.get("env") or {}).get("PI_CODING_AGENT_DIR")
+        if config_dir:
+            seen_config.update(json.loads((Path(config_dir) / "models.json").read_text()))
+        return real_popen(cmd, **kwargs)
+
+    monkeypatch.setattr(runner.subprocess, "Popen", spy_popen)
+    _run(role, "happy_path")
+
+    provider = seen_config["providers"][runner.VLLM_PROVIDER_NAME]
+    assert provider["baseUrl"] == "http://vllm.internal.example:8000/v1"
+    assert provider["models"] == [{"id": "meta-llama/Llama-3.1-70B-Instruct"}]
+
+
+def test_run_role_without_vllm_provider_does_not_set_config_dir(role, monkeypatch):
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    captured_env = {}
+    real_popen = runner.subprocess.Popen
+
+    def spy_popen(cmd, **kwargs):
+        captured_env.update(kwargs.get("env") or {})
+        return real_popen(cmd, **kwargs)
+
+    monkeypatch.setattr(runner.subprocess, "Popen", spy_popen)
+    _run(role, "happy_path")
+    assert "PI_CODING_AGENT_DIR" not in captured_env

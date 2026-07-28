@@ -246,6 +246,8 @@ Mirrors the PRD's phased rollout, with the `AGENT_RUNTIME` flag providing the te
 - Secrets (`JIRA_API_TOKEN`, `CONFLUENCE_API_TOKEN`, LLM API keys) remain in the Python process's environment and are never passed into TypeScript extension code, logged in pi.dev session JSONL, or included in tool-call arguments/results that get persisted to session files.
 - `pi/package.json` adopts pi-mono's own supply-chain practices — exact-version pinning and a committed shrinkwrap/lockfile — mirrored for the DSDM extension workspace, with lockfile changes reviewed like any other dependency bump.
 - The MCP CLI-shell bridge's existing dry-run-by-default / `MCP_EXECUTE=1` safety gate is preserved conceptually in `dsdm-mcp-client`: destructive MCP tool calls remain `requires_approval` and route through `dsdm-approval-gate` like any other tool.
+- When a role is configured for the private vLLM provider (PAR-PRD-FR-014/015/016, section 22), there is **no automatic fallback** to a hosted provider on connection failure — `_resolve_provider()` either resolves to `dsdm-vllm` or the session fails outright. Silently falling back to a public provider on a private-endpoint failure would be a data-exfiltration bug, not a resilience feature.
+- The generated per-run `models.json` (section 22) contains the private endpoint URL and, if configured, a bearer token. It is written to a per-run temp directory scoped to that one `pi` subprocess invocation and is never committed, logged, or reused across a different role's run.
 
 ## 14. Non-Functional Requirements
 
@@ -256,6 +258,7 @@ Mirrors the PRD's phased rollout, with the `AGENT_RUNTIME` flag providing the te
 | PAR-TRD-NFR-003 | Design & Build parallel throughput (tools/sec) after migration vs. `ThroughputMetrics` baseline | ≥ 100% of legacy `GitPinPipeline` baseline |
 | PAR-TRD-NFR-004 | Generated `.agent.md`/Pi Package drift | 0 — CI fails the build if generated output differs from committed files |
 | PAR-TRD-NFR-005 | Provider switch correctness | 100% of phases request the model/provider configured in `pi/settings.json` or the phase override, never a hardcoded fallback |
+| PAR-TRD-NFR-006 | Private-endpoint isolation for vLLM-configured roles | 0 outbound requests to any public provider domain when `LLM_PROVIDER=vllm`; connection failure surfaces as a failed phase, never a fallback request elsewhere |
 
 - Given the tool bridge is under load from a parallel Design & Build run, when 8 roles call tools concurrently, then `tool_service.py` serves all requests without cross-request data leakage between roles (each request carries and is scoped by `run_context`).
 - Given a session crashes mid-tool-call, when the operator inspects the session file, then the last successfully completed tool call and its result are present and readable.
@@ -343,3 +346,64 @@ These are corrected in place in this document's earlier sections' *intent* (tool
 - **Live-verified separately**: constructing a real `DSDMOrchestrator` and calling `run_phase(FEASIBILITY, ..., agent_runtime="pi")` against the fake pi process end-to-end, both via explicit `agent_runtime="pi"` and via the `AGENT_RUNTIME` env var — output flows through the *unmodified* Rich formatter exactly as the legacy path does. (Constructing a full orchestrator at all — on either runtime — needs a syntactically-present API key even though `is_configured()` never validates it; this environment has none, so a dummy key was used for construction only. Also newly discovered, unrelated to this change: `FrontendDeveloperAgent` hardcodes `llm_provider=LLMProvider.GEMINI`, unlike every other agent which defaults to `LLM_PROVIDER`/Anthropic — construction needs a dummy `GEMINI_API_KEY` too.)
 - **Not yet exercised**: an actual live LLM turn against the real `pi` binary — every verification above uses `tests/fake_pi_rpc.py`, which faithfully implements pi.dev's *documented* RPC protocol but has not been cross-checked turn-by-turn against the real binary's behavior with a real model. The Phase 1 live check (real `pi` CLI, real 79-tool bridge, real Anthropic 401) proves `dsdm-tools-bridge`/`dsdm-approval-gate` *load* correctly against the real CLI; a full tool-call-and-confirm turn against the real CLI still needs a real `ANTHROPIC_API_KEY`, unavailable in this environment (same gap as sections 16/17's `--live` mode).
 - **Still legacy, unchanged this round**: Git Pin roles (Phase 4 — `GitPinAgentLoop`/`GitPinPipeline` untouched), native MCP client (Phase 5 — `dsdm-mcp-client` unbuilt, `mcp_call_tool` CLI-shell bridge still in place), session-tree/`.pi-sessions` artifact cross-linking (Phase 5), and retirement of `base_agent.py`'s loop / non-Anthropic `providers.py` clients (Phase 6 — nothing has reached `migrated`+bake-in yet per the PRD's Migration State Model).
+
+## 22. Private vLLM Provider (PAR-PRD-FR-014/015/016)
+
+### 22.1 What pi.dev actually supports (grounded in `docs/providers.md` and `docs/models.md`)
+
+pi.dev has vLLM as a **named, first-class custom-provider case** — not something to bolt on:
+
+> "Via `models.json`: Add Ollama, LM Studio, vLLM, or any provider that speaks a supported API (OpenAI Completions, OpenAI Responses, Anthropic Messages, Google Generative AI)."
+
+vLLM serves an OpenAI-compatible `/v1` endpoint, so the provider is declared with `api: "openai-completions"`. There is no separate TypeScript extension needed for this — `models.json` is a config file pi reads at startup, unrelated to `dsdm-tools-bridge`/`dsdm-approval-gate`.
+
+Config file locations (`docs/settings.md`, `docs/usage.md`):
+- `~/.pi/agent/models.json` — global, user's home directory.
+- `PI_CODING_AGENT_DIR` env var — overrides pi's *entire* config directory (default `~/.pi/agent`); everything pi reads (`models.json`, `settings.json`, `auth.json`, `sessions/`) moves under it.
+
+**Design decision: generate `models.json` per invocation into a scoped `PI_CODING_AGENT_DIR`, don't hand-author a static one.** `models.json`'s `baseUrl` field has no environment-variable indirection — only `apiKey`/`headers` support the `"!command"` / env-var-name / literal resolution forms (section 11's PRD risk). Since the private endpoint URL is exactly the kind of value that must come from environment/deployment config (never hardcoded, per PAR-PRD-FR-016) and varies per environment (dev/staging/prod VPC), a static checked-in file can't hold it. `pi_session_runner.py` writes a fresh `models.json` into a per-run temp directory before spawning `pi`, and points that one subprocess's `PI_CODING_AGENT_DIR` at it — scoped to that single invocation, never touching the operator's real `~/.pi/agent/` state, and never persisted after the run.
+
+### 22.2 Generated `models.json` shape
+
+```json
+{
+  "providers": {
+    "dsdm-vllm": {
+      "baseUrl": "${DSDM_VLLM_BASE_URL}",
+      "api": "openai-completions",
+      "apiKey": "${DSDM_VLLM_API_KEY or a placeholder}",
+      "compat": { "supportsDeveloperRole": false },
+      "models": [{ "id": "${DSDM_VLLM_MODEL_ID}" }]
+    }
+  }
+}
+```
+
+- `compat.supportsDeveloperRole: false` is set unconditionally: per `docs/models.md`, "some OpenAI-compatible servers do not understand the `developer` role used for reasoning-capable models... this commonly applies to Ollama, vLLM, SGLang, and similar" — vLLM is explicitly named, so this is not a guess.
+- Only `id` is required per model (`docs/models.md`'s "Minimal Example" is exactly this shape for local/self-hosted servers) — no cost/context-window claims are asserted about a model this codebase doesn't control.
+- No model name is hardcoded. A vLLM server is normally launched with one specific `--model <hf-repo-id>`, so the served model is whatever `DSDM_VLLM_MODEL_ID` names — this integration does not presume a specific open-weight model family.
+
+### 22.3 Environment variables
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `DSDM_VLLM_BASE_URL` | Yes, when `LLM_PROVIDER=vllm` | The private endpoint — a VPC-internal DNS name, PrivateLink/private-endpoint address, or cluster-internal Service URL (e.g. `http://vllm.internal.svc.cluster.local:8000/v1`). Never a public hostname. |
+| `DSDM_VLLM_MODEL_ID` | Yes, when `LLM_PROVIDER=vllm` | The model ID the vLLM server was launched with. |
+| `DSDM_VLLM_API_KEY` | No | Bearer token, if the deployment's internal auth proxy enforces one. Defaults to a placeholder (vLLM's own `--api-key` check, when enabled, still requires *a* value to be present — same pattern `docs/models.md` describes for Ollama, which "ignores it, so any value works"). |
+
+### 22.4 Provider resolution
+
+`pi_session_runner._resolve_provider()` (section 21) gains one more mapping: DSDM's `LLM_PROVIDER=vllm` → pi provider name `dsdm-vllm` (the custom key defined in the generated `models.json`, not a pi.dev built-in name — unlike `anthropic`/`openai`/`google`/`ollama`, which map to pi.dev's own built-in provider identifiers).
+
+`run_role()`'s command-building step (section 8):
+1. If the resolved provider is `dsdm-vllm`, create a per-run temp directory, write `models.json` into it from the three env vars above, and add `PI_CODING_AGENT_DIR=<temp dir>` to the subprocess environment.
+2. Pass `--provider dsdm-vllm --model <DSDM_VLLM_MODEL_ID>` on the CLI, same as any other provider/model pair.
+3. Clean up the temp directory after the subprocess exits (success or failure) — it holds the endpoint URL and token, so it does not outlive the one session that needed it.
+
+This only affects the *one* role's subprocess invocation. Other roles in the same orchestrator run configured for a hosted provider are unaffected — `PI_CODING_AGENT_DIR` is set per-`Popen` call, not process-wide.
+
+### 22.5 What this does not do
+
+- Does not add retry-with-fallback-to-a-hosted-provider logic. A vLLM connection failure is a failed phase (PAR-PRD-FR-015) — silently falling back to a public provider on a private-endpoint failure would defeat the entire point of the requirement.
+- Does not provision, deploy, or health-check the vLLM server itself. This is provider *plumbing* on the pi.dev/DSDM side; the GPU cluster, VPC networking, and vLLM process are assumed to already exist and be reachable at `DSDM_VLLM_BASE_URL` (PRD non-goal).
+- Does not change `role_definitions.py`. Provider/endpoint selection is an orchestrator/environment-level concern (which backend serves the model), orthogonal to which role is running — no `RoleDefinition` field encodes "must run on vLLM."

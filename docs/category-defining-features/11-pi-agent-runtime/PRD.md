@@ -31,6 +31,7 @@ The codebase currently carries the full maintenance cost of building an agent ha
 - Preserve 100% of existing DSDM tool behavior (42+ tools across feasibility, business study, design & build, implementation, DevOps, Jira/Confluence, file, room, and MCP categories) without a line-by-line TypeScript rewrite of their business logic.
 - Preserve the Delivery Room state/event/health model (`src/rooms/`) and DSDM's Manual/Automated/Hybrid approval semantics unchanged from the user's point of view.
 - Gain session-tree persistence (branch/fork/replay a phase) and a structured JSON event stream for orchestrator and Delivery Room integration, replacing today's in-process `ProgressCallback` as the sole signal source.
+- Support running any role against an open-weight model served by a self-hosted [vLLM](https://github.com/vllm-project/vllm) instance on private GPU infrastructure, reachable only through a VPC-internal or private-endpoint URL — no public internet egress required for inference — as an operator-selectable alternative to the hosted providers above.
 
 ## 5. Non-Goals
 
@@ -39,6 +40,8 @@ The codebase currently carries the full maintenance cost of building an agent ha
 - Replacing or redesigning the Delivery Room data model (`DeliveryRoomState`, event log, health score) — it stays, and simply receives its inputs from a new event source.
 - Guaranteeing byte-identical LLM outputs before and after migration. System prompt assembly, tool schema shape, and loop mechanics change, so outputs will differ even where intent is unchanged.
 - Committing to a single-language (TypeScript-only) codebase. Python remains the home for DSDM domain/business logic for the foreseeable future.
+- Provisioning, operating, or scaling the private GPU/vLLM infrastructure itself (Kubernetes, Terraform, GPU fleet management, model weight distribution). This migration assumes an already-running vLLM OpenAI-compatible endpoint reachable at a configured private URL; standing that endpoint up is a separate infrastructure workstream.
+- Guaranteeing output quality or task parity between a hosted frontier model (Claude, GPT, Gemini) and whatever open-weight model a given vLLM deployment happens to serve. The integration is provider plumbing, not a model-capability claim.
 
 ## 6. Core User Stories
 
@@ -48,9 +51,10 @@ The codebase currently carries the full maintenance cost of building an agent ha
 2. As a maintainer, I can add or change a DSDM tool once and have it available to both the orchestrated workflow and any direct pi.dev session, without maintaining a second TypeScript copy of its schema.
 3. As a maintainer, I can define an agent role (system prompt, tool allowlist, model, mode) once and have both GitHub Copilot CLI and pi.dev consume the same definition.
 4. As an operator, I can select an LLM provider (Anthropic, OpenAI, Gemini, Ollama, or any provider `pi-ai` supports) per phase, and every phase actually honors that selection.
-5. As an operator, running the Design & Build team concurrently (today's Git Pin pipeline) still works, backed by concurrently spawned pi.dev sessions instead of a custom thread pool.
-6. As an operator, the Delivery Room dashboard, health score, and event log continue to update correctly when phases run through pi.dev.
-7. As an operator, the Manual/Automated/Hybrid tool-approval model continues to gate the same tools it gates today.
+5. As an operator with data-residency or cost constraints, I can point any phase at an open-weight model served by our own vLLM deployment on private GPUs, addressed only via a VPC-internal or private-endpoint URL, without any inference traffic crossing the public internet.
+6. As an operator, running the Design & Build team concurrently (today's Git Pin pipeline) still works, backed by concurrently spawned pi.dev sessions instead of a custom thread pool.
+7. As an operator, the Delivery Room dashboard, health score, and event log continue to update correctly when phases run through pi.dev.
+8. As an operator, the Manual/Automated/Hybrid tool-approval model continues to gate the same tools it gates today.
 
 ### Should Have
 
@@ -58,6 +62,7 @@ The codebase currently carries the full maintenance cost of building an agent ha
 2. As a maintainer, MCP integrations use a native MCP-client extension instead of shelling out to an `mcp call` CLI subprocess.
 3. As a maintainer, generated `.agent.md` files are produced from the single source of truth by a checked-in generator, and CI fails if they drift.
 4. As an operator, I can roll a single phase back to the legacy Python loop via a feature flag if the pi.dev path regresses, without reverting the whole migration.
+5. As a security reviewer, I can confirm that when a role is configured for the private vLLM provider, no fallback path silently sends its prompts or tool schemas to a public hosted provider instead.
 
 ### Could Have
 
@@ -82,6 +87,9 @@ The codebase currently carries the full maintenance cost of building an agent ha
 | PAR-PRD-FR-011 | Restructure root `AGENTS.md` so it is the actual instruction file pi.dev auto-loads, in addition to serving GitHub Copilot CLI | Must |
 | PAR-PRD-FR-012 | Provide a feature flag (e.g. `AGENT_RUNTIME=legacy\|pi`) allowing any single phase to fall back to the pre-migration Python loop during rollout | Should |
 | PAR-PRD-FR-013 | Deprecate and remove `git_pin_agent_core.py`'s custom loop, `orchestrator_extension.py`'s monkeypatch installer, and provider-specific protobuf/parsing hacks once pi.dev parity is verified | Should |
+| PAR-PRD-FR-014 | Support a private, self-hosted vLLM provider (open-weight models on private GPUs) as a first-class `LLM_PROVIDER` option, addressed only via a VPC-internal or private-endpoint `baseUrl` — never a public internet address | Must |
+| PAR-PRD-FR-015 | When the vLLM provider is selected for a role, guarantee no automatic fallback to a public hosted provider on error — the role fails closed rather than silently leaking prompts/tool schemas off the private network | Must |
+| PAR-PRD-FR-016 | Treat the vLLM endpoint URL and any bearer token as environment-sourced configuration, never hardcoded or committed to the repository | Must |
 
 ## 8. Acceptance Criteria
 
@@ -93,6 +101,8 @@ The codebase currently carries the full maintenance cost of building an agent ha
 - Given the Git Pin pipeline runs Frontend Developer and Backend Developer concurrently, when both complete, then Delivery Room state reflects both roles' artifacts and hand-offs, matching today's `GitPinPipeline` behavior.
 - Given a phase fails mid-session, when the operator inspects the corresponding pi.dev session file, then the full tool-call and message history up to the failure point is recoverable.
 - Given the `AGENT_RUNTIME` flag is set to `legacy` for a specific phase, when that phase runs, then it executes via the pre-migration `BaseAgent` path unaffected by the rest of the migration.
+- Given `LLM_PROVIDER=vllm` and a private `DSDM_VLLM_BASE_URL` are configured, when any phase runs, then the session's only outbound model traffic goes to that URL — no request is made to `api.anthropic.com`, `api.openai.com`, or any other public provider domain.
+- Given the vLLM endpoint is unreachable or returns an error, when a role configured for it runs, then the phase fails with a clear error rather than silently retrying against a public provider.
 
 ## 9. Migration State Model
 
@@ -114,6 +124,7 @@ Tracking this per role (rather than a single repo-wide switch) keeps the rollout
 - ≥95% pass rate on the existing DSDM tool and Delivery Room integration tests (`tests/`) run against the pi.dev-backed path.
 - `base_agent.py`'s `run()` loop (~260 lines) and `git_pin_agent_core.py` (~28 KB) fully retired by the end of the migration.
 - Git Pin parallel Design & Build throughput (tools/sec) at or above the current `ThroughputMetrics` baseline after moving to process-level parallel pi.dev sessions.
+- 100% of outbound model requests for a vLLM-configured role go to the configured private endpoint — zero requests observed to any public provider domain in that configuration.
 
 ## 11. Risks
 
@@ -123,6 +134,8 @@ Tracking this per role (rather than a single repo-wide switch) keeps the rollout
 - Delivery Room and MCP behavior must be revalidated against `tests/test_delivery_room.py` and `tests/test_mcp_tools.py` to catch regressions introduced by the new event source.
 - pi.dev deliberately ships no built-in permission system (isolation is expected via containers); DSDM's per-tool `requires_approval` model must be reconstructed as an explicit extension hook, not assumed to come for free.
 - Two independent parallel-execution mechanisms (today's `GitPinPipeline` and pi.dev's native parallel tool calls plus process-level session concurrency) must be reconciled carefully to avoid a regression in Design & Build throughput during the transition.
+- Open-weight models served by a self-hosted vLLM deployment are not drop-in equivalents for Claude/GPT/Gemini on tool-calling reliability, instruction-following, or context length — a role moved to vLLM may need prompt/tool-schema adjustments or a capability-appropriate model choice, not just a provider swap.
+- `models.json`'s `baseUrl` field has no environment-variable indirection (unlike `apiKey`/`headers`), so the private endpoint URL must be injected by generating the file per invocation rather than checking in a static one — an extra moving part versus the other providers, and a place a stale or leaked generated file could misdirect traffic if not scoped and cleaned up correctly.
 
 ## 12. Migration Phases
 
@@ -140,6 +153,7 @@ Tracking this per role (rather than a single repo-wide switch) keeps the rollout
 
 ### Phase 3 — Runtime Cutover
 - Move phases and roles from `legacy` to `piloted` to `migrated` behind `AGENT_RUNTIME`, one at a time, cheapest/lowest-risk phase first (Feasibility, given its low iteration cap).
+- Add the private vLLM provider option (`LLM_PROVIDER=vllm`) alongside the hosted providers, since it uses the same pi.dev provider-resolution mechanism the cutover already depends on.
 
 ### Phase 4 — Git Pin Replacement
 - Replace `GitPinAgentLoop`/`GitPinPipeline` with process-level concurrent pi.dev sessions plus a thin dependency-ordering coordinator.
@@ -158,3 +172,5 @@ Tracking this per role (rather than a single repo-wide switch) keeps the rollout
 - Should Delivery Room state eventually live inside pi.dev's session-tree JSONL store, or remain the separate JSON layer it is today?
 - What is the repo's version-pinning and upgrade process for the `pi/` TypeScript workspace, given pi-mono's own emphasis on shrinkwrap/exact-version supply-chain hygiene?
 - Does the `AGENT_RUNTIME=legacy|pi` flag live per-phase, per-role, or both, and how long does it stay supported after a role reaches `migrated`?
+- Which roles are actually suitable candidates for a private open-weight model — is this a per-role choice (e.g. only low-stakes, high-volume phases like Feasibility) or an all-or-nothing environment-wide setting?
+- Does the private vLLM endpoint need per-role or per-project network isolation (separate VPC endpoints/security groups), or is one shared private endpoint sufficient for all DSDM traffic?
