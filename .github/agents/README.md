@@ -43,6 +43,7 @@ The same files are recognised by GitHub Copilot in VS Code. Use the agent choose
 | `automation-tester.agent.md` | Unit / integration / E2E tests + CI | Automated |
 | `nfr-tester.agent.md` | Performance / scalability / a11y / chaos | Hybrid |
 | `pen-tester.agent.md` | Security testing & OWASP review | Manual |
+| `change-control.agent.md` | Mid-timebox scope-change arbitration (MoSCoW trade-offs) | Hybrid |
 
 ## Modes
 

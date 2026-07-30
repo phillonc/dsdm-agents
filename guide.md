@@ -128,12 +128,21 @@ transcript.
 | **Feasibility** | `run-feasibility.prompt.md` | `feasibility` | Automated | `FEASIBILITY_REPORT.md` |
 | **Product management (PRD)** | `run-product-management.prompt.md` | `product-manager` | Automated | `PRODUCT_REQUIREMENTS.md` |
 | **Business study** | `run-business-study.prompt.md` | `business-study` | Automated | `BUSINESS_STUDY.md`, `architecture/HIGH_LEVEL_ARCHITECTURE.md`, `RISK_LOG.md` |
+| **Functional model iteration** | `run-functional-model.prompt.md` | `functional-model` | Automated | `prototypes/`, `FUNCTIONAL_MODEL_REPORT.md`, `NON_FUNCTIONAL_REQUIREMENTS.md` |
 | **Design & Build** | `run-design-build.prompt.md` | `design-build` → `dev-lead`, `frontend-developer`, `backend-developer`, `automation-tester`, `nfr-tester`, `pen-tester` | Hybrid/Manual per role | `src/`, `tests/`, `TECHNICAL_REQUIREMENTS.md`, ADRs, `api/openapi.yaml` |
 | **Implementation / deploy** | `run-implementation.prompt.md` | `implementation` | Manual (pauses before prod) | `DEPLOYMENT_PLAN.md`, `ROLLBACK_PLAN.md`, `TRAINING_MATERIALS.md`, `HANDOVER_DOCS.md`, `POST_IMPLEMENTATION_REVIEW.md` |
 | **Code review** | `code-review.prompt.md` | `dev-lead` + `pen-tester` | — | severity-classified review report |
 | **Security review** | `security-review.prompt.md` | `pen-tester` | Manual (confirm every scan) | `security/VULNERABILITY_ASSESSMENT.md`, `DEPENDENCY_REPORT.md`, `REMEDIATION_PLAN.md` |
 | **DevOps quality gate** | `devops-quality-gate.prompt.md` | `devops` | Hybrid | pass/fail table against the 14 Development Principles |
+| **Scope change request** | `run-change-request.prompt.md` | `change-control` | Hybrid (pauses if a Must-Have would be displaced) | `CHANGE_LOG.md` entry + re-prioritised MoSCoW list |
 | **MCP sync** | `mcp-sync.prompt.md` | (any agent) + MCP CLI tools | dry-run unless `MCP_EXECUTE=1` | rendered commands + sync summary for Jira/Confluence/GitHub |
+
+> `change-control` is not one of the original DSDM phase/specialist agents —
+> it's added in this guide as a worked example of extending the fleet (see
+> [§5.9](#59-writing-a-new-specialised-agent)). It's fully wired: registered
+> in `src/agents/role_definitions.py`, passes `python main.py --generate-agents`
+> with no drift, and its own agent file is at
+> `.github/agents/change-control.agent.md`.
 
 Every phase-level command also documents its **equivalent CLI invocation**
 in its own frontmatter/body — e.g. `run-feasibility` maps 1:1 to
@@ -150,6 +159,13 @@ in chat, based on a running example project — a **customer feedback
 portal**. Real output varies with your model, provider, and project, but the
 structure (sections, acceptance-criteria checks, file paths) is fixed by the
 prompt files themselves.
+
+The artefacts each transcript below claims to write are checked into this
+repo for real, under
+[`generated/customer-feedback-portal/`](generated/customer-feedback-portal/README.md) —
+open them if you want to see a full example document rather than just the
+chat summary. They were sourced from
+[`examples/sample_feedback_portal.md`](examples/sample_feedback_portal.md).
 
 ### 4.1 `/run-feasibility`
 
@@ -209,6 +225,8 @@ to generated/customer-feedback-portal/docs/FEASIBILITY_REPORT.md. Ready for
 /run-product-management.
 ```
 
+Real file: [`generated/customer-feedback-portal/docs/FEASIBILITY_REPORT.md`](generated/customer-feedback-portal/docs/FEASIBILITY_REPORT.md)
+
 ### 4.2 `/run-product-management`
 
 ```
@@ -241,6 +259,8 @@ leaving weeks 5–6 for hardening + 2 Should-have stretch items.
 Summary: PRD complete at generated/customer-feedback-portal/docs/PRODUCT_REQUIREMENTS.md.
 Hand-off: this PRD is the primary input for /run-business-study and dev-lead's TRD.
 ```
+
+Real file: [`generated/customer-feedback-portal/docs/PRODUCT_REQUIREMENTS.md`](generated/customer-feedback-portal/docs/PRODUCT_REQUIREMENTS.md)
 
 ### 4.3 `/run-business-study`
 
@@ -280,6 +300,10 @@ Summary: Business Study complete. Ready for /run-design-build once the
 Functional Model prototype is validated (or run design-build directly for a
 CLI-first team).
 ```
+
+Real files: [`BUSINESS_STUDY.md`](generated/customer-feedback-portal/docs/BUSINESS_STUDY.md) ·
+[`architecture/HIGH_LEVEL_ARCHITECTURE.md`](generated/customer-feedback-portal/docs/architecture/HIGH_LEVEL_ARCHITECTURE.md) ·
+[`RISK_LOG.md`](generated/customer-feedback-portal/docs/RISK_LOG.md)
 
 ### 4.4 `/run-design-build`
 
@@ -340,6 +364,10 @@ Summary: Design & Build complete. 1 Medium security finding logged in
 REMEDIATION_PLAN scope for /security-review. Ready for /run-implementation
 (staging first).
 ```
+
+Real files: [`TECHNICAL_REQUIREMENTS.md`](generated/customer-feedback-portal/docs/TECHNICAL_REQUIREMENTS.md) ·
+[`architecture/decisions/001-database-choice.md`](generated/customer-feedback-portal/docs/architecture/decisions/001-database-choice.md)
+(source code generation is summarised, not reproduced file-by-file, in this example)
 
 ### 4.5 `/code-review`
 
@@ -414,6 +442,10 @@ Summary: No blocking findings. 2 Medium items recommended before public
 launch (rate limiting, lodash bump). Cleared for /run-implementation to staging.
 ```
 
+Real files: [`security/VULNERABILITY_ASSESSMENT.md`](generated/customer-feedback-portal/docs/security/VULNERABILITY_ASSESSMENT.md) ·
+[`security/DEPENDENCY_REPORT.md`](generated/customer-feedback-portal/docs/security/DEPENDENCY_REPORT.md) ·
+[`security/REMEDIATION_PLAN.md`](generated/customer-feedback-portal/docs/security/REMEDIATION_PLAN.md)
+
 ### 4.7 `/devops-quality-gate`
 
 ```
@@ -484,7 +516,65 @@ Summary: 6 commands staged, 0 executed (MCP_EXECUTE=0). Re-run with
 MCP_EXECUTE=1 and approve each call to actually publish.
 ```
 
-### 4.9 `/run-full-workflow`
+### 4.9 `/run-change-request`
+
+This is the new command added in [§5.8-5.9](#59-writing-a-new-specialised-agent) —
+included here so you can see the worked example run end-to-end, not just
+read about the pattern.
+
+```
+> copilot --prompt-file .github/prompts/run-change-request.prompt.md
+
+Project slug: customer-feedback-portal
+Change description: Exec ask — combine CSV export with a new PDF export
+option, requested as a Must Have.
+Requested priority: Must Have
+Source: VP Customer Success
+
+▸ Invoking agent: change-control (mode: hybrid)
+
+  file_read("generated/customer-feedback-portal/docs/PRODUCT_REQUIREMENTS.md")
+  file_read("generated/customer-feedback-portal/docs/BUSINESS_STUDY.md")
+
+  Classification: re-scope of existing Should-Have #8 ("Export to CSV"),
+  requested at a higher priority than it currently holds.
+
+  Checking for Must-Have trade capacity... none of the 6 existing Must-Haves
+  have spare room this close to MVP (Timebox 3, week 5 of 6).
+
+⚠ Elevating to Must Have would displace an existing Must-Have — stopping
+  for stakeholder approval rather than resolving this unilaterally.
+
+  [Stakeholder response: "Understood — ship it as Should-Have, defer the
+  roadmap board."]
+
+  prioritize_requirements(...) → Should: 3 (CSV export → CSV+PDF export)
+                                  Could: 1 (-1, roadmap board → Future)
+  update_risk_log(...) → no new risk (pdfkit is well-established)
+  track_decision("CR-001", "...") → logged
+  file_write("generated/customer-feedback-portal/docs/CHANGE_LOG.md", ...)
+  jira_update_issue(...) | jira_add_comment(...) | sync_work_item_status(...)
+
+✔ generated/customer-feedback-portal/docs/CHANGE_LOG.md updated (CR-001)
+✔ generated/customer-feedback-portal/docs/RISK_LOG.md unchanged (no new risk)
+
+## Change Request CR-001 — Customer Feedback Portal
+
+Trade-off: add "Combined CSV+PDF export" at **Should Have** by deferring
+"Public roadmap board" (Could-Have) to a future release. Escalation to
+Must-Have was flagged to the Product Owner and declined in favour of the
+Should-Have trade.
+
+Updated MoSCoW counts: Must 6 (unchanged) · Should 3 · Could 1 (-1) · Won't 2
+
+---
+Summary: CR-001 logged. No Must-Have was displaced; roadmap board deferred.
+Backlog and Confluence status log synced.
+```
+
+Real file: [`generated/customer-feedback-portal/docs/CHANGE_LOG.md`](generated/customer-feedback-portal/docs/CHANGE_LOG.md)
+
+### 4.10 `/run-full-workflow`
 
 ```
 > copilot --prompt-file .github/prompts/run-full-workflow.prompt.md
@@ -578,7 +668,7 @@ baked into each `.agent.md`):
 | Mode | Behaviour | Roles that default to it |
 |---|---|---|
 | **Automated** | Tools run without approval | Feasibility, Product Mgmt, Business Study, Functional Model, Frontend Dev, Backend Dev, Automation Tester |
-| **Hybrid** | Runs autonomously, pauses before risky/destructive steps | Design & Build (top level), Dev Lead, NFR Tester, DevOps |
+| **Hybrid** | Runs autonomously, pauses before risky/destructive steps | Design & Build (top level), Dev Lead, NFR Tester, DevOps, Change Control |
 | **Manual** | Every action requires explicit approval | Implementation, Pen Tester |
 
 This is why `/run-design-build`'s example transcript in §4.4 shows an
@@ -696,6 +786,22 @@ See `docs/category-defining-features/01-autonomous-delivery-room/` and
 5. Wire `handoffs` if this role should chain into another automatically
    (mirrors how `design-build` hands off to `dev-lead` → `frontend-developer`
    → … → `pen-tester`).
+6. Run `python -m pytest tests/test_role_definitions.py` and
+   `python main.py --generate-agents` — both must report no drift before
+   the new agent is considered wired up.
+
+**Worked example**: `change-control` (§3, §4.9) was added exactly this way
+— see it end to end:
+- `src/agents/change_control_agent.py` — the Python agent class, system
+  prompt, and tool list (reuses existing tools only: `prioritize_requirements`,
+  `update_risk_log`, `file_read`, `file_write`, `track_decision`,
+  `jira_create_issue`, `jira_update_issue`, `jira_add_comment`,
+  `sync_work_item_status` — no new tool had to be registered)
+- `src/agents/role_definitions.py` — the `RoleDefinition(role_id="change-control", ...)` entry
+- `.github/agents/change-control.agent.md` — the Copilot CLI agent file
+- `.github/prompts/run-change-request.prompt.md` — the slash command
+- `generated/customer-feedback-portal/docs/CHANGE_LOG.md` — a real output
+  artefact from running it (transcript in §4.9)
 
 ### 5.10 Conventions every agent (and every slash command) must honour
 
@@ -734,6 +840,43 @@ results = orchestrator.run_design_build_team(
     "Implement admin triage view",
     roles=[DesignBuildRole.DEV_LEAD, DesignBuildRole.FRONTEND_DEV, DesignBuildRole.BACKEND_DEV],
 )
+```
+
+`change-control` isn't wired into `DSDMOrchestrator` (it's not a phase or a
+`DesignBuildRole`) — invoke it directly, the way `examples/custom_tool_slack_notify.py`
+invokes `FeasibilityAgent` directly:
+
+```python
+# /run-change-request  ==  ChangeControlAgent(...).run(...)
+from src.agents.change_control_agent import ChangeControlAgent
+from src.agents.base_agent import AgentMode
+from src.tools.dsdm_tools import create_dsdm_tool_registry
+
+agent = ChangeControlAgent(tool_registry=create_dsdm_tool_registry(include_jira=True), mode=AgentMode.HYBRID)
+result = agent.run("Change request for customer-feedback-portal: ...")
+```
+
+### 5.12 Example files added by this guide
+
+Everything below is a real, checked-in file — not a snippet in this
+document — so you can open, run, or extend it directly:
+
+| What | Where |
+|---|---|
+| Example generated artefacts (feasibility → security review → change log) | [`generated/customer-feedback-portal/`](generated/customer-feedback-portal/README.md) |
+| Example requirements input files | [`examples/sample_feedback_portal.md`](examples/sample_feedback_portal.md), [`examples/sample_task_management.md`](examples/sample_task_management.md), [`examples/sample_legacy_migration.md`](examples/sample_legacy_migration.md) |
+| Custom tool, runnable end to end | [`examples/custom_tool_slack_notify.py`](examples/custom_tool_slack_notify.py) — `python examples/custom_tool_slack_notify.py` |
+| New slash command | [`.github/prompts/run-change-request.prompt.md`](.github/prompts/run-change-request.prompt.md) |
+| New agent (fully wired, drift-checked) | [`.github/agents/change-control.agent.md`](.github/agents/change-control.agent.md), [`src/agents/change_control_agent.py`](src/agents/change_control_agent.py) |
+
+The two requirements files beyond `sample_feedback_portal.md` map to the
+other two Quick Start examples in `README.md`: `sample_task_management.md`
+→ "Build a New Application from Scratch", `sample_legacy_migration.md` →
+"Analyze and Plan a Migration Project". Feed either into a slash command or
+the CLI, e.g.:
+
+```bash
+python main.py --phase feasibility --input "$(cat examples/sample_legacy_migration.md)"
 ```
 
 ---
