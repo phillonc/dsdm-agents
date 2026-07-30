@@ -29,6 +29,7 @@ from .room_state import (
     RoomBlocker,
     RoomDecision,
     RoomHandoff,
+    RoomKickoff,
 )
 
 __all__ = [
@@ -40,6 +41,7 @@ __all__ = [
     "RoomEvent",
     "RoomEventType",
     "RoomHandoff",
+    "RoomKickoff",
     "add_room_blocker",
     "add_room_decision",
     "add_room_handoff",

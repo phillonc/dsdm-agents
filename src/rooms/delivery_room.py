@@ -15,7 +15,12 @@ from .room_state import (
     RoomDecision,
     RoomHandoff,
 )
-from .room_templates import get_template_agents, get_template_next_actions, normalize_template
+from .room_templates import (
+    get_template_agents,
+    get_template_kickoff,
+    get_template_next_actions,
+    normalize_template,
+)
 
 
 GENERATED_ROOT = Path("generated")
@@ -77,12 +82,16 @@ def create_delivery_room(
     if path.exists() and not overwrite:
         return load_delivery_room(resolved_project_name)
 
+    kickoff = get_template_kickoff(normalized_template)
+    kickoff.goals.insert(0, f"Deliver on the stated mission: {mission.strip()}")
+
     room = DeliveryRoomState(
         project_name=resolved_project_name,
         mission=mission.strip(),
         template=normalized_template,
         status="created",
         active_phase="kickoff",
+        kickoff=kickoff,
         agents=get_template_agents(normalized_template),
         next_actions=get_template_next_actions(normalized_template),
     )
@@ -251,6 +260,8 @@ def get_delivery_room_status(project_name: str) -> Dict[str, Any]:
         "template": room.template,
         "status": room.status,
         "active_phase": room.active_phase,
+        "goals": room.kickoff.goals,
+        "risks": room.kickoff.risks,
         "agent_count": len(room.agents),
         "completed_agent_count": len(completed_agents),
         "decision_count": len(room.decisions),
@@ -274,6 +285,22 @@ def format_delivery_room_markdown(room: DeliveryRoomState) -> str:
         f"**Active phase:** {room.active_phase or 'None'}",
         f"**Updated:** {room.updated_at}",
         "",
+        "## Kickoff",
+        "",
+        "### Goals",
+        "",
+    ]
+    lines.extend([f"- {item}" for item in room.kickoff.goals] or ["- No goals recorded yet."])
+    lines.extend(["", "### Assumptions", ""])
+    lines.extend([f"- {item}" for item in room.kickoff.assumptions] or ["- No assumptions recorded yet."])
+    lines.extend(["", "### Stakeholders", ""])
+    lines.extend([f"- {item}" for item in room.kickoff.stakeholders] or ["- No stakeholders recorded yet."])
+    lines.extend(["", "### Risks", ""])
+    lines.extend([f"- {item}" for item in room.kickoff.risks] or ["- No risks recorded yet."])
+    lines.extend(["", "### Sequence", ""])
+    lines.extend([f"{i}. {item}" for i, item in enumerate(room.kickoff.sequence, start=1)] or ["1. No sequence recorded yet."])
+    lines.extend([
+        "",
         "## Health",
         "",
         f"**Overall:** {health.overall}/100 ({health.status})",
@@ -289,7 +316,7 @@ def format_delivery_room_markdown(room: DeliveryRoomState) -> str:
         "",
         "### Weak Points",
         "",
-    ]
+    ])
     lines.extend([f"- {item}" for item in health.weak_points] or ["- No weak points detected from current room data."])
     lines.extend(["", "### Recommended Actions", ""])
     lines.extend([f"- {item}" for item in health.recommended_actions] or ["- Continue with the next planned DSDM phase."])

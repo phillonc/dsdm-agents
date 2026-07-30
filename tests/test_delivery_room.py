@@ -66,6 +66,32 @@ def test_create_delivery_room_persists_state(tmp_path, monkeypatch):
     assert get_room_export_path("task-platform").exists()
 
 
+def test_create_delivery_room_generates_kickoff_artifact(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    room = create_delivery_room("Build a supplier marketplace", project_name="Supplier Marketplace", template="platform")
+    assert any("Build a supplier marketplace" in goal for goal in room.kickoff.goals)
+    assert room.kickoff.assumptions
+    assert room.kickoff.stakeholders
+    assert room.kickoff.risks
+    assert room.kickoff.sequence
+
+    status = get_delivery_room_status("supplier-marketplace")
+    assert status["goals"] == room.kickoff.goals
+    assert status["risks"] == room.kickoff.risks
+
+    export_path = export_delivery_room("supplier-marketplace")
+    content = export_path.read_text(encoding="utf-8")
+    assert "## Kickoff" in content
+    assert "### Goals" in content
+    assert "### Assumptions" in content
+    assert "### Stakeholders" in content
+    assert "### Risks" in content
+    assert "### Sequence" in content
+
+    reloaded = load_delivery_room("supplier-marketplace")
+    assert reloaded.kickoff.goals == room.kickoff.goals
+
+
 def test_room_status_counts_decisions_blockers_and_handoffs(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     create_delivery_room("Build a marketplace", project_name="Marketplace", template="platform")

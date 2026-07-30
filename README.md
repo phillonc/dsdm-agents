@@ -265,6 +265,33 @@ python main.py --pi-doctor --agent-runtime pi --llm-provider vllm
 
 `PRD_TRD` always runs on the legacy path (its two-agent Product Manager/Dev Lead sub-workflow hasn't been ported yet). See `docs/category-defining-features/11-pi-agent-runtime/` for the full PRD/TRD and migration roadmap.
 
+#### Autonomous Delivery Room
+
+Instead of running isolated phase agents, a Delivery Room coordinates the full AI product team (Product Owner, Business Analyst, Architect, Frontend/Backend Developer, QA, Security, Release Manager, and more) against one project workspace — with shared role ownership, a decision log, a blocker log, cross-agent handoffs, and a health score.
+
+```bash
+# Create a room and see the kickoff artifact (goals, assumptions, stakeholders, risks, sequence)
+python main.py --room-create --input "Build a task management platform" --room-project "Task Platform" --room-template mvp
+
+# Create AND run the room through the real DSDM orchestrator, phase by phase
+python main.py --room-run --input "Build a task management platform" --room-project "Task Platform"
+
+# Check status (agents, blockers, decisions, health, goals/risks) at any time
+python main.py --room-status --room-project task-platform
+
+# Get a focused view (e.g. only blockers and decisions owned by one agent)
+python main.py --room-dashboard --room-project task-platform --dashboard-sections blockers,decisions --dashboard-agent BusinessStudyAgent
+
+# Export the full dashboard to generated/<project>/docs/DELIVERY_ROOM.md
+python main.py --room-export --room-project task-platform
+```
+
+- **Templates** (`--room-template`): `mvp` (default), `platform`, `migration`, `enterprise`, `compliance` — each adjusts role assignments, kickoff goals/risks, and recommended next actions for that kind of project.
+- **State**: persisted as JSON at `generated/<project>/room_state.json`; the Markdown dashboard lives at `generated/<project>/docs/DELIVERY_ROOM.md`.
+- **Programmatic access**: `src.rooms` exposes `create_delivery_room`, `run_delivery_room`, `get_delivery_room_status`, `add_room_decision`, `add_room_blocker`, `add_room_handoff`, and more; the same operations are also registered as agent tools (`room_create`, `room_get_status`, `room_get_health`, ...) so any agent can update room state mid-workflow.
+
+See `docs/category-defining-features/01-autonomous-delivery-room/` for the full PRD/TRD.
+
 ### Output & Project Management
 
 #### Auto-Generated Artifacts
@@ -531,6 +558,11 @@ python main.py --list-tools
 | `--llm-provider <provider>` | `anthropic`, `openai`, `gemini`, `ollama`, or `vllm` | `python main.py --llm-provider vllm --agent-runtime pi --input "..."` |
 | `--pi-doctor` | Diagnose the pi.dev runtime setup and exit | `python main.py --pi-doctor` |
 | `--generate-agents` | Check role definitions for drift and exit | `python main.py --generate-agents` |
+| `--room-create` | Create an Autonomous Delivery Room (see below) | `python main.py --room-create --input "Build an MVP" --room-project "My Project"` |
+| `--room-run` | Create and run a Delivery Room workflow through the real orchestrator | `python main.py --room-run --input "Build an MVP" --room-project "My Project"` |
+| `--room-status` | Show a Delivery Room's status | `python main.py --room-status --room-project my-project` |
+| `--room-dashboard` | Show a filtered Delivery Room dashboard | `python main.py --room-dashboard --room-project my-project --dashboard-sections summary,blockers` |
+| `--room-export` | Export the full Delivery Room dashboard to Markdown | `python main.py --room-export --room-project my-project` |
 
 #### Valid Phase Names
 
