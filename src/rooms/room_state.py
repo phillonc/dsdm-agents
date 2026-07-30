@@ -77,6 +77,17 @@ class RoomArtifact:
 
 
 @dataclass
+class RoomKickoff:
+    """Kickoff artifact: goals, assumptions, stakeholders, risks, and sequence."""
+
+    goals: List[str] = field(default_factory=list)
+    assumptions: List[str] = field(default_factory=list)
+    stakeholders: List[str] = field(default_factory=list)
+    risks: List[str] = field(default_factory=list)
+    sequence: List[str] = field(default_factory=list)
+
+
+@dataclass
 class DeliveryRoomState:
     """Persisted state for an Autonomous Delivery Room."""
 
@@ -85,6 +96,7 @@ class DeliveryRoomState:
     template: str
     status: str = "created"
     active_phase: Optional[str] = None
+    kickoff: RoomKickoff = field(default_factory=RoomKickoff)
     agents: List[RoomAgentAssignment] = field(default_factory=list)
     decisions: List[RoomDecision] = field(default_factory=list)
     blockers: List[RoomBlocker] = field(default_factory=list)
@@ -112,6 +124,7 @@ class DeliveryRoomState:
             template=data.get("template", "mvp"),
             status=data.get("status", "created"),
             active_phase=data.get("active_phase"),
+            kickoff=RoomKickoff(**data.get("kickoff", {})),
             agents=[RoomAgentAssignment(**item) for item in data.get("agents", [])],
             decisions=[RoomDecision(**item) for item in data.get("decisions", [])],
             blockers=[RoomBlocker(**item) for item in data.get("blockers", [])],

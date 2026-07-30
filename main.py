@@ -272,6 +272,14 @@ def _print_room_status(console: Console, project_name: str) -> None:
     console.print(f"Template: {status['template']}")
     console.print(f"Status: {status['status']}")
     console.print(f"Active phase: {status['active_phase']}")
+    if status.get("goals"):
+        console.print("\n[bold]Goals[/bold]")
+        for goal in status["goals"]:
+            console.print(f"  • {goal}")
+    if status.get("risks"):
+        console.print("\n[bold]Risks[/bold]")
+        for risk in status["risks"]:
+            console.print(f"  • {risk}")
     if health:
         console.print(f"Health: {health.get('overall')}/100 ({health.get('status')}, confidence {health.get('confidence')}/100)")
     console.print(f"Open blockers: {status['open_blocker_count']}")
