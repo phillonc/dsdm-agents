@@ -6,7 +6,12 @@
   "workspaces": [
     "extensions/*"
   ],
+  "scripts": {
+    "test": "for d in extensions/*/; do f=\"$d/index.test.ts\"; if [ -f \"$f\" ]; then echo \"--- $f ---\"; node --experimental-strip-types \"$f\" || exit 1; fi; done",
+    "typecheck": "tsc --noEmit"
+  },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.82.1"
+    "@earendil-works/pi-coding-agent": "0.82.1",
+    "typescript": "^7.0.2"
   }
 }
