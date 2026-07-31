@@ -122,6 +122,40 @@ transcript.
 
 ## 3. Command reference
 
+The phase-level commands chain into a linear pipeline (driven end-to-end by
+`/run-full-workflow`); the rest are cross-cutting — run them against
+`generated/<slug>/` whenever they're needed, not in a fixed order.
+
+```mermaid
+flowchart LR
+    REQ(["Requirements file\nor task description"]) --> FEAS
+
+    subgraph PIPE["DSDM phase pipeline — /run-full-workflow drives all of this"]
+        direction LR
+        FEAS["/run-feasibility\n(feasibility)"] -->|GO| PM["/run-product-management\n(product-manager)"]
+        PM --> BS["/run-business-study\n(business-study)"]
+        BS --> FM["/run-functional-model\n(functional-model)"]
+        FM --> DB["/run-design-build\n(design-build team)"]
+        DB --> IMPL["/run-implementation\n(implementation)"]
+    end
+
+    FEAS -.->|NO-GO| STOP(["Stop & report"])
+    IMPL --> DONE[("generated/&lt;slug&gt;/\ncomplete")]
+
+    subgraph CROSS["Cross-cutting — run anytime against generated/&lt;slug&gt;/"]
+        direction TB
+        CR["/code-review"]
+        SEC["/security-review"]
+        GATE["/devops-quality-gate"]
+        CHG["/run-change-request"]
+        MCP["/mcp-sync"]
+    end
+
+    BS -.-> CROSS
+    DB -.-> CROSS
+    IMPL -.-> CROSS
+```
+
 | Slash command | File | Invokes | Mode | Produces |
 |---|---|---|---|---|
 | **Full workflow** | `run-full-workflow.prompt.md` | all phase agents in sequence | mixed (per-phase default) | every doc below, chained |
