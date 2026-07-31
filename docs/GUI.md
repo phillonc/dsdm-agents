@@ -27,6 +27,7 @@ the DSDM lifecycle](images/gui-overview.png)
 - [The pages](#the-pages)
 - [Starting a delivery](#starting-a-delivery)
 - [Oversight and approvals](#oversight-and-approvals)
+- [Stopping and stepping back](#stopping-and-stepping-back)
 - [Where documents go](#where-documents-go)
 - [Console and CLI equivalents](#console-and-cli-equivalents)
 - [Security model](#security-model)
@@ -180,9 +181,69 @@ Two safeguards are deliberate:
   level you pick when you choose Hands-off, matching the CLI. Deployment and
   pipeline changes are the two places where silent automation hurts most.
 
+---
+
+## Stopping and stepping back
+
+### Stopping
+
 "Stop run" cancels a queued run immediately and declines anything waiting for
 approval. A step already in flight finishes first — the agent is not killed
 mid-write.
+
+Stopping halts the agents, but it does not un-write what they already produced.
+That is what stepping back is for.
+
+### Stepping back
+
+The console saves a **restore point** immediately before each stage runs. Once
+a run is no longer working — stopped, finished or failed — the run page lists
+those points, newest first, and you can step back as many stages as you like:
+
+![The Step back panel, expanded to confirm going back two
+stages](images/gui-step-back.png)
+
+Every row states three things before you commit to anything:
+
+- how far back it goes ("2 steps back — before design & build");
+- which stages it undoes;
+- exactly which documents will be removed and which will be put back to their
+  earlier version. Expanding a row lists them by name.
+
+After stepping back, the run's stages return to *pending* and their outputs are
+dropped, so the run reads as though those stages never happened. Two buttons
+appear:
+
+- **Undo step back** — one level of undo. The console copies the workspace
+  before it changes anything, so a step back taken by mistake is recoverable.
+- **Continue from &lt;stage&gt;** — start a fresh run over the remaining stages,
+  with the same brief, project and oversight level. This is how you rework a
+  stage: step back, change the brief if needed, and run forward again.
+
+### What it will and will not touch
+
+Stepping back is a file operation, so its boundaries are deliberately narrow:
+
+- **Only this run's project folders.** A restore point records which folders
+  under `generated/` the run wrote to. Those are replaced; folders the run
+  created after that point are deleted. Every other project is left alone, even
+  if something else changed it in the meantime.
+- **Never outside `generated/`.** Every path is resolved and checked against the
+  workspace root before anything is written or deleted.
+- **Never silently partial.** If a file changed but no copy was kept — because
+  it sat outside the run's own folders when the restore point was taken — it is
+  reported as unrecoverable rather than quietly skipped.
+- **Not while the run is working.** Rolling files back underneath a working
+  agent would corrupt both, so stop the run first.
+
+Restore points live in `.dsdm-console/checkpoints/`, outside `generated/`, so
+they never appear in the document browser. They belong to the console process:
+runs are held in memory, so the store is cleared when the console starts. A
+project larger than 250 MB is recorded but not copied, and the console says so
+on the affected restore point instead of offering an undo it cannot deliver.
+
+Stepping back is scoped to one run. To undo work from an earlier run, open that
+run in **Activity** and step back from there.
 
 ---
 
@@ -204,6 +265,7 @@ that folder — a request for a path above it is refused rather than served.
 | Delivery room → Run this room | `python main.py --room-run --input "..."` |
 | Delivery room → Export dashboard | `python main.py --room-export --room-project <name>` |
 | Setup page | `python main.py --pi-doctor` |
+| Run page → Step back | *(console only — the CLI has no equivalent)* |
 
 ---
 
@@ -252,6 +314,7 @@ Guided and Full control runs pause until you answer.
 | `src/gui/server.py` | HTTP server, static assets, Host/token checks |
 | `src/gui/api.py` | JSON API and routing table |
 | `src/gui/runs.py` | Run queue, progress events, approvals, produced-file tracking |
+| `src/gui/checkpoints.py` | Restore points: snapshot, preview and restore `generated/` |
 | `src/gui/catalog.py` | Business-facing names for phases, modes, templates |
 | `src/gui/workspace.py` | Read-only, sandboxed view of `generated/` |
 | `src/gui/diagnostics.py` | Readiness checks behind the Setup page |

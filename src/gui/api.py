@@ -11,7 +11,7 @@ import json
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from . import catalog, diagnostics, workspace
-from .runs import get_run_manager
+from .runs import RollbackError, get_run_manager
 
 Response = Tuple[int, Dict[str, Any]]
 
@@ -184,6 +184,66 @@ def post_run_stop(run_id: str, _query: Dict[str, str], _body: Dict[str, Any]) ->
     return 200, {"ok": True}
 
 
+def get_run_restore_points(run_id: str, _query: Dict[str, str], _body: Dict[str, Any]) -> Response:
+    """List the points this run can step back to, and what each one would change.
+
+    The preview walks `generated/`, so it is a separate call rather than part of
+    the run detail the browser polls while work is in progress.
+    """
+    from . import checkpoints
+
+    run = get_run_manager().get(run_id)
+    if not run:
+        raise ApiError("That run no longer exists.", 404)
+
+    points = []
+    by_id = {point.id: point for point in run.restore_points}
+    for item in run.restore_point_dicts():
+        point = by_id.get(item["id"])
+        if point and not point.skipped:
+            item["preview"] = checkpoints.preview(point, run.scope)
+        points.append(item)
+
+    return 200, {
+        "runId": run.id,
+        "restorePoints": points,
+        "canRollback": run.status not in ("queued", "running", "waiting"),
+        "blockedReason": "Stop the run before stepping back."
+        if run.status in ("queued", "running", "waiting")
+        else "",
+        "canUndo": run.undo_point is not None,
+        "rollback": run.rollback,
+    }
+
+
+def post_run_rollback(run_id: str, _query: Dict[str, str], body: Dict[str, Any]) -> Response:
+    """Step the workspace back N stages, or to a named restore point."""
+    steps = body.get("steps")
+    if steps is not None:
+        try:
+            steps = int(steps)
+        except (TypeError, ValueError) as exc:
+            raise ApiError("'steps' must be a whole number.") from exc
+
+    try:
+        report = get_run_manager().rollback(run_id, steps=steps, checkpoint_id=body.get("checkpointId"))
+    except LookupError as exc:
+        raise ApiError(str(exc), 404) from exc
+    except RollbackError as exc:
+        raise ApiError(str(exc), 409) from exc
+    return 200, report
+
+
+def post_run_rollback_undo(run_id: str, _query: Dict[str, str], _body: Dict[str, Any]) -> Response:
+    try:
+        report = get_run_manager().undo_rollback(run_id)
+    except LookupError as exc:
+        raise ApiError(str(exc), 404) from exc
+    except RollbackError as exc:
+        raise ApiError(str(exc), 409) from exc
+    return 200, report
+
+
 # --- delivery rooms ---------------------------------------------------------
 
 
@@ -264,6 +324,9 @@ ROUTES: List[Tuple[str, List[str], Callable[..., Response]]] = [
     ("GET", ["runs", "*", "events"], get_run_events),
     ("POST", ["runs", "*", "approvals", "*"], post_run_approval),
     ("POST", ["runs", "*", "stop"], post_run_stop),
+    ("GET", ["runs", "*", "restore-points"], get_run_restore_points),
+    ("POST", ["runs", "*", "rollback"], post_run_rollback),
+    ("POST", ["runs", "*", "rollback", "undo"], post_run_rollback_undo),
     ("GET", ["rooms"], get_rooms),
     ("POST", ["rooms"], post_rooms),
     ("GET", ["rooms", "*"], get_room),

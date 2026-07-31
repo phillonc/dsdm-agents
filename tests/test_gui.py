@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 
 from src.agents.base_agent import AgentResult, ProgressEvent, ProgressInfo
-from src.gui import api, catalog, workspace
-from src.gui.runs import RunManager
+from src.gui import api, catalog, checkpoints, workspace
+from src.gui.runs import RollbackError, RunManager
 from src.gui.server import create_server
 from src.orchestrator.dsdm_orchestrator import DSDMPhase
 
@@ -41,7 +41,7 @@ class FakeAgent:
 class FakeOrchestrator:
     """Stands in for DSDMOrchestrator so tests never call an LLM."""
 
-    def __init__(self, fail_phase=None, ask_approval_in=None, writes=None):
+    def __init__(self, fail_phase=None, ask_approval_in=None, writes=None, project=None):
         self.tool_registry = FakeToolRegistry()
         self.agents = {"only": FakeAgent()}
         self.design_build_agents = {}
@@ -49,15 +49,23 @@ class FakeOrchestrator:
         self.fail_phase = fail_phase
         self.ask_approval_in = ask_approval_in
         self.writes = writes  # relative path under generated/, written like a real agent would
+        self.project = project  # when set, writes a per-stage doc plus a shared SUMMARY.md
+        self.contexts = []
         self.approval_answers = []
         self.shutdown_called = False
 
     def run_phase(self, phase, user_input, context=None):
         self.calls.append(phase)
+        self.contexts.append(context)
         if self.writes:
             target = Path("generated") / self.writes
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(f"# {phase.value}", encoding="utf-8")
+        if self.project:
+            docs = Path("generated") / self.project / "docs"
+            docs.mkdir(parents=True, exist_ok=True)
+            (docs / f"{phase.value.upper()}.md").write_text(f"# {phase.value}", encoding="utf-8")
+            (docs / "SUMMARY.md").write_text(f"latest: {phase.value}", encoding="utf-8")
         agent = self.agents["only"]
         if agent.progress_callback:
             agent.progress_callback(
@@ -351,6 +359,203 @@ def test_run_detail_is_json_serialisable(workdir, monkeypatch):
 
     encoded = api.encode(run.to_detail())
     assert json.loads(encoded)["id"] == run.id
+
+
+# ---------------------------------------------------------------- rollback
+
+
+def _finished_run(manager, monkeypatch, stages=("feasibility", "business_study", "prd_trd")):
+    orchestrator = FakeOrchestrator(project="portal")
+    monkeypatch.setattr(manager, "_create_orchestrator", lambda run: orchestrator)
+    run = manager.start(kind="delivery", brief="Build a customer portal", stage_ids=list(stages))
+    assert wait_for(lambda: run.status == "completed")
+    return run, orchestrator
+
+
+def _docs(workdir, project="portal"):
+    folder = workdir / "generated" / project / "docs"
+    return sorted(item.name for item in folder.iterdir()) if folder.is_dir() else []
+
+
+def test_a_restore_point_is_taken_before_every_stage(workdir, monkeypatch):
+    manager = RunManager()
+    run, _ = _finished_run(manager, monkeypatch)
+
+    assert [point.index for point in run.restore_points] == [0, 1, 2]
+    assert [point.label for point in run.restore_points] == [
+        "Before Feasibility",
+        "Before Business Study",
+        "Before Requirements",
+    ]
+    assert run.scope == ["portal"]
+
+
+def test_restore_points_are_labelled_by_how_far_back_they_are(workdir, monkeypatch):
+    manager = RunManager()
+    run, _ = _finished_run(manager, monkeypatch)
+
+    points = run.restore_point_dicts()
+    assert [point["stepsBack"] for point in points] == [1, 2, 3]
+    assert points[0]["undoesStages"] == ["Requirements"]
+    assert points[2]["undoesStages"] == ["Feasibility", "Business Study", "Requirements"]
+
+
+def test_stepping_back_removes_new_documents_and_restores_changed_ones(workdir, monkeypatch):
+    manager = RunManager()
+    run, _ = _finished_run(manager, monkeypatch)
+    assert _docs(workdir) == ["BUSINESS_STUDY.md", "FEASIBILITY.md", "PRD_TRD.md", "SUMMARY.md"]
+
+    report = manager.rollback(run.id, steps=2)
+
+    assert _docs(workdir) == ["FEASIBILITY.md", "SUMMARY.md"]
+    assert (workdir / "generated" / "portal" / "docs" / "SUMMARY.md").read_text() == "latest: feasibility"
+    assert report["undoneStages"] == ["Business Study", "Requirements"]
+    assert report["removeCount"] == 2
+    assert report["restoreCount"] == 1
+    assert report["unrecoverableCount"] == 0
+
+
+def test_stepping_back_resets_the_stages_it_undid(workdir, monkeypatch):
+    manager = RunManager()
+    run, _ = _finished_run(manager, monkeypatch)
+
+    manager.rollback(run.id, steps=2)
+
+    assert run.status == "rolled_back"
+    assert [(stage["id"], stage["status"]) for stage in run.stages] == [
+        ("feasibility", "completed"),
+        ("business_study", "pending"),
+        ("prd_trd", "pending"),
+    ]
+    assert [output["stage"] for output in run.outputs] == ["feasibility"]
+    # Only the stage that still ran can be stepped back to now.
+    assert [point["stepsBack"] for point in run.restore_point_dicts()] == [1]
+
+
+def test_stepping_all_the_way_back_removes_a_folder_the_run_created(workdir, monkeypatch):
+    manager = RunManager()
+    run, _ = _finished_run(manager, monkeypatch)
+
+    manager.rollback(run.id, steps=3)
+
+    assert not (workdir / "generated" / "portal").exists()
+
+
+def test_stepping_back_leaves_other_projects_alone(workdir, monkeypatch):
+    other = workdir / "generated" / "someone-elses-project" / "docs"
+    other.mkdir(parents=True)
+    (other / "NOTES.md").write_text("untouched", encoding="utf-8")
+
+    manager = RunManager()
+    run, _ = _finished_run(manager, monkeypatch)
+    manager.rollback(run.id, steps=3)
+
+    assert (other / "NOTES.md").read_text() == "untouched"
+
+
+def test_a_step_back_can_be_undone(workdir, monkeypatch):
+    manager = RunManager()
+    run, _ = _finished_run(manager, monkeypatch)
+
+    manager.rollback(run.id, steps=2)
+    manager.undo_rollback(run.id)
+
+    assert _docs(workdir) == ["BUSINESS_STUDY.md", "FEASIBILITY.md", "PRD_TRD.md", "SUMMARY.md"]
+    assert (workdir / "generated" / "portal" / "docs" / "SUMMARY.md").read_text() == "latest: prd_trd"
+    assert run.status == "completed"
+    assert all(stage["status"] == "completed" for stage in run.stages)
+    assert [output["stage"] for output in run.outputs] == ["feasibility", "business_study", "prd_trd"]
+    assert run.rollback is None
+
+
+def test_undo_is_only_offered_once(workdir, monkeypatch):
+    manager = RunManager()
+    run, _ = _finished_run(manager, monkeypatch)
+
+    manager.rollback(run.id, steps=1)
+    manager.undo_rollback(run.id)
+    with pytest.raises(RollbackError):
+        manager.undo_rollback(run.id)
+
+
+def test_stepping_back_too_far_is_refused(workdir, monkeypatch):
+    manager = RunManager()
+    run, _ = _finished_run(manager, monkeypatch)
+
+    with pytest.raises(RollbackError):
+        manager.rollback(run.id, steps=9)
+    with pytest.raises(RollbackError):
+        manager.rollback(run.id, steps=0)
+
+
+def test_a_run_in_flight_cannot_be_stepped_back(workdir, monkeypatch):
+    manager = RunManager()
+    orchestrator = FakeOrchestrator(project="portal", ask_approval_in=DSDMPhase.FEASIBILITY)
+    monkeypatch.setattr(manager, "_create_orchestrator", lambda run: orchestrator)
+    run = manager.start(kind="stage", brief="Build a customer portal", stage_ids=["feasibility"], oversight="manual")
+    assert wait_for(lambda: run.status == "waiting")
+
+    with pytest.raises(RollbackError):
+        manager.rollback(run.id, steps=1)
+
+    manager.respond_to_approval(run.id, run.approvals[0].id, True)
+    assert wait_for(lambda: run.status == "completed")
+
+
+def test_the_project_name_reaches_the_agent_as_context(workdir, monkeypatch):
+    manager = RunManager()
+    orchestrator = FakeOrchestrator(project="portal")
+    monkeypatch.setattr(manager, "_create_orchestrator", lambda run: orchestrator)
+    run = manager.start(
+        kind="stage", brief="Build a customer portal", stage_ids=["feasibility"], project="portal"
+    )
+    assert wait_for(lambda: run.status == "completed")
+
+    assert orchestrator.contexts == [{"project_name": "portal"}]
+
+
+def test_restore_points_never_touch_paths_outside_the_workspace(workdir):
+    with pytest.raises(checkpoints.CheckpointError):
+        checkpoints._safe_target("../escape")
+    with pytest.raises(checkpoints.CheckpointError):
+        checkpoints._safe_target("")
+
+
+def test_a_restore_point_is_stored_outside_the_document_folder(workdir, monkeypatch):
+    manager = RunManager()
+    _finished_run(manager, monkeypatch)
+
+    assert checkpoints.checkpoint_root().exists()
+    assert workspace.generated_root() not in checkpoints.checkpoint_root().parents
+    assert [item["name"] for item in workspace.list_projects()] == ["portal"]
+
+
+def test_the_rollback_api_reports_what_each_step_would_change(workdir, monkeypatch):
+    manager = RunManager()
+    monkeypatch.setattr("src.gui.api.get_run_manager", lambda: manager)
+    run, _ = _finished_run(manager, monkeypatch)
+
+    status, payload = api.dispatch("GET", f"runs/{run.id}/restore-points", {})
+    assert status == 200
+    assert payload["canRollback"] is True
+    assert [point["stepsBack"] for point in payload["restorePoints"]] == [1, 2, 3]
+    assert payload["restorePoints"][1]["preview"]["removeCount"] == 2
+
+    status, payload = api.dispatch("POST", f"runs/{run.id}/rollback", {}, {"steps": 2})
+    assert status == 200
+    assert payload["undoneStages"] == ["Business Study", "Requirements"]
+
+    status, _ = api.dispatch("POST", f"runs/{run.id}/rollback/undo", {}, {})
+    assert status == 200
+
+    status, payload = api.dispatch("POST", f"runs/{run.id}/rollback/undo", {}, {})
+    assert status == 409
+    assert "nothing to undo" in payload["error"].lower()
+
+
+def test_the_rollback_api_rejects_an_unknown_run(workdir):
+    status, _ = api.dispatch("POST", "runs/run-9999/rollback", {}, {"steps": 1})
+    assert status == 404
 
 
 # -------------------------------------------------------------------- server

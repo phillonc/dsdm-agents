@@ -26,9 +26,9 @@ import traceback
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
-from . import catalog
+from . import catalog, checkpoints
 
 # Approvals that nobody answers are declined rather than left hanging forever.
 APPROVAL_TIMEOUT_SECONDS = 900
@@ -49,6 +49,10 @@ def _now() -> str:
 
 class RunStopped(Exception):
     """Raised inside an agent's progress callback to unwind a stopped run."""
+
+
+class RollbackError(Exception):
+    """Raised when a step-back cannot be performed, with a reason to show."""
 
 
 @dataclass
@@ -94,7 +98,7 @@ class Run:
     provider: Optional[str] = None
     project: Optional[str] = None
     template: Optional[str] = None
-    status: str = "queued"  # queued | running | waiting | completed | failed | stopped
+    status: str = "queued"  # queued | running | waiting | completed | failed | stopped | rolled_back
     created_at: str = field(default_factory=_now)
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
@@ -107,6 +111,14 @@ class Run:
     approvals: List[Approval] = field(default_factory=list)
     console: List[str] = field(default_factory=list)
     outputs: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Project folders under generated/ this run has written to. Restore points
+    # are scoped to these, so rolling back never touches anyone else's work.
+    scope: List[str] = field(default_factory=list)
+    restore_points: List[Any] = field(default_factory=list)
+    rollback: Optional[Dict[str, Any]] = None  # user-facing report of the last step back
+    undo_point: Optional[Any] = None  # workspace copy taken just before it
+    undo_state: Optional[Dict[str, Any]] = None  # the run's own bookkeeping, to match
 
     _seq: int = 0
     _stop: bool = False
@@ -142,9 +154,44 @@ class Run:
                 "outputs": self.outputs,
                 "console": self.console[-400:],
                 "eventCount": self._seq,
+                "scope": list(self.scope),
+                "restorePoints": self.restore_point_dicts(),
+                "rollback": self.rollback,
+                "canUndoRollback": self.undo_point is not None,
+                "canRollback": self.status not in ("queued", "running", "waiting"),
             }
         )
         return detail
+
+    def restore_point_dicts(self) -> List[Dict[str, Any]]:
+        """Restore points, newest first, each labelled with how far back it is.
+
+        "Steps back" is counted in stages that actually ran: the newest point
+        is one step back, the one before it two, and so on.
+        """
+        ran = [point for point in self.restore_points if self.stage_ran(point.stage_id)]
+        payload = []
+        for steps, point in enumerate(reversed(ran), start=1):
+            item = point.to_dict(steps_back=steps)
+            item["undoesStages"] = [
+                catalog.stage_name(stage_id)
+                for stage_id in self.stage_ids[point.index:]
+                if self.stage_ran(stage_id)
+            ]
+            payload.append(item)
+        return payload
+
+    def stage_ran(self, stage_id: Optional[str]) -> bool:
+        for stage in self.stages:
+            if stage["id"] == stage_id:
+                return stage["status"] in ("running", "completed", "failed")
+        return False
+
+    def note_scope(self, files: Iterable[str]) -> None:
+        """Record the project folders a stage just wrote into."""
+        for name in sorted(checkpoints.load_owned_from_files(files)):
+            if name not in self.scope:
+                self.scope.append(name)
 
     # -- event log ----------------------------------------------------------
 
@@ -243,6 +290,9 @@ class RunManager:
         self._lock = threading.Lock()
         self._queue: "queue.Queue[str]" = queue.Queue()
         self._counter = 0
+        # Runs live in memory only, so any restore points left by a previous
+        # process can never be applied. Start from a clean store.
+        checkpoints.purge_all()
         self._worker = threading.Thread(target=self._worker_loop, name="dsdm-console-runs", daemon=True)
         self._worker.start()
 
@@ -304,6 +354,8 @@ class RunManager:
                 }
                 for stage_id in stage_ids
             ]
+            if run.project:
+                run.scope.append(run.project)
             self._runs[run_id] = run
             self._order.append(run_id)
             self._trim_locked()
@@ -343,7 +395,130 @@ class RunManager:
             run.emit("run", "Run cancelled before it started.", level="warn")
         return True
 
+    def rollback(self, run_id: str, steps: Optional[int] = None, checkpoint_id: Optional[str] = None):
+        """Step the workspace back to an earlier restore point.
+
+        Either `steps` (1 = undo the most recent stage) or an explicit
+        `checkpoint_id`. The run must not be in flight: rolling files back
+        underneath a working agent would corrupt both.
+        """
+        run = self.get(run_id)
+        if run is None:
+            raise LookupError("That run no longer exists.")
+        if run.status in ("queued", "running", "waiting"):
+            raise RollbackError("Stop the run before stepping back.")
+
+        point = self._resolve_restore_point(run, steps, checkpoint_id)
+        if point.skipped:
+            raise RollbackError(point.reason or "No copy was kept for that point.")
+
+        # A safety copy of the current state, so one level of undo is possible.
+        run.undo_point = checkpoints.create(
+            run.id, -1, "Before stepping back", None, run.scope
+        )
+
+        try:
+            report = checkpoints.restore(point, run.scope)
+        except checkpoints.CheckpointError as exc:
+            run.undo_point = None
+            raise RollbackError(str(exc)) from exc
+
+        undone = self._reset_stages_from(run, point)
+        report.update({"toLabel": point.label, "undoneStages": undone, "steps": len(undone)})
+        run.rollback = report
+        run.status = "rolled_back"
+        run.summary = (
+            f"Stepped back {len(undone)} stage(s) to \"{point.label.lower()}\"."
+            if undone
+            else f"Stepped back to \"{point.label.lower()}\"."
+        )
+        run.emit(
+            "rollback",
+            f"Stepped back to {point.label.lower()} - "
+            f"{report['removeCount']} document(s) removed, {report['restoreCount']} restored.",
+            level="warn",
+            data={"checkpointId": point.id, "undoneStages": undone},
+        )
+        if report["unrecoverableCount"]:
+            run.emit(
+                "rollback",
+                f"{report['unrecoverableCount']} file(s) changed outside this run's project "
+                "folders and were left as they are.",
+                level="warn",
+            )
+        return report
+
+    def undo_rollback(self, run_id: str):
+        """Put back the state that the most recent step-back replaced."""
+        run = self.get(run_id)
+        if run is None:
+            raise LookupError("That run no longer exists.")
+        if run.undo_point is None:
+            raise RollbackError("There is nothing to undo.")
+        if run.status in ("queued", "running", "waiting"):
+            raise RollbackError("Stop the run before undoing a step back.")
+
+        try:
+            report = checkpoints.restore(run.undo_point, run.scope)
+        except checkpoints.CheckpointError as exc:
+            raise RollbackError(str(exc)) from exc
+
+        state = run.undo_state or {}
+        for stage in run.stages:
+            saved = state.get("stages", {}).get(stage["id"])
+            if saved:
+                stage.update(saved)
+        run.outputs = state.get("outputs", run.outputs)
+        run.status = state.get("status", "completed")
+        run.summary = "The step back was undone; the documents are as they were."
+        run.rollback = None
+        run.undo_point = None
+        run.undo_state = None
+        run.emit("rollback", "Step back undone - the documents are back as they were.")
+        return report
+
     # -- internals ----------------------------------------------------------
+
+    @staticmethod
+    def _resolve_restore_point(run: Run, steps: Optional[int], checkpoint_id: Optional[str]):
+        available = [point for point in run.restore_points if run.stage_ran(point.stage_id)]
+        if not available:
+            raise RollbackError("This run has no restore points to step back to.")
+        if checkpoint_id:
+            for point in available:
+                if point.id == checkpoint_id:
+                    return point
+            raise RollbackError("That restore point is no longer available.")
+        if steps is None:
+            steps = 1
+        if steps < 1 or steps > len(available):
+            raise RollbackError(
+                f"Choose between 1 and {len(available)} step(s) back."
+            )
+        return available[len(available) - steps]
+
+    @staticmethod
+    def _reset_stages_from(run: Run, point) -> List[str]:
+        """Mark the rolled-back stages pending again and drop their outputs."""
+        rolled_back_ids = run.stage_ids[point.index:]
+        undone = [
+            catalog.stage_name(stage["id"])
+            for stage in run.stages
+            if stage["id"] in rolled_back_ids and stage["status"] != "pending"
+        ]
+        # Kept so undo_rollback can put the run's own bookkeeping back too.
+        run.undo_state = {
+            "stages": {stage["id"]: dict(stage) for stage in run.stages},
+            "outputs": list(run.outputs),
+            "status": run.status,
+        }
+
+        for stage in run.stages:
+            if stage["id"] in rolled_back_ids:
+                stage.update({"status": "pending", "startedAt": None, "finishedAt": None, "fileCount": 0})
+        run.outputs = [output for output in run.outputs if output["stage"] not in rolled_back_ids]
+        run.current_stage = None
+        return undone
 
     @staticmethod
     def _default_title(kind: str, stage_ids: List[str]) -> str:
@@ -366,6 +541,7 @@ class RunManager:
                 break
             self._order.pop(0)
             self._runs.pop(oldest, None)
+            checkpoints.discard_run(oldest)
 
     def _worker_loop(self) -> None:  # pragma: no cover - exercised via integration use
         while True:
@@ -511,12 +687,17 @@ class RunManager:
                     return
 
             run.current_stage = stage_id
+            self._take_restore_point(run, index, stage_id)
             run.set_stage_status(stage_id, "running", startedAt=_now())
             run.emit("stage", f"{catalog.stage_name(stage_id)} started.", stage=stage_id)
 
             before = _snapshot_generated()
-            result = orchestrator.run_phase(DSDMPhase(stage_id), run.brief)
+            # The project name is passed as context so the agent writes into the
+            # folder the operator named in the console, rather than inventing one.
+            context = {"project_name": run.project} if run.project else None
+            result = orchestrator.run_phase(DSDMPhase(stage_id), run.brief, context)
             new_files = _new_files(before)
+            run.note_scope(new_files)
 
             run.set_stage_status(
                 stage_id,
@@ -557,6 +738,18 @@ class RunManager:
             if len(run.stage_ids) > 1
             else f"{catalog.stage_name(run.stage_ids[0])} completed."
         )
+
+    def _take_restore_point(self, run: Run, index: int, stage_id: str) -> None:
+        """Save the workspace before `stage_id` runs, so it can be undone."""
+        label = f"Before {catalog.stage_name(stage_id)}"
+        try:
+            point = checkpoints.create(run.id, index, label, stage_id, run.scope)
+        except Exception as exc:  # a failed restore point must not fail the run
+            run.emit("run", f"Could not save a restore point: {exc}", level="warn")
+            return
+        run.restore_points.append(point)
+        if point.skipped:
+            run.emit("run", f"Restore point skipped - {point.reason}", level="warn")
 
     def _execute_room(self, run: Run, orchestrator) -> None:
         from ..rooms import export_delivery_room, get_delivery_room_status

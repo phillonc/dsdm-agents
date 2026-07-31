@@ -26,6 +26,8 @@
     doc: null,
     readiness: null,
     routeError: null,
+    restore: null,          // restore points for the open run
+    pendingRollback: null,  // checkpoint id awaiting confirmation
     busy: false,
     draft: null,
   };
@@ -108,6 +110,7 @@
     completed: { label: "Completed", cls: "badge badge-ok" },
     failed: { label: "Failed", cls: "badge badge-danger" },
     stopped: { label: "Stopped", cls: "badge badge-warn" },
+    rolled_back: { label: "Stepped back", cls: "badge badge-warn" },
   };
 
   function statusBadge(status) {
@@ -308,6 +311,11 @@
       });
     },
     stopRun: function (id) { return request("POST", "/runs/" + encodeURIComponent(id) + "/stop", {}); },
+    restorePoints: function (id) { return request("GET", "/runs/" + encodeURIComponent(id) + "/restore-points"); },
+    rollback: function (id, checkpointId) {
+      return request("POST", "/runs/" + encodeURIComponent(id) + "/rollback", { checkpointId: checkpointId });
+    },
+    undoRollback: function (id) { return request("POST", "/runs/" + encodeURIComponent(id) + "/rollback/undo", {}); },
     rooms: function () { return request("GET", "/rooms"); },
     room: function (project) { return request("GET", "/rooms/" + encodeURIComponent(project)); },
     createRoom: function (payload) { return request("POST", "/rooms", payload); },
@@ -808,6 +816,122 @@
     );
   }
 
+  function fileList(paths, truncated, total) {
+    if (!paths || !paths.length) return "";
+    return (
+      '<ul class="path-list">' +
+      paths.map(function (path) { return "<li>" + esc(path) + "</li>"; }).join("") +
+      (truncated ? "<li>… and " + (total - paths.length) + " more</li>" : "") +
+      "</ul>"
+    );
+  }
+
+  function rollbackBanner(run) {
+    if (!run.rollback) return "";
+    var report = run.rollback;
+    var unrecoverable = report.unrecoverableCount
+      ? " " + report.unrecoverableCount + " file(s) outside this run's project folders were left as they are."
+      : "";
+    return (
+      '<div class="banner banner-warn"><div style="flex:1">' +
+      "<strong>Stepped back to " + esc((report.toLabel || "").toLowerCase()) + "</strong>" +
+      '<div class="banner-body">' +
+      esc(
+        (report.undoneStages || []).join(", ") +
+        (report.undoneStages && report.undoneStages.length ? " undone. " : "") +
+        report.removeCount + " document(s) removed, " + report.restoreCount + " restored." + unrecoverable
+      ) +
+      '</div><div class="row" style="margin-top:10px">' +
+      (run.canUndoRollback ? '<button class="btn btn-sm btn-secondary" data-undo-rollback>Undo step back</button>' : "") +
+      (nextPendingStage(run)
+        ? '<button class="btn btn-sm btn-primary" data-resume-run>Continue from ' +
+          esc(catalog0(nextPendingStage(run)).name) + "</button>"
+        : "") +
+      "</div></div></div>"
+    );
+  }
+
+  function catalog0(stageId) {
+    return stageMeta(stageId);
+  }
+
+  function nextPendingStage(run) {
+    for (var i = 0; i < run.stages.length; i += 1) {
+      if (run.stages[i].status === "pending") return run.stages[i].id;
+    }
+    return null;
+  }
+
+  function stepBackCard(run) {
+    if (!state.restore) {
+      return isActive(run.status)
+        ? ""
+        : '<div class="card card-pad"><div class="row"><span class="field-hint">Loading restore points…</span></div></div>';
+    }
+    var data = state.restore;
+    if (!data.restorePoints.length) return "";
+
+    var rows = data.restorePoints
+      .map(function (point) {
+        var preview = point.preview;
+        var effect = point.skipped
+          ? esc(point.reason)
+          : preview
+          ? preview.removeCount + " document(s) removed" +
+            (preview.restoreCount ? ", " + preview.restoreCount + " restored" : "") +
+            (preview.unrecoverableCount ? ", " + preview.unrecoverableCount + " cannot be put back" : "")
+          : "";
+        var confirming = state.pendingRollback === point.id;
+        return (
+          '<div class="restore-row' + (confirming ? " is-confirming" : "") + '">' +
+          '<div class="restore-main">' +
+          '<div class="restore-title">' + point.stepsBack + " step" + (point.stepsBack === 1 ? "" : "s") +
+          " back — " + esc(point.label.toLowerCase()) + "</div>" +
+          '<div class="restore-note">Undoes ' + esc((point.undoesStages || []).join(", ") || "nothing") +
+          (effect ? " · " + esc(effect) : "") + "</div>" +
+          "</div>" +
+          (point.skipped
+            ? '<span class="badge badge-warn">Not available</span>'
+            : confirming
+            ? ""
+            : '<button class="btn btn-sm btn-secondary" data-rollback="' + esc(point.id) + '">Step back</button>') +
+          (confirming && preview
+            ? '<div class="restore-detail">' +
+              (preview.removeCount
+                ? "<strong>Removed</strong>" + fileList(preview.remove, preview.removeTruncated, preview.removeCount)
+                : "") +
+              (preview.restoreCount
+                ? "<strong>Restored to their earlier version</strong>" +
+                  fileList(preview.restore, preview.restoreTruncated, preview.restoreCount)
+                : "") +
+              (preview.unrecoverableCount
+                ? '<strong class="text-danger">Changed outside this run and cannot be put back</strong>' +
+                  fileList(preview.unrecoverable, preview.unrecoverableTruncated, preview.unrecoverableCount)
+                : "") +
+              '<div class="restore-actions">' +
+              '<button class="btn btn-sm btn-ghost" data-rollback-cancel>Cancel</button>' +
+              '<button class="btn btn-sm btn-danger" data-rollback-confirm="' + esc(point.id) +
+              '">Yes, step back</button></div>' +
+              "</div>"
+            : "") +
+          "</div>"
+        );
+      })
+      .join("");
+
+    return (
+      '<div class="card"><div class="card-header"><div><h2>Step back</h2>' +
+      '<div class="sub">Undo completed stages and put the documents back as they were</div></div>' +
+      "</div>" +
+      (data.canRollback
+        ? '<div class="restore-list">' + rows + "</div>"
+        : '<div class="card-body"><div class="banner banner-warn"><div>' +
+          "<strong>Not available while the run is working</strong>" +
+          '<div class="banner-body">' + esc(data.blockedReason) + "</div></div></div></div>") +
+      "</div>"
+    );
+  }
+
   function viewRun() {
     var run = state.run;
     if (!run) return '<div class="loading-state"><div class="spinner"></div><p>Loading run…</p></div>';
@@ -920,6 +1044,7 @@
       pageHeader(titleCase(run.kind) + " run", run.title, run.brief, actions) +
       '<div class="stack">' +
       (approvals ? '<div class="stack">' + approvals + "</div>" : "") +
+      rollbackBanner(run) +
       '<div class="card card-pad"><div class="row" style="margin-bottom:10px">' +
       statusBadge(run.status) +
       '<span class="field-hint">' + esc(run.summary || (isActive(run.status) ? "Work in progress" : "")) + "</span>" +
@@ -929,6 +1054,7 @@
       '<div class="progress-track"><div class="progress-fill' + fillClass + '" style="width:' + percent + '%"></div></div>' +
       (run.error ? '<p class="field-hint" style="margin-top:10px;color:var(--danger)">' + esc(run.error) + "</p>" : "") +
       "</div>" +
+      (isActive(run.status) ? "" : stepBackCard(run)) +
       '<div class="split">' +
       '<div class="card"><div class="card-header"><h2>Stages</h2></div>' + (stages || emptyState("◇", "No stages", "This run does not use the stage lifecycle.")) + "</div>" +
       '<div class="card"><div class="card-header"><div><h2>Live activity</h2>' +
@@ -1462,8 +1588,110 @@
         .then(function () { toast("Stopping", "The step in progress will finish first."); })
         .catch(fail);
     });
+    on("[data-rollback]", "click", function (event) {
+      state.pendingRollback = event.currentTarget.dataset.rollback;
+      render();
+    });
+    on("[data-rollback-cancel]", "click", function () {
+      state.pendingRollback = null;
+      render();
+    });
+    on("[data-rollback-confirm]", "click", function (event) {
+      applyRollback(event.currentTarget.dataset.rollbackConfirm);
+    });
+    on("[data-undo-rollback]", "click", undoRollback);
+    on("[data-resume-run]", "click", resumeRun);
+
     var feed = qs("#feed");
     if (feed) feed.scrollTop = feed.scrollHeight;
+  }
+
+  function applyRollback(checkpointId) {
+    if (!state.run || state.busy) return;
+    state.busy = true;
+    qsa("[data-rollback-confirm]").forEach(function (button) {
+      button.disabled = true;
+      button.textContent = "Stepping back…";
+    });
+    api
+      .rollback(state.run.id, checkpointId)
+      .then(function (report) {
+        state.pendingRollback = null;
+        toast(
+          "Stepped back",
+          report.removeCount + " document(s) removed, " + report.restoreCount + " restored.",
+          "success"
+        );
+        return refreshRunAfterChange();
+      })
+      .catch(fail)
+      .then(function () { state.busy = false; }, function () { state.busy = false; });
+  }
+
+  function undoRollback() {
+    if (!state.run || state.busy) return;
+    state.busy = true;
+    api
+      .undoRollback(state.run.id)
+      .then(function () {
+        toast("Step back undone", "The documents are back as they were.", "success");
+        return refreshRunAfterChange();
+      })
+      .catch(fail)
+      .then(function () { state.busy = false; }, function () { state.busy = false; });
+  }
+
+  function resumeRun() {
+    var run = state.run;
+    if (!run || state.busy) return;
+    var remaining = run.stages
+      .filter(function (stage) { return stage.status === "pending"; })
+      .map(function (stage) { return stage.id; });
+    if (!remaining.length) return;
+    state.busy = true;
+    api
+      .startRun({
+        kind: "stage",
+        brief: run.brief,
+        stages: remaining,
+        oversight: run.oversight,
+        runtime: run.runtime,
+        project: run.project,
+      })
+      .then(function (next) {
+        toast("Continuing", "Picking up from " + stageMeta(remaining[0]).name + ".", "success");
+        return loadRuns().then(function () { go("#/runs/" + next.id); });
+      })
+      .catch(fail)
+      .then(function () { state.busy = false; }, function () { state.busy = false; });
+  }
+
+  function refreshRunAfterChange() {
+    var runId = state.run.id;
+    return api
+      .runEvents(runId, state.runCursor)
+      .then(function (data) {
+        if (data.events.length) {
+          state.events = state.events.concat(data.events);
+          state.runCursor = data.cursor;
+        }
+        return api.run(runId);
+      })
+      .then(function (detail) {
+        state.run = detail;
+        return loadRestorePoints().then(render);
+      });
+  }
+
+  function loadRestorePoints() {
+    if (!state.run || isActive(state.run.status)) {
+      state.restore = null;
+      return Promise.resolve();
+    }
+    return api
+      .restorePoints(state.run.id)
+      .then(function (data) { state.restore = data; })
+      .catch(function () { state.restore = { restorePoints: [], canRollback: false, canUndo: false, blockedReason: "" }; });
   }
 
   function respondApproval(approvalId, approved) {
@@ -1575,10 +1803,13 @@
         data.approvals.length !== (state.run.approvals || []).filter(function (a) { return a.status === "pending"; }).length;
       if (!changed) return null;
       return api.run(state.run.id).then(function (detail) {
+        var justFinished = isActive(state.run.status) && !isActive(detail.status);
         state.run = detail;
         var index = state.runs.findIndex(function (item) { return item.id === detail.id; });
         if (index !== -1) state.runs[index] = detail;
+        if (justFinished) return loadRestorePoints().then(render);
         render();
+        return null;
       });
     });
   }
@@ -1638,6 +1869,8 @@
         loader = loadRuns();
         break;
       case "run":
+        state.restore = null;
+        state.pendingRollback = null;
         loader = api.run(next.params.id).then(function (detail) {
           state.run = detail;
           state.events = [];
@@ -1645,6 +1878,7 @@
           return api.runEvents(detail.id, 0).then(function (data) {
             state.events = data.events;
             state.runCursor = data.cursor;
+            return loadRestorePoints();
           });
         });
         break;

@@ -239,6 +239,12 @@ def capture(work: Path) -> list[str]:
             time.sleep(7)  # let the run finish and the toast fade
             save("gui-run-complete")
 
+            # The step-back panel, expanded on the point that undoes both stages.
+            page.wait_for_selector("[data-rollback]", timeout=30_000)
+            page.locator("[data-rollback]").nth(1).click()
+            time.sleep(0.8)
+            save("gui-step-back")
+
             visit("#/overview")
             save("gui-overview")
 

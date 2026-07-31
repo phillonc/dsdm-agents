@@ -29,6 +29,7 @@ AI-powered agents implementing the Dynamic Systems Development Method (DSDM) fra
 ### 🔧 Advanced Capabilities
 
 - **Browser Console (GUI)** - `python main.py --gui` for business users who prefer not to use the CLI
+- **Step Back / Rollback** - Undo completed stages from the console and put the generated documents back as they were, with a preview of every file affected and one level of undo
 - **Interactive Menu System** - Browse phases, configure agents, run workflows
 - **CLI Commands** - Full command-line interface with 11 flags and options
 - **Programmatic API** - Python library for custom automation
@@ -375,6 +376,11 @@ interface aimed at business users, built on the same agents, tools and delivery
 rooms as the CLI. From it you can commission work in plain language, watch each
 stage run live, approve the actions that need sign-off, read the documents that
 come back, and check your setup.
+
+It can also **step back**: the console saves a restore point before each stage,
+so a stopped or finished run can be rolled back N stages — removing the
+documents those stages wrote and restoring the ones they changed — before
+continuing from that point.
 
 No extra packages are required; the console ships with the project. See
 [docs/GUI.md](docs/GUI.md) for the full guide and more screenshots.
