@@ -34,6 +34,7 @@ from .automation_tester_agent import AUTOMATION_TESTER_SYSTEM_PROMPT, AUTOMATION
 from .backend_developer_agent import BACKEND_DEVELOPER_SYSTEM_PROMPT, BACKEND_DEVELOPER_TOOLS
 from .base_agent import AgentMode
 from .business_study_agent import BUSINESS_STUDY_SYSTEM_PROMPT, BUSINESS_STUDY_TOOLS
+from .change_control_agent import CHANGE_CONTROL_SYSTEM_PROMPT, CHANGE_CONTROL_TOOLS
 from .design_build_agent import DESIGN_BUILD_SYSTEM_PROMPT, DESIGN_BUILD_TOOLS
 from .dev_lead_agent import DEV_LEAD_SYSTEM_PROMPT, DEV_LEAD_TOOLS
 from .devops_agent import DEVOPS_SYSTEM_PROMPT, DEVOPS_TOOLS
@@ -178,6 +179,17 @@ ROLE_DEFINITIONS: Dict[str, RoleDefinition] = {
             tools=NFR_TESTER_TOOLS,
             default_mode=AgentMode.HYBRID,
             agent_md_name="nfr-tester",
+        ),
+        RoleDefinition(
+            role_id="change-control",
+            display_name="Change Control Agent",
+            phase="design_build",
+            description="Arbitrates mid-timebox scope-change requests via MoSCoW trade-offs",
+            system_prompt=CHANGE_CONTROL_SYSTEM_PROMPT,
+            tools=CHANGE_CONTROL_TOOLS,
+            default_mode=AgentMode.HYBRID,
+            handoffs=["business-study"],
+            agent_md_name="change-control",
         ),
         RoleDefinition(
             role_id="pen-tester",

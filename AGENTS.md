@@ -53,10 +53,13 @@ Run with `copilot --prompt-file .github/prompts/<file>.prompt.md` (or via the in
 | Feasibility only | `.github/prompts/run-feasibility.prompt.md` |
 | PRD generation | `.github/prompts/run-product-management.prompt.md` |
 | Business study only | `.github/prompts/run-business-study.prompt.md` |
+| Functional model iteration | `.github/prompts/run-functional-model.prompt.md` |
 | Design & Build only | `.github/prompts/run-design-build.prompt.md` |
 | Implementation / deploy | `.github/prompts/run-implementation.prompt.md` |
 | Code review | `.github/prompts/code-review.prompt.md` |
 | Security review | `.github/prompts/security-review.prompt.md` |
+| DevOps quality gate | `.github/prompts/devops-quality-gate.prompt.md` |
+| Scope change request | `.github/prompts/run-change-request.prompt.md` |
 | MCP sync (Jira/Confluence/GitHub) | `.github/prompts/mcp-sync.prompt.md` |
 
 ## Conventions every agent must follow
