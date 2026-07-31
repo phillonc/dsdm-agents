@@ -558,6 +558,182 @@ def test_the_rollback_api_rejects_an_unknown_run(workdir):
     assert status == 404
 
 
+# --------------------------------------------------------- cross-run timeline
+
+
+def _run_stages(manager, monkeypatch, stages, project, brief="Build a customer portal"):
+    """Run one console run to completion against its own stub orchestrator."""
+    orchestrator = FakeOrchestrator(project=project)
+    monkeypatch.setattr(manager, "_create_orchestrator", lambda run: orchestrator)
+    run = manager.start(kind="stage", brief=brief, stage_ids=list(stages), project=project)
+    assert wait_for(lambda: run.status == "completed")
+    time.sleep(0.01)  # keep restore-point timestamps strictly ordered
+    return run
+
+
+def _all_docs(workdir):
+    root = workdir / "generated"
+    return sorted(item.relative_to(root).as_posix() for item in root.rglob("*.md"))
+
+
+def test_the_timeline_spans_every_run_newest_first(workdir, monkeypatch):
+    manager = RunManager()
+    first = _run_stages(manager, monkeypatch, ["feasibility"], "portal")
+    second = _run_stages(manager, monkeypatch, ["business_study"], "portal")
+    third = _run_stages(manager, monkeypatch, ["design_build"], "portal-mobile")
+
+    entries = manager.timeline()
+    assert [entry["stepsBack"] for entry in entries] == [1, 2, 3]
+    assert [entry["runId"] for entry in entries] == [third.id, second.id, first.id]
+    assert [entry["label"] for entry in entries] == [
+        "Before Design & Build",
+        "Before Business Study",
+        "Before Feasibility",
+    ]
+
+
+def test_a_timeline_entry_names_the_later_runs_it_would_undo(workdir, monkeypatch):
+    manager = RunManager()
+    first = _run_stages(manager, monkeypatch, ["feasibility"], "portal")
+    second = _run_stages(manager, monkeypatch, ["business_study"], "portal")
+
+    oldest = manager.timeline()[-1]
+    assert oldest["runId"] == first.id
+    assert oldest["crossesRuns"] is True
+    assert [group["runId"] for group in oldest["undoes"]] == [first.id, second.id]
+    assert oldest["undoesStages"] == ["Feasibility", "Business Study"]
+
+    newest = manager.timeline()[0]
+    assert newest["crossesRuns"] is False
+
+
+def test_stepping_back_across_runs_undoes_the_later_ones(workdir, monkeypatch):
+    manager = RunManager()
+    first = _run_stages(manager, monkeypatch, ["feasibility"], "portal")
+    second = _run_stages(manager, monkeypatch, ["business_study"], "portal")
+    third = _run_stages(manager, monkeypatch, ["design_build"], "portal-mobile")
+    assert _all_docs(workdir) == [
+        "portal-mobile/docs/DESIGN_BUILD.md",
+        "portal-mobile/docs/SUMMARY.md",
+        "portal/docs/BUSINESS_STUDY.md",
+        "portal/docs/FEASIBILITY.md",
+        "portal/docs/SUMMARY.md",
+    ]
+
+    report = manager.rollback_to(steps=2)  # back to the start of the second run
+
+    # The second run's document is gone, and so is the third run's whole project.
+    assert _all_docs(workdir) == ["portal/docs/FEASIBILITY.md", "portal/docs/SUMMARY.md"]
+    assert not (workdir / "generated" / "portal-mobile").exists()
+    assert sorted(report["affectedRuns"]) == sorted([second.id, third.id])
+    assert first.status == "completed"
+    assert second.status == "rolled_back"
+    assert third.status == "rolled_back"
+
+
+def test_undo_puts_every_affected_run_back(workdir, monkeypatch):
+    manager = RunManager()
+    _run_stages(manager, monkeypatch, ["feasibility"], "portal")
+    second = _run_stages(manager, monkeypatch, ["business_study"], "portal")
+    third = _run_stages(manager, monkeypatch, ["design_build"], "portal-mobile")
+    before = _all_docs(workdir)
+
+    manager.rollback_to(steps=2)
+    manager.undo_rollback()
+
+    assert _all_docs(workdir) == before
+    assert second.status == "completed"
+    assert third.status == "completed"
+    assert all(stage["status"] == "completed" for stage in third.stages)
+    assert manager.can_undo() is False
+
+
+def test_a_run_scoped_step_back_undoes_later_runs_too(workdir, monkeypatch):
+    manager = RunManager()
+    first = _run_stages(manager, monkeypatch, ["feasibility"], "portal")
+    second = _run_stages(manager, monkeypatch, ["business_study"], "portal")
+
+    # One step back within the first run, which later work was built on.
+    report = manager.rollback(first.id, steps=1)
+
+    assert not (workdir / "generated" / "portal").exists()
+    assert sorted(report["affectedRuns"]) == sorted([first.id, second.id])
+
+
+def test_a_restore_point_covers_folders_from_earlier_runs(workdir, monkeypatch):
+    manager = RunManager()
+    _run_stages(manager, monkeypatch, ["feasibility"], "portal")
+    _run_stages(manager, monkeypatch, ["design_build"], "portal-mobile")
+
+    # The second run's restore point was taken with the first run's folder in
+    # scope, so stepping back to it can still put that folder right.
+    newest = manager.timeline()[0]
+    (workdir / "generated" / "portal" / "docs" / "FEASIBILITY.md").write_text("tampered", encoding="utf-8")
+
+    manager.rollback_to(entry_id=newest["entryId"])
+
+    assert (workdir / "generated" / "portal" / "docs" / "FEASIBILITY.md").read_text() == "# feasibility"
+
+
+def test_no_step_back_while_any_run_is_working(workdir, monkeypatch):
+    manager = RunManager()
+    _run_stages(manager, monkeypatch, ["feasibility"], "portal")
+
+    blocker = FakeOrchestrator(project="portal", ask_approval_in=DSDMPhase.BUSINESS_STUDY)
+    monkeypatch.setattr(manager, "_create_orchestrator", lambda run: blocker)
+    waiting = manager.start(
+        kind="stage", brief="Build a customer portal", stage_ids=["business_study"], oversight="manual"
+    )
+    assert wait_for(lambda: waiting.status == "waiting")
+
+    with pytest.raises(RollbackError):
+        manager.rollback_to(steps=1)
+
+    manager.respond_to_approval(waiting.id, waiting.approvals[0].id, True)
+    assert wait_for(lambda: waiting.status == "completed")
+    assert manager.rollback_to(steps=1)
+
+
+def test_the_timeline_api_previews_and_applies_a_cross_run_step_back(workdir, monkeypatch):
+    manager = RunManager()
+    monkeypatch.setattr("src.gui.api.get_run_manager", lambda: manager)
+    _run_stages(manager, monkeypatch, ["feasibility"], "portal")
+    _run_stages(manager, monkeypatch, ["design_build"], "portal-mobile")
+
+    status, payload = api.dispatch("GET", "timeline", {})
+    assert status == 200
+    assert payload["canRollback"] is True
+    assert payload["canUndo"] is False
+    assert [entry["stepsBack"] for entry in payload["entries"]] == [1, 2]
+
+    oldest = payload["entries"][-1]
+    status, preview = api.dispatch("GET", "timeline/preview", {"entry": oldest["entryId"]})
+    assert status == 200
+    assert "portal-mobile/docs/DESIGN_BUILD.md" in preview["preview"]["remove"]
+
+    status, report = api.dispatch("POST", "timeline/rollback", {}, {"entryId": oldest["entryId"]})
+    assert status == 200
+    assert len(report["affectedRuns"]) == 2
+    assert not (workdir / "generated" / "portal").exists()
+
+    status, payload = api.dispatch("GET", "timeline", {})
+    assert payload["canUndo"] is True
+    assert payload["entries"] == []
+
+    status, _ = api.dispatch("POST", "timeline/rollback/undo", {}, {})
+    assert status == 200
+    assert (workdir / "generated" / "portal" / "docs" / "FEASIBILITY.md").exists()
+
+
+def test_the_timeline_preview_rejects_an_unknown_entry(workdir, monkeypatch):
+    manager = RunManager()
+    monkeypatch.setattr("src.gui.api.get_run_manager", lambda: manager)
+    status, _ = api.dispatch("GET", "timeline/preview", {"entry": "run-9999:cp-0"})
+    assert status == 404
+    status, _ = api.dispatch("GET", "timeline/preview", {})
+    assert status == 400
+
+
 # -------------------------------------------------------------------- server
 
 

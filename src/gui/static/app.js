@@ -28,6 +28,9 @@
     routeError: null,
     restore: null,          // restore points for the open run
     pendingRollback: null,  // checkpoint id awaiting confirmation
+    timeline: null,         // restore points across every run
+    timelineOpen: null,     // timeline entry expanded for confirmation
+    timelinePreview: null,  // fetched preview for that entry
     busy: false,
     draft: null,
   };
@@ -316,6 +319,14 @@
       return request("POST", "/runs/" + encodeURIComponent(id) + "/rollback", { checkpointId: checkpointId });
     },
     undoRollback: function (id) { return request("POST", "/runs/" + encodeURIComponent(id) + "/rollback/undo", {}); },
+    timeline: function () { return request("GET", "/timeline"); },
+    timelinePreview: function (entryId) {
+      return request("GET", "/timeline/preview?entry=" + encodeURIComponent(entryId));
+    },
+    timelineRollback: function (entryId) {
+      return request("POST", "/timeline/rollback", { entryId: entryId });
+    },
+    timelineUndo: function () { return request("POST", "/timeline/rollback/undo", {}); },
     rooms: function () { return request("GET", "/rooms"); },
     room: function (project) { return request("GET", "/rooms/" + encodeURIComponent(project)); },
     createRoom: function (payload) { return request("POST", "/rooms", payload); },
@@ -855,6 +866,26 @@
     return stageMeta(stageId);
   }
 
+  function undoSummary(entry, runId) {
+    var groups = entry.undoes || [];
+    var owner = null;
+    var others = [];
+    groups.forEach(function (group) {
+      if (group.runId === (runId || entry.runId)) owner = group;
+      else others.push(group);
+    });
+    var lines = ["Undoes " + ((owner ? owner.stages : entry.undoesStages || []).join(", ") || "nothing")];
+    if (others.length) {
+      lines.push(
+        "Also undoes " + others.length + " later run" + (others.length === 1 ? "" : "s") + ": " +
+        others
+          .map(function (group) { return group.runTitle + " (" + group.stages.join(", ") + ")"; })
+          .join("; ")
+      );
+    }
+    return lines;
+  }
+
   function nextPendingStage(run) {
     for (var i = 0; i < run.stages.length; i += 1) {
       if (run.stages[i].status === "pending") return run.stages[i].id;
@@ -887,8 +918,11 @@
           '<div class="restore-main">' +
           '<div class="restore-title">' + point.stepsBack + " step" + (point.stepsBack === 1 ? "" : "s") +
           " back — " + esc(point.label.toLowerCase()) + "</div>" +
-          '<div class="restore-note">Undoes ' + esc((point.undoesStages || []).join(", ") || "nothing") +
+          '<div class="restore-note">' + esc(undoSummary(point, run.id)[0]) +
           (effect ? " · " + esc(effect) : "") + "</div>" +
+          (undoSummary(point, run.id)[1]
+            ? '<div class="restore-note text-warn">' + esc(undoSummary(point, run.id)[1]) + "</div>"
+            : "") +
           "</div>" +
           (point.skipped
             ? '<span class="badge badge-warn">Not available</span>'
@@ -1066,6 +1100,134 @@
       '<details class="disclosure"><summary>Technical log</summary>' +
       '<div class="disclosure-body"><div class="console-log">' + esc((run.console || []).join("\n")) + "</div></div></details>" +
       "</div></div></div>"
+    );
+  }
+
+  // -- history (cross-run timeline) -------------------------------------------
+
+  function viewHistory() {
+    if (!state.timeline) {
+      return (
+        pageHeader("History", "Workspace history", "") +
+        '<div class="loading-state"><div class="spinner"></div><p>Reading the timeline…</p></div>'
+      );
+    }
+
+    var data = state.timeline;
+    var lede =
+      "Every restore point the console has taken, across every run, newest first. " +
+      "Stepping back moves the whole workspace to that moment — including anything later runs did.";
+
+    if (!data.entries.length) {
+      return (
+        pageHeader("History", "Workspace history", lede) +
+        '<div class="card">' +
+        emptyState(
+          "⟲",
+          "No history yet",
+          "A restore point is saved before each stage runs. Start a delivery and they will appear here.",
+          '<a class="btn btn-primary" href="#/new">Start delivery</a>'
+        ) +
+        "</div>"
+      );
+    }
+
+    var banner = "";
+    if (data.lastRollback) {
+      banner =
+        '<div class="banner banner-warn"><div style="flex:1">' +
+        "<strong>Stepped back to " + esc((data.lastRollback.toLabel || "").toLowerCase()) + "</strong>" +
+        '<div class="banner-body">' +
+        esc(
+          (data.lastRollback.undoneStages || []).join(", ") +
+          " undone across " + (data.lastRollback.affectedRuns || []).length + " run(s). " +
+          data.lastRollback.removeCount + " document(s) removed, " +
+          data.lastRollback.restoreCount + " restored."
+        ) +
+        "</div>" +
+        (data.canUndo
+          ? '<div class="row" style="margin-top:10px">' +
+            '<button class="btn btn-sm btn-secondary" data-timeline-undo>Undo step back</button></div>'
+          : "") +
+        "</div></div>";
+    } else if (!data.canRollback) {
+      banner =
+        '<div class="banner banner-warn"><div><strong>Work in progress</strong>' +
+        '<div class="banner-body">' + esc(data.blockedReason) + "</div></div></div>";
+    }
+
+    var items = data.entries
+      .map(function (entry) {
+        var open = state.timelineOpen === entry.entryId;
+        var preview = open && state.timelinePreview && state.timelinePreview.entryId === entry.entryId
+          ? state.timelinePreview.preview
+          : null;
+        var runs = entry.undoes || [];
+        return (
+          '<li class="timeline-item' + (open ? " is-open" : "") + '">' +
+          '<span class="timeline-dot" aria-hidden="true"></span>' +
+          '<div class="timeline-body">' +
+          '<div class="timeline-head">' +
+          "<strong>" + esc(entry.label) + "</strong>" +
+          '<span class="badge">' + entry.stepsBack + " step" + (entry.stepsBack === 1 ? "" : "s") + " back</span>" +
+          (entry.crossesRuns ? '<span class="badge badge-warn">Spans ' + runs.length + " runs</span>" : "") +
+          (entry.skipped ? '<span class="badge badge-warn">No copy kept</span>' : "") +
+          '<span class="spacer"></span>' +
+          '<span class="timeline-time" title="' + esc(entry.createdAt) + '">' + esc(relative(entry.createdAt)) + "</span>" +
+          "</div>" +
+          '<div class="timeline-meta">' +
+          'From <a href="#/runs/' + esc(entry.runId) + '">' + esc(entry.runTitle) + "</a>" +
+          (entry.projects && entry.projects.length ? " · " + esc(entry.projects.join(", ")) : "") +
+          "</div>" +
+          undoSummary(entry)
+            .map(function (line, index) {
+              return '<div class="timeline-meta' + (index ? " text-warn" : "") + '">' + esc(line) + "</div>";
+            })
+            .join("") +
+          (entry.skipped
+            ? '<div class="timeline-meta text-danger">' + esc(entry.reason) + "</div>"
+            : open
+            ? timelineConfirm(entry, preview)
+            : '<div class="row" style="margin-top:10px">' +
+              '<button class="btn btn-sm btn-secondary" data-timeline-open="' + esc(entry.entryId) +
+              '"' + (data.canRollback ? "" : " disabled") + ">Step back to here</button></div>") +
+          "</div></li>"
+        );
+      })
+      .join("");
+
+    return (
+      pageHeader("History", "Workspace history", lede) +
+      '<div class="stack">' + banner +
+      '<div class="card card-pad"><ol class="timeline">' + items + "</ol></div></div>"
+    );
+  }
+
+  function timelineConfirm(entry, preview) {
+    if (!preview) {
+      return '<div class="row" style="margin-top:10px"><span class="field-hint">Checking what this would change…</span></div>';
+    }
+    return (
+      '<div class="restore-detail" style="margin-top:12px">' +
+      (preview.removeCount
+        ? "<strong>Removed</strong>" + fileList(preview.remove, preview.removeTruncated, preview.removeCount)
+        : "") +
+      (preview.restoreCount
+        ? "<strong>Restored to their earlier version</strong>" +
+          fileList(preview.restore, preview.restoreTruncated, preview.restoreCount)
+        : "") +
+      (preview.unrecoverableCount
+        ? '<strong class="text-danger">Changed outside these project folders and cannot be put back</strong>' +
+          fileList(preview.unrecoverable, preview.unrecoverableTruncated, preview.unrecoverableCount)
+        : "") +
+      (!preview.removeCount && !preview.restoreCount
+        ? '<p class="field-hint">Nothing would change — the workspace already matches this point.</p>'
+        : "") +
+      '<div class="restore-actions">' +
+      '<button class="btn btn-sm btn-ghost" data-timeline-cancel>Cancel</button>' +
+      '<button class="btn btn-sm btn-danger" data-timeline-confirm="' + esc(entry.entryId) +
+      '">Yes, step back</button></div>' +
+      "</div>"
     );
   }
 
@@ -1394,6 +1556,7 @@
       switch (state.route.name) {
         case "new": html = viewNew(); break;
         case "activity": html = viewActivity(); break;
+        case "history": html = viewHistory(); break;
         case "run": html = viewRun(); break;
         case "documents": html = viewDocuments(); break;
         case "rooms": html = viewRooms(); break;
@@ -1459,6 +1622,7 @@
 
     bindWizard();
     bindRun();
+    bindHistory();
     bindDocuments();
     bindRoom();
 
@@ -1706,6 +1870,70 @@
       .catch(fail);
   }
 
+  function bindHistory() {
+    on("[data-timeline-open]", "click", function (event) {
+      var entryId = event.currentTarget.dataset.timelineOpen;
+      state.timelineOpen = entryId;
+      state.timelinePreview = null;
+      render();
+      api
+        .timelinePreview(entryId)
+        .then(function (data) {
+          if (state.timelineOpen !== entryId) return;
+          state.timelinePreview = { entryId: entryId, preview: data.preview, reason: data.reason };
+          render();
+        })
+        .catch(fail);
+    });
+    on("[data-timeline-cancel]", "click", function () {
+      state.timelineOpen = null;
+      state.timelinePreview = null;
+      render();
+    });
+    on("[data-timeline-confirm]", "click", function (event) {
+      applyTimelineRollback(event.currentTarget.dataset.timelineConfirm);
+    });
+    on("[data-timeline-undo]", "click", function () {
+      if (state.busy) return;
+      state.busy = true;
+      api
+        .timelineUndo()
+        .then(function () {
+          toast("Step back undone", "The documents are back as they were.", "success");
+          return loadTimeline().then(render);
+        })
+        .catch(fail)
+        .then(function () { state.busy = false; }, function () { state.busy = false; });
+    });
+  }
+
+  function applyTimelineRollback(entryId) {
+    if (state.busy) return;
+    state.busy = true;
+    qsa("[data-timeline-confirm]").forEach(function (button) {
+      button.disabled = true;
+      button.textContent = "Stepping back…";
+    });
+    api
+      .timelineRollback(entryId)
+      .then(function (report) {
+        state.timelineOpen = null;
+        state.timelinePreview = null;
+        toast(
+          "Stepped back",
+          report.removeCount + " document(s) removed, " + report.restoreCount + " restored.",
+          "success"
+        );
+        return Promise.all([loadTimeline(), loadRuns()]).then(render);
+      })
+      .catch(fail)
+      .then(function () { state.busy = false; }, function () { state.busy = false; });
+  }
+
+  function loadTimeline() {
+    return api.timeline().then(function (data) { state.timeline = data; });
+  }
+
   function bindDocuments() {
     on("[data-folder]", "click", function (event) {
       loadFiles(state.route.params.project, event.currentTarget.dataset.folder);
@@ -1868,6 +2096,12 @@
       case "activity":
         loader = loadRuns();
         break;
+      case "history":
+        state.timeline = null;
+        state.timelineOpen = null;
+        state.timelinePreview = null;
+        loader = loadTimeline();
+        break;
       case "run":
         state.restore = null;
         state.pendingRollback = null;
@@ -1923,6 +2157,12 @@
         if (!isActive(state.run.status)) { stopPolling(); return; }
         refreshRun().catch(function () { /* transient: keep polling */ });
       }, 1500);
+    } else if (state.route.name === "history") {
+      poller = setInterval(function () {
+        // Only to keep the "stop the run first" notice current.
+        if (!state.timeline || state.timeline.canRollback) return;
+        loadTimeline().then(render).catch(function () {});
+      }, 4000);
     } else if (state.route.name === "activity" || state.route.name === "overview") {
       poller = setInterval(function () {
         loadRuns()

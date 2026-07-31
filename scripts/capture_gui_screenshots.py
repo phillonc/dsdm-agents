@@ -110,14 +110,15 @@ def install_stub_orchestrator() -> None:
             return tool
 
     class StubOrchestrator:
-        def __init__(self) -> None:
+        def __init__(self, project: str = "customer-portal") -> None:
+            self.project = project
             self.agents = {"stage": StubAgent()}
             self.design_build_agents = {}
             self.tool_registry = StubToolRegistry()
 
         def run_phase(self, phase, user_input, context=None):
             agent = self.agents["stage"]
-            target = Path("generated/customer-portal/docs")
+            target = Path(f"generated/{self.project}/docs")
             target.mkdir(parents=True, exist_ok=True)
             (target / f"{phase.value.upper()}.md").write_text(f"# {phase.value}\n", encoding="utf-8")
 
@@ -166,7 +167,23 @@ def install_stub_orchestrator() -> None:
         def shutdown_pi_bridge(self) -> None:
             pass
 
-    get_run_manager()._create_orchestrator = lambda run: StubOrchestrator()
+    get_run_manager()._create_orchestrator = lambda run: StubOrchestrator(run.project or "customer-portal")
+
+
+def run_second_delivery() -> None:
+    """Run a short second delivery so History spans more than one run."""
+    from src.gui.runs import get_run_manager
+
+    manager = get_run_manager()
+    run = manager.start(
+        kind="stage",
+        brief="A mobile companion app so customers can track orders on the move",
+        stage_ids=["design_build"],
+        project="portal-mobile",
+    )
+    deadline = time.time() + 60
+    while run.status not in ("completed", "failed", "stopped") and time.time() < deadline:
+        time.sleep(0.1)
 
 
 def find_chromium() -> str | None:
@@ -244,6 +261,12 @@ def capture(work: Path) -> list[str]:
             page.locator("[data-rollback]").nth(1).click()
             time.sleep(0.8)
             save("gui-step-back")
+
+            # A second run against a different project, so the cross-run
+            # timeline has something real to show.
+            run_second_delivery()
+            visit("#/history")
+            save("gui-history")
 
             visit("#/overview")
             save("gui-overview")

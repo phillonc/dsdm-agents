@@ -196,22 +196,35 @@ def get_run_restore_points(run_id: str, _query: Dict[str, str], _body: Dict[str,
     if not run:
         raise ApiError("That run no longer exists.", 404)
 
+    manager = get_run_manager()
+    # Steps are counted within this run, but the effect is workspace-wide, so
+    # the preview and the cross-run breakdown come from the shared timeline.
+    rows = {entry["entryId"]: (entry, point) for entry, point in manager.timeline_points()}
+    scope = manager.session_scope()
+
     points = []
-    by_id = {point.id: point for point in run.restore_points}
     for item in run.restore_point_dicts():
-        point = by_id.get(item["id"])
+        entry, point = rows.get(f"{run.id}:{item['id']}", (None, None))
+        if entry:
+            item.update(
+                {
+                    "entryId": entry["entryId"],
+                    "undoes": entry["undoes"],
+                    "undoesStages": entry["undoesStages"],
+                    "crossesRuns": entry["crossesRuns"],
+                }
+            )
         if point and not point.skipped:
-            item["preview"] = checkpoints.preview(point, run.scope)
+            item["preview"] = checkpoints.preview(point, scope)
         points.append(item)
 
+    active = manager.active_run()
     return 200, {
         "runId": run.id,
         "restorePoints": points,
-        "canRollback": run.status not in ("queued", "running", "waiting"),
-        "blockedReason": "Stop the run before stepping back."
-        if run.status in ("queued", "running", "waiting")
-        else "",
-        "canUndo": run.undo_point is not None,
+        "canRollback": active is None,
+        "blockedReason": f"Stop {active.title.lower()} before stepping back." if active else "",
+        "canUndo": run.can_undo,
         "rollback": run.rollback,
     }
 
@@ -242,6 +255,72 @@ def post_run_rollback_undo(run_id: str, _query: Dict[str, str], _body: Dict[str,
     except RollbackError as exc:
         raise ApiError(str(exc), 409) from exc
     return 200, report
+
+
+# --- timeline ---------------------------------------------------------------
+
+
+def _timeline_payload(manager) -> Dict[str, Any]:
+    active = manager.active_run()
+    return {
+        "entries": manager.timeline(),
+        "canRollback": active is None,
+        "blockedReason": f"Stop {active.title.lower()} before stepping back." if active else "",
+        "canUndo": manager.can_undo(),
+        "lastRollback": manager.last_rollback,
+    }
+
+
+def get_timeline(_query: Dict[str, str], _body: Dict[str, Any]) -> Response:
+    """Every restore point across every run, newest first.
+
+    Previews are not included: there is one entry per stage of every run in the
+    session, and each preview walks `generated/`. The browser asks for the one
+    it is about to act on instead.
+    """
+    return 200, _timeline_payload(get_run_manager())
+
+
+def get_timeline_preview(query: Dict[str, str], _body: Dict[str, Any]) -> Response:
+    """What stepping back to one timeline entry would change."""
+    from . import checkpoints
+
+    entry_id = query.get("entry")
+    if not entry_id:
+        raise ApiError("A timeline entry is required.")
+
+    manager = get_run_manager()
+    for entry, point in manager.timeline_points():
+        if entry["entryId"] != entry_id:
+            continue
+        if point.skipped:
+            return 200, {"entry": entry, "preview": None, "reason": point.reason}
+        return 200, {
+            "entry": entry,
+            "preview": checkpoints.preview(point, manager.session_scope()),
+            "reason": "",
+        }
+    raise ApiError("That restore point is no longer available.", 404)
+
+
+def post_timeline_rollback(_query: Dict[str, str], body: Dict[str, Any]) -> Response:
+    steps = body.get("steps")
+    if steps is not None:
+        try:
+            steps = int(steps)
+        except (TypeError, ValueError) as exc:
+            raise ApiError("'steps' must be a whole number.") from exc
+    try:
+        return 200, get_run_manager().rollback_to(entry_id=body.get("entryId"), steps=steps)
+    except RollbackError as exc:
+        raise ApiError(str(exc), 409) from exc
+
+
+def post_timeline_rollback_undo(_query: Dict[str, str], _body: Dict[str, Any]) -> Response:
+    try:
+        return 200, get_run_manager().undo_rollback()
+    except RollbackError as exc:
+        raise ApiError(str(exc), 409) from exc
 
 
 # --- delivery rooms ---------------------------------------------------------
@@ -327,6 +406,10 @@ ROUTES: List[Tuple[str, List[str], Callable[..., Response]]] = [
     ("GET", ["runs", "*", "restore-points"], get_run_restore_points),
     ("POST", ["runs", "*", "rollback"], post_run_rollback),
     ("POST", ["runs", "*", "rollback", "undo"], post_run_rollback_undo),
+    ("GET", ["timeline"], get_timeline),
+    ("GET", ["timeline", "preview"], get_timeline_preview),
+    ("POST", ["timeline", "rollback"], post_timeline_rollback),
+    ("POST", ["timeline", "rollback", "undo"], post_timeline_rollback_undo),
     ("GET", ["rooms"], get_rooms),
     ("POST", ["rooms"], post_rooms),
     ("GET", ["rooms", "*"], get_room),

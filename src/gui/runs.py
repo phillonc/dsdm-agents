@@ -10,7 +10,8 @@ a browser watches it, so this module owns:
 * approvals - the GUI equivalent of the CLI's `Confirm.ask` prompt - which
   block the worker thread until someone answers in the browser or the request
   times out (an unanswered approval is declined, never auto-approved);
-* a record of which files under `generated/` each stage produced.
+* a record of which files under `generated/` each stage produced, and the
+  cross-run timeline of restore points that lets the workspace be stepped back.
 
 Nothing here re-implements DSDM logic. Every run drives the same
 `DSDMOrchestrator` the CLI uses.
@@ -26,7 +27,7 @@ import traceback
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from . import catalog, checkpoints
 
@@ -42,9 +43,21 @@ MAX_CONSOLE_LINES = 2000
 # Completed runs retained in memory (the console is a local, single-user tool).
 MAX_RUNS = 50
 
+# Store id for the safety copy taken before a step back. Not a real run id, so
+# it never collides with one or gets trimmed along with a run.
+UNDO_STORE_ID = "__undo__"
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _as_time(value: Optional[str]) -> datetime:
+    """Parse one of our own ISO timestamps; unparseable values sort oldest."""
+    try:
+        return datetime.fromisoformat(value) if value else datetime.min.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
 
 
 class RunStopped(Exception):
@@ -117,8 +130,7 @@ class Run:
     scope: List[str] = field(default_factory=list)
     restore_points: List[Any] = field(default_factory=list)
     rollback: Optional[Dict[str, Any]] = None  # user-facing report of the last step back
-    undo_point: Optional[Any] = None  # workspace copy taken just before it
-    undo_state: Optional[Dict[str, Any]] = None  # the run's own bookkeeping, to match
+    can_undo: bool = False  # set while the manager holds a copy that would undo it
 
     _seq: int = 0
     _stop: bool = False
@@ -157,7 +169,7 @@ class Run:
                 "scope": list(self.scope),
                 "restorePoints": self.restore_point_dicts(),
                 "rollback": self.rollback,
-                "canUndoRollback": self.undo_point is not None,
+                "canUndoRollback": self.can_undo,
                 "canRollback": self.status not in ("queued", "running", "waiting"),
             }
         )
@@ -290,6 +302,8 @@ class RunManager:
         self._lock = threading.Lock()
         self._queue: "queue.Queue[str]" = queue.Queue()
         self._counter = 0
+        self._undo: Optional[Dict[str, Any]] = None  # one level of undo for a step back
+        self.last_rollback: Optional[Dict[str, Any]] = None
         # Runs live in memory only, so any restore points left by a previous
         # process can never be applied. Start from a clean store.
         checkpoints.purge_all()
@@ -395,92 +409,197 @@ class RunManager:
             run.emit("run", "Run cancelled before it started.", level="warn")
         return True
 
-    def rollback(self, run_id: str, steps: Optional[int] = None, checkpoint_id: Optional[str] = None):
-        """Step the workspace back to an earlier restore point.
+    # -- stepping back ------------------------------------------------------
+    #
+    # Restore points form one timeline across every run, because the thing being
+    # stepped back is the workspace, not a run. Run 2 building on run 1's output
+    # is the normal case, so undoing a stage of run 1 has to undo run 2 as well -
+    # anything else would leave the documents in a state no run ever produced.
 
-        Either `steps` (1 = undo the most recent stage) or an explicit
-        `checkpoint_id`. The run must not be in flight: rolling files back
-        underneath a working agent would corrupt both.
+    def timeline(self) -> List[Dict[str, Any]]:
+        """Every restore point across every run, newest first."""
+        return [entry for entry, _point in self.timeline_points()]
+
+    def rollback_to(
+        self,
+        entry_id: Optional[str] = None,
+        steps: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Step the whole workspace back to one point on the timeline.
+
+        `steps` counts back along the timeline: 1 is the most recent restore
+        point, whichever run took it.
+        """
+        active = self.active_run()
+        if active is not None:
+            raise RollbackError(f"Stop {active.title.lower()} before stepping back.")
+
+        entry, point = self._resolve_entry(entry_id, steps)
+        if point.skipped:
+            raise RollbackError(point.reason or "No copy was kept for that point.")
+
+        scope = self.session_scope()
+        # A copy of the current state first, so one level of undo is possible.
+        safety = checkpoints.create(UNDO_STORE_ID, -1, "Before stepping back", None, scope)
+        try:
+            report = checkpoints.restore(point, scope)
+        except checkpoints.CheckpointError as exc:
+            raise RollbackError(str(exc)) from exc
+
+        undone: List[str] = []
+        undo_runs: Dict[str, Dict[str, Any]] = {}
+        for run, stage_ids in self._runs_affected_by(point):
+            undo_runs[run.id] = self._snapshot_run(run)
+            undone.extend(self._reset_run_stages(run, stage_ids))
+
+        report.update(
+            {
+                "toLabel": point.label,
+                "entryId": entry["entryId"],
+                "runId": point.run_id,
+                "undoneStages": undone,
+                "steps": entry["stepsBack"],
+                "affectedRuns": sorted(undo_runs),
+                "at": _now(),
+            }
+        )
+        self._undo = {"point": safety, "runs": undo_runs, "report": report}
+        self.last_rollback = report
+
+        for run_id in undo_runs:
+            run = self.get(run_id)
+            if run is None:
+                continue
+            run.status = "rolled_back"
+            run.rollback = report
+            run.can_undo = True
+            run.summary = f'Stepped back to "{point.label.lower()}".'
+            run.emit(
+                "rollback",
+                f"Stepped back to {point.label.lower()} - "
+                f"{report['removeCount']} document(s) removed, {report['restoreCount']} restored.",
+                level="warn",
+                data={"entryId": entry["entryId"], "undoneStages": undone},
+            )
+            if report["unrecoverableCount"]:
+                run.emit(
+                    "rollback",
+                    f"{report['unrecoverableCount']} file(s) changed outside the project folders "
+                    "the console has been working in, and were left as they are.",
+                    level="warn",
+                )
+        return report
+
+    def rollback(self, run_id: str, steps: Optional[int] = None, checkpoint_id: Optional[str] = None):
+        """Step back from one run's own list of restore points.
+
+        A convenience over `rollback_to` for the run page: `steps` counts back
+        through this run's stages. The effect is identical - the workspace moves
+        as a whole, so any later run is undone too.
         """
         run = self.get(run_id)
         if run is None:
             raise LookupError("That run no longer exists.")
-        if run.status in ("queued", "running", "waiting"):
-            raise RollbackError("Stop the run before stepping back.")
+        point = self._resolve_run_point(run, steps, checkpoint_id)
+        return self.rollback_to(entry_id=f"{run.id}:{point.id}")
 
-        point = self._resolve_restore_point(run, steps, checkpoint_id)
-        if point.skipped:
-            raise RollbackError(point.reason or "No copy was kept for that point.")
+    def can_undo(self) -> bool:
+        """True while a copy taken before the last step back is still held."""
+        return self._undo is not None
 
-        # A safety copy of the current state, so one level of undo is possible.
-        run.undo_point = checkpoints.create(
-            run.id, -1, "Before stepping back", None, run.scope
-        )
-
-        try:
-            report = checkpoints.restore(point, run.scope)
-        except checkpoints.CheckpointError as exc:
-            run.undo_point = None
-            raise RollbackError(str(exc)) from exc
-
-        undone = self._reset_stages_from(run, point)
-        report.update({"toLabel": point.label, "undoneStages": undone, "steps": len(undone)})
-        run.rollback = report
-        run.status = "rolled_back"
-        run.summary = (
-            f"Stepped back {len(undone)} stage(s) to \"{point.label.lower()}\"."
-            if undone
-            else f"Stepped back to \"{point.label.lower()}\"."
-        )
-        run.emit(
-            "rollback",
-            f"Stepped back to {point.label.lower()} - "
-            f"{report['removeCount']} document(s) removed, {report['restoreCount']} restored.",
-            level="warn",
-            data={"checkpointId": point.id, "undoneStages": undone},
-        )
-        if report["unrecoverableCount"]:
-            run.emit(
-                "rollback",
-                f"{report['unrecoverableCount']} file(s) changed outside this run's project "
-                "folders and were left as they are.",
-                level="warn",
-            )
-        return report
-
-    def undo_rollback(self, run_id: str):
+    def undo_rollback(self, run_id: Optional[str] = None) -> Dict[str, Any]:
         """Put back the state that the most recent step-back replaced."""
-        run = self.get(run_id)
-        if run is None:
-            raise LookupError("That run no longer exists.")
-        if run.undo_point is None:
+        active = self.active_run()
+        if active is not None:
+            raise RollbackError(f"Stop {active.title.lower()} before undoing a step back.")
+        if not self._undo:
             raise RollbackError("There is nothing to undo.")
-        if run.status in ("queued", "running", "waiting"):
-            raise RollbackError("Stop the run before undoing a step back.")
 
         try:
-            report = checkpoints.restore(run.undo_point, run.scope)
+            report = checkpoints.restore(self._undo["point"], self.session_scope())
         except checkpoints.CheckpointError as exc:
             raise RollbackError(str(exc)) from exc
 
-        state = run.undo_state or {}
-        for stage in run.stages:
-            saved = state.get("stages", {}).get(stage["id"])
-            if saved:
-                stage.update(saved)
-        run.outputs = state.get("outputs", run.outputs)
-        run.status = state.get("status", "completed")
-        run.summary = "The step back was undone; the documents are as they were."
-        run.rollback = None
-        run.undo_point = None
-        run.undo_state = None
-        run.emit("rollback", "Step back undone - the documents are back as they were.")
+        for saved_run_id, state in self._undo["runs"].items():
+            run = self.get(saved_run_id)
+            if run is None:
+                continue
+            self._restore_run(run, state)
+            run.emit("rollback", "Step back undone - the documents are back as they were.")
+
+        self._undo = None
+        self.last_rollback = None
         return report
+
+    def session_scope(self) -> List[str]:
+        """Every project folder any run in this session has written to.
+
+        Restore points are saved and applied against this union rather than one
+        run's folders, so a point taken during run 1 can still undo run 2.
+        """
+        names: List[str] = []
+        with self._lock:
+            runs = [self._runs[run_id] for run_id in self._order]
+        for run in runs:
+            for name in run.scope:
+                if name not in names:
+                    names.append(name)
+        return names
+
+    def timeline_points(self) -> List[Tuple[Dict[str, Any], Any]]:
+        """The timeline, paired with the checkpoint each entry refers to."""
+        with self._lock:
+            runs = [self._runs[run_id] for run_id in self._order]
+
+        rows: List[Tuple[Dict[str, Any], Any]] = []
+        for run in runs:
+            for point in run.restore_points:
+                if not run.stage_ran(point.stage_id):
+                    continue
+                entry = point.to_dict()
+                entry.update(
+                    {
+                        "entryId": f"{run.id}:{point.id}",
+                        "runId": run.id,
+                        "runTitle": run.title,
+                        "runKind": run.kind,
+                        "runBrief": run.brief,
+                        "stageName": catalog.stage_name(point.stage_id),
+                    }
+                )
+                rows.append((entry, point))
+
+        rows.sort(key=lambda row: _as_time(row[0]["createdAt"]), reverse=True)
+        for steps, (entry, point) in enumerate(rows, start=1):
+            entry["stepsBack"] = steps
+            entry["undoes"] = [
+                {"runId": run.id, "runTitle": run.title, "stages": [catalog.stage_name(s) for s in stage_ids]}
+                for run, stage_ids in self._runs_affected_by(point)
+            ]
+            entry["undoesStages"] = [
+                name for group in entry["undoes"] for name in group["stages"]
+            ]
+            entry["crossesRuns"] = len(entry["undoes"]) > 1
+        return rows
 
     # -- internals ----------------------------------------------------------
 
+    def _resolve_entry(self, entry_id: Optional[str], steps: Optional[int]):
+        rows = self.timeline_points()
+        if not rows:
+            raise RollbackError("There are no restore points to step back to yet.")
+        if entry_id:
+            for entry, point in rows:
+                if entry["entryId"] == entry_id:
+                    return entry, point
+            raise RollbackError("That restore point is no longer available.")
+        steps = 1 if steps is None else steps
+        if steps < 1 or steps > len(rows):
+            raise RollbackError(f"Choose between 1 and {len(rows)} step(s) back.")
+        return rows[steps - 1]
+
     @staticmethod
-    def _resolve_restore_point(run: Run, steps: Optional[int], checkpoint_id: Optional[str]):
+    def _resolve_run_point(run: Run, steps: Optional[int], checkpoint_id: Optional[str]):
         available = [point for point in run.restore_points if run.stage_ran(point.stage_id)]
         if not available:
             raise RollbackError("This run has no restore points to step back to.")
@@ -489,34 +608,69 @@ class RunManager:
                 if point.id == checkpoint_id:
                     return point
             raise RollbackError("That restore point is no longer available.")
-        if steps is None:
-            steps = 1
+        steps = 1 if steps is None else steps
         if steps < 1 or steps > len(available):
-            raise RollbackError(
-                f"Choose between 1 and {len(available)} step(s) back."
-            )
+            raise RollbackError(f"Choose between 1 and {len(available)} step(s) back.")
         return available[len(available) - steps]
 
+    def _runs_affected_by(self, point) -> List[Tuple[Run, List[str]]]:
+        """Runs whose work stepping back to `point` would undo.
+
+        Runs execute one at a time, so any run that started after this point was
+        taken did all of its work after it: undoing the point undoes all of it.
+        The run that owns the point keeps whatever ran before it.
+        """
+        taken_at = _as_time(point.created_at)
+        with self._lock:
+            runs = [self._runs[run_id] for run_id in self._order]
+
+        affected: List[Tuple[Run, List[str]]] = []
+        for run in runs:
+            if run.id == point.run_id:
+                stage_ids = [sid for sid in run.stage_ids[point.index:] if run.stage_ran(sid)]
+            elif run.started_at and _as_time(run.started_at) > taken_at:
+                stage_ids = [sid for sid in run.stage_ids if run.stage_ran(sid)]
+            else:
+                stage_ids = []
+            if stage_ids:
+                affected.append((run, stage_ids))
+        return affected
+
     @staticmethod
-    def _reset_stages_from(run: Run, point) -> List[str]:
-        """Mark the rolled-back stages pending again and drop their outputs."""
-        rolled_back_ids = run.stage_ids[point.index:]
-        undone = [
-            catalog.stage_name(stage["id"])
-            for stage in run.stages
-            if stage["id"] in rolled_back_ids and stage["status"] != "pending"
-        ]
-        # Kept so undo_rollback can put the run's own bookkeeping back too.
-        run.undo_state = {
+    def _snapshot_run(run: Run) -> Dict[str, Any]:
+        return {
             "stages": {stage["id"]: dict(stage) for stage in run.stages},
             "outputs": list(run.outputs),
             "status": run.status,
+            "summary": run.summary,
+            "rollback": run.rollback,
+            "canUndo": run.can_undo,
         }
 
+    @staticmethod
+    def _restore_run(run: Run, state: Dict[str, Any]) -> None:
         for stage in run.stages:
-            if stage["id"] in rolled_back_ids:
+            saved = state.get("stages", {}).get(stage["id"])
+            if saved:
+                stage.update(saved)
+        run.outputs = state.get("outputs", run.outputs)
+        run.status = state.get("status", "completed")
+        run.summary = state.get("summary", "")
+        run.rollback = state.get("rollback")
+        run.can_undo = bool(state.get("canUndo"))
+
+    @staticmethod
+    def _reset_run_stages(run: Run, stage_ids: List[str]) -> List[str]:
+        """Mark the undone stages pending again and drop their outputs."""
+        undone = [
+            catalog.stage_name(stage["id"])
+            for stage in run.stages
+            if stage["id"] in stage_ids and stage["status"] != "pending"
+        ]
+        for stage in run.stages:
+            if stage["id"] in stage_ids:
                 stage.update({"status": "pending", "startedAt": None, "finishedAt": None, "fileCount": 0})
-        run.outputs = [output for output in run.outputs if output["stage"] not in rolled_back_ids]
+        run.outputs = [output for output in run.outputs if output["stage"] not in stage_ids]
         run.current_stage = None
         return undone
 
@@ -740,10 +894,14 @@ class RunManager:
         )
 
     def _take_restore_point(self, run: Run, index: int, stage_id: str) -> None:
-        """Save the workspace before `stage_id` runs, so it can be undone."""
+        """Save the workspace before `stage_id` runs, so it can be undone.
+
+        Scoped to the whole session rather than this run, so the point can still
+        undo a later run that builds on what this one produces.
+        """
         label = f"Before {catalog.stage_name(stage_id)}"
         try:
-            point = checkpoints.create(run.id, index, label, stage_id, run.scope)
+            point = checkpoints.create(run.id, index, label, stage_id, self.session_scope())
         except Exception as exc:  # a failed restore point must not fail the run
             run.emit("run", f"Could not save a restore point: {exc}", level="warn")
             return

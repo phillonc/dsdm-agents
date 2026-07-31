@@ -7,16 +7,20 @@ put the workspace back the way it was.
 
 Three rules keep a destructive operation safe:
 
-1. **Only what the run touched.** A restore point records the project folders
-   the run has written to (its "owned" folders). Restoring replaces exactly
-   those and deletes any it created after the restore point. Every other
+1. **Only what the console touched.** A restore point records the project
+   folders the console has written to (its "owned" folders). Restoring replaces
+   exactly those and deletes any created after the restore point. Every other
    project under `generated/` is left alone, even if something else changed it
    in the meantime.
 2. **Nothing outside `generated/`.** Every path is resolved and checked against
    the workspace root before it is written to or deleted.
 3. **Never silently partial.** Anything that changed but cannot be put back -
-   because it was outside the run's own folders when the restore point was
-   taken - is reported as unrecoverable rather than quietly skipped.
+   because it was outside those folders when the restore point was taken - is
+   reported as unrecoverable rather than quietly skipped.
+
+The owned set is session-wide rather than per-run (see `RunManager.session_scope`):
+run 2 routinely builds on run 1's documents, so a point taken during run 1 has
+to be able to undo run 2 as well.
 
 Restore points live under `.dsdm-console/checkpoints/`, outside `generated/`,
 so they never appear in the document browser. They are per-process: runs live
@@ -148,9 +152,9 @@ def create(
     stage_id: Optional[str],
     owned: Iterable[str],
 ) -> Checkpoint:
-    """Save the current state of the run's own folders.
+    """Save the current state of the owned folders.
 
-    `owned` is the set of project folders the run has written to so far. A
+    `owned` is the set of project folders the console has written to so far. A
     folder that does not exist yet is still recorded: restoring to this point
     then means deleting whatever the rolled-back stages created.
     """

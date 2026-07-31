@@ -111,6 +111,15 @@ produced, and a collapsed technical log for when someone needs the raw output.
 ![A finished run showing both stages complete and the full activity
 feed](images/gui-run-complete.png)
 
+### History
+
+One timeline of every restore point the console has taken, across every run,
+newest first. This is where you step back past a run boundary — see
+[Stopping and stepping back](#stopping-and-stepping-back).
+
+![The History page: restore points from two runs on one
+timeline](images/gui-history.png)
+
 ### Documents
 
 Browse `generated/` by project and folder. Markdown renders inline — including
@@ -210,9 +219,9 @@ Every row states three things before you commit to anything:
 - exactly which documents will be removed and which will be put back to their
   earlier version. Expanding a row lists them by name.
 
-After stepping back, the run's stages return to *pending* and their outputs are
-dropped, so the run reads as though those stages never happened. Two buttons
-appear:
+After stepping back, the affected stages return to *pending* and their outputs
+are dropped, so those runs read as though the stages never happened. Two
+buttons appear:
 
 - **Undo step back** — one level of undo. The console copies the workspace
   before it changes anything, so a step back taken by mistake is recoverable.
@@ -220,30 +229,48 @@ appear:
   with the same brief, project and oversight level. This is how you rework a
   stage: step back, change the brief if needed, and run forward again.
 
+### Stepping back across runs
+
+Restore points form **one timeline**, not one per run, because what is being
+stepped back is the workspace rather than a run. Running Business Study today
+on top of a feasibility report produced last week is the normal case, so
+stepping back to before that report has to undo today's work too — anything
+else would leave the documents in a state no run ever produced.
+
+The **History** page shows that timeline. Every entry says how far back it goes
+and, when it reaches past a run boundary, which later runs go with it:
+
+> Before Business Study · **2 steps back** · **Spans 2 runs**
+> Undoes Business Study
+> *Also undoes 1 later run: Design & Build (Design & Build)*
+
+Stepping back from a run page does exactly the same thing — the steps are just
+counted through that run's own stages. Either way the whole workspace moves,
+every affected run is marked *stepped back*, and one undo puts all of them
+back.
+
 ### What it will and will not touch
 
 Stepping back is a file operation, so its boundaries are deliberately narrow:
 
-- **Only this run's project folders.** A restore point records which folders
-  under `generated/` the run wrote to. Those are replaced; folders the run
-  created after that point are deleted. Every other project is left alone, even
-  if something else changed it in the meantime.
+- **Only project folders the console has worked in.** A restore point records
+  every folder under `generated/` that any run in this session has written to.
+  Those are replaced; folders created after the restore point are deleted. A
+  project the console never touched is left alone, even if something else
+  changed it in the meantime.
 - **Never outside `generated/`.** Every path is resolved and checked against the
   workspace root before anything is written or deleted.
 - **Never silently partial.** If a file changed but no copy was kept — because
-  it sat outside the run's own folders when the restore point was taken — it is
+  it sat outside those folders when the restore point was taken — it is
   reported as unrecoverable rather than quietly skipped.
-- **Not while the run is working.** Rolling files back underneath a working
-  agent would corrupt both, so stop the run first.
+- **Not while anything is working.** Rolling files back underneath a working
+  agent would corrupt both, so every run must be stopped or finished first.
 
 Restore points live in `.dsdm-console/checkpoints/`, outside `generated/`, so
 they never appear in the document browser. They belong to the console process:
 runs are held in memory, so the store is cleared when the console starts. A
 project larger than 250 MB is recorded but not copied, and the console says so
 on the affected restore point instead of offering an undo it cannot deliver.
-
-Stepping back is scoped to one run. To undo work from an earlier run, open that
-run in **Activity** and step back from there.
 
 ---
 
@@ -265,7 +292,7 @@ that folder — a request for a path above it is refused rather than served.
 | Delivery room → Run this room | `python main.py --room-run --input "..."` |
 | Delivery room → Export dashboard | `python main.py --room-export --room-project <name>` |
 | Setup page | `python main.py --pi-doctor` |
-| Run page → Step back | *(console only — the CLI has no equivalent)* |
+| Run page → Step back, History | *(console only — the CLI has no equivalent)* |
 
 ---
 
@@ -315,6 +342,7 @@ Guided and Full control runs pause until you answer.
 | `src/gui/api.py` | JSON API and routing table |
 | `src/gui/runs.py` | Run queue, progress events, approvals, produced-file tracking |
 | `src/gui/checkpoints.py` | Restore points: snapshot, preview and restore `generated/` |
+| `src/gui/runs.py` → `timeline()` | The cross-run timeline and the step-back it drives |
 | `src/gui/catalog.py` | Business-facing names for phases, modes, templates |
 | `src/gui/workspace.py` | Read-only, sandboxed view of `generated/` |
 | `src/gui/diagnostics.py` | Readiness checks behind the Setup page |
