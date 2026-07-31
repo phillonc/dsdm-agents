@@ -15,6 +15,9 @@ No extra packages are needed. The console is built on Python's standard
 library plus plain HTML/CSS/JavaScript, so if `pip install -r requirements.txt`
 succeeded, the console will run.
 
+![The Overview page: projects, delivery rooms, recent runs, latest documents and
+the DSDM lifecycle](images/gui-overview.png)
+
 ---
 
 ## Contents
@@ -81,27 +84,57 @@ relative to the working directory, exactly as the CLI does.
 
 ## The pages
 
-**Overview** — projects, delivery rooms, live activity and the newest
-documents, plus a one-click way to run any single stage of the lifecycle.
+### Overview
 
-**Start delivery** — a four-step wizard: describe the work, choose the scope,
-choose how closely you want to supervise, review and start.
+Projects, delivery rooms, live activity and the newest documents, plus a
+one-click way to run any single stage of the lifecycle. It also follows your
+system theme, and the sidebar toggle overrides it.
 
-**Activity** — every run, past and present. Opening a run shows a live feed of
-what each agent is doing, stage-by-stage progress, any approvals waiting on
-you, the documents produced, and a collapsed technical log for when someone
-needs the raw output.
+![The Overview page in dark mode](images/gui-overview-dark.png)
 
-**Documents** — browse `generated/` by project and folder. Markdown renders
-inline, so a PRD or feasibility report is readable without leaving the browser.
+### Start delivery
 
-**Delivery rooms** — mission, assigned team, health score, blockers, decisions
-and handoffs for a project. Rooms can be created without running any agents
-(no AI usage), and run later.
+A four-step wizard: describe the work, choose the scope, choose how closely you
+want to supervise, review and start. Each stage says what it answers and what
+it produces, so you are choosing outcomes rather than phase ids.
 
-**Setup** — a checklist of everything the console needs, with the fix written
-next to anything that is wrong. This is the page to send someone to when
-"it isn't working".
+![Step 2 of the wizard, with Feasibility and Business Study
+selected](images/gui-start-delivery-scope.png)
+
+### Activity
+
+Every run, past and present. Opening a run shows a live feed of what each agent
+is doing, stage-by-stage progress, any approvals waiting on you, the documents
+produced, and a collapsed technical log for when someone needs the raw output.
+
+![A finished run showing both stages complete and the full activity
+feed](images/gui-run-complete.png)
+
+### Documents
+
+Browse `generated/` by project and folder. Markdown renders inline — including
+tables — so a PRD or feasibility report is readable without leaving the browser.
+
+![A feasibility report rendered in the document
+viewer](images/gui-documents.png)
+
+### Delivery rooms
+
+Mission, assigned team, health score, blockers, decisions and handoffs for a
+project. Rooms can be created without running any agents (no AI usage), and run
+later.
+
+![A delivery room showing health, team assignments, goals and
+risks](images/gui-delivery-room.png)
+
+### Setup
+
+A checklist of everything the console needs, with the fix written next to
+anything that is wrong. This is the page to send someone to when "it isn't
+working".
+
+![The Setup page with a missing API key and the exact fix beneath
+it](images/gui-setup.png)
 
 ---
 
@@ -114,6 +147,9 @@ next to anything that is wrong. This is the page to send someone to when
    delivery room without running anything yet.
 3. **Oversight**: how closely you want to supervise (see below).
 4. **Review** and start.
+
+![Step 3: choosing between Hands-off, Guided and Full
+control](images/gui-start-delivery-oversight.png)
 
 Work begins immediately and the run page shows progress as it happens. Runs
 execute one at a time — a second run queues rather than competing for the same
@@ -132,6 +168,9 @@ workspace.
 When an approval is needed, the run page shows what the agent wants to do,
 why, and the exact inputs it will use. Approve or decline; the agent continues
 either way, and a declined action is reported back to it as denied.
+
+![A run paused on an approval, showing the file the agent wants to
+write](images/gui-run-approval.png)
 
 Two safeguards are deliberate:
 
@@ -217,6 +256,9 @@ Guided and Full control runs pause until you answer.
 | `src/gui/workspace.py` | Read-only, sandboxed view of `generated/` |
 | `src/gui/diagnostics.py` | Readiness checks behind the Setup page |
 | `src/gui/static/` | `index.html`, `app.js`, `styles.css` — no build step, no CDN |
+
+The screenshots in this guide are captured from a throwaway demo workspace, not
+from anyone's real project.
 
 The console does not re-implement any DSDM logic. Runs construct the same
 `DSDMOrchestrator` the CLI builds, with the terminal prompt and progress

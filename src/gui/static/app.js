@@ -25,6 +25,7 @@
     files: null,
     doc: null,
     readiness: null,
+    routeError: null,
     busy: false,
     draft: null,
   };
@@ -1252,6 +1253,17 @@
     var html;
     if (!state.boot) {
       html = '<div class="loading-state"><div class="spinner"></div><p>Starting the console…</p></div>';
+    } else if (state.routeError) {
+      html =
+        pageHeader("", "That page could not be loaded", state.routeError) +
+        '<div class="card">' +
+        emptyState(
+          "!",
+          "Nothing to show here",
+          "The item may have been renamed or removed. Try again from the Overview.",
+          '<a class="btn btn-primary" href="#/overview">Back to Overview</a>'
+        ) +
+        "</div>";
     } else {
       switch (state.route.name) {
         case "new": html = viewNew(); break;
@@ -1601,6 +1613,7 @@
     var next = parseRoute();
     var previous = state.route;
     state.route = next;
+    state.routeError = null;
 
     if (next.name !== "run" || !previous || previous.params.id !== next.params.id) {
       if (next.name === "run") {
@@ -1663,7 +1676,7 @@
     loader
       .then(function () { render(); startPolling(); })
       .catch(function (error) {
-        fail(error);
+        state.routeError = error && error.message ? error.message : String(error);
         render();
       });
   }

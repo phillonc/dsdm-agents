@@ -377,7 +377,9 @@ stage run live, approve the actions that need sign-off, read the documents that
 come back, and check your setup.
 
 No extra packages are required; the console ships with the project. See
-[docs/GUI.md](docs/GUI.md) for the full guide.
+[docs/GUI.md](docs/GUI.md) for the full guide and more screenshots.
+
+![DSDM Agents Console — Overview](docs/images/gui-overview.png)
 
 | Flag | Default | Purpose |
 |------|---------|---------|
