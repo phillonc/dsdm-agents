@@ -221,5 +221,9 @@ generated/**/node_modules/
 generated/**/*.db
 generated/**/*.sqlite3
 
+# DSDM Agents Console - workspace restore points for the GUI's "step back".
+# Per-process working state, rebuilt on every run; never a deliverable.
+.dsdm-console/
+
 # macOS
 .DS_Store
