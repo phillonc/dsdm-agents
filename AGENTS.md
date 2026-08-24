@@ -62,6 +62,7 @@ Run with `copilot --prompt-file .github/prompts/<file>.prompt.md` (or via the in
 | DevOps quality gate | `.github/prompts/devops-quality-gate.prompt.md` |
 | Scope change request | `.github/prompts/run-change-request.prompt.md` |
 | MCP sync (Jira/Confluence/GitHub) | `.github/prompts/mcp-sync.prompt.md` |
+| Open Engine (Linear queue) setup | `.github/prompts/open-engine-linear-setup.prompt.md` |
 
 ## Conventions every agent must follow
 
