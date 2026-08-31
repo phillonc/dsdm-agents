@@ -98,6 +98,11 @@ behaves identically wherever it is inputted. A change to the stages, gates, ID
 schemes or document headings is a change to that spec, applied to all three
 repositories together.
 
+[docs/findings.md](docs/findings.md) records the problems found while building
+it and their resolutions, including the open items;
+[docs/progress.md](docs/progress.md) records what was delivered and how it was
+verified.
+
 
 ## Overview
 
