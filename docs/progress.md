@@ -3,6 +3,7 @@
 **Change:** `WF-PRTT-001` implemented across three repositories
 **Branch:** `claude/repo-workflow-prd-trd-tasks-wb47uu` (all three)
 **Date:** 2026-08-31
+**Versions:** v1.0.0 (PRD/TRD/TASKS) · v1.1.0 (Definition of Done)
 **Status:** Delivered and pushed. Open items in [`findings.md`](findings.md).
 
 An identical copy of this document lives in `DSDM-Agency`, `dsdm-agents` and
@@ -21,8 +22,9 @@ file, so that **each agent has its own set of tasks** to complete.
 One specification, three implementations of it.
 
 ```
-requirement ─▶ [0 intake] ─▶ [1 PRD] ─▶ [2 TRD] ─▶ [3 TASKS]
-                              PRD.md     TRD.md     TASKS.md
+requirement ─▶ [0 intake] ─▶ [1 PRD] ─▶ [2 TRD] ─▶ [3 DONE] ─▶ [4 TASKS]
+                              PRD.md     TRD.md    DEFINITION-   TASKS.md
+                                                    OF-DONE.md
 ```
 
 | Stage | Owning lane | Gate to enter | Product |
@@ -30,11 +32,18 @@ requirement ─▶ [0 intake] ─▶ [1 PRD] ─▶ [2 TRD] ─▶ [3 TASKS]
 | 0 `INTAKE` | product | requirement has a non-empty title | normalised requirement |
 | 1 `PRD` | product | ≥ 1 requirement item | `PRD.md` |
 | 2 `TRD` | architecture | ≥ 1 functional requirement | `TRD.md` |
-| 3 `TASKS` | delivery | ≥ 1 component | `TASKS.md` |
+| 3 `DONE` | qa | PRD has ≥ 1 requirement and TRD has ≥ 1 component | `DEFINITION-OF-DONE.md` |
+| 4 `TASKS` | delivery | TRD has ≥ 1 component and DoD has ≥ 1 criterion | `TASKS.md` |
 
-`TASKS.md` is the deliverable the request was about: one section per agent,
-each with its own checklist, every task traced back through a TRD component to
-the requirement it came from, with dependencies naming what has to land first.
+`TASKS.md` is the deliverable the original request was about: one section per
+agent, each with its own checklist, every task traced back through a TRD
+component to the requirement it came from, with dependencies naming what has to
+land first.
+
+`DEFINITION-OF-DONE.md` (v1.1.0) says what **good** looks like per feature,
+through three lenses. It sits *before* the task breakdown because each lane's
+checklist closes with a Done check against the criteria that lane owns — the
+bar has to exist before the work is assigned.
 
 **The central design decision** was to define the workflow over nine delivery
 *lanes* (product, architecture, data, backend, frontend, security, qa, devops,
@@ -55,6 +64,9 @@ flattening the rosters or forking the spec.
 | 6 | Ported to `lhs-agents` in TypeScript | Plus a `--docs` CLI mode |
 | 7 | Verified cross-repo parity | Same requirement through the Python and TypeScript ports |
 | 8 | Documentation, tests, commits, push | Three branches pushed |
+| — | **v1.1.0** — asked four clarifying questions on what "good" means | Answers set the granularity, the coupling to `TASKS.md`, the accessibility bar and the mandatory criteria |
+| 9 | Built the Definition of Done stage in the reference implementation | Caught [F-14] — a criterion reassigned to an available lane produces a meaningless tick |
+| 10 | Reconciled the spec to v1.1.0, then ported to both repos | Parity re-verified across all four documents |
 
 Building the reference implementation *first* and only then correcting the spec
 was the sequencing that mattered: the two ports were written against a
@@ -113,11 +125,11 @@ work items. Lanes with no matching role carry none rather than a made-up one.
 
 ### Tests
 
-| Repository | New | Suite total | Result |
-|------------|-----|-------------|--------|
-| `DSDM-Agency` | 33 | 48 | All pass |
-| `dsdm-agents` | 31 | 177 | All pass |
-| `lhs-agents` | 33 | 1138 passing | All pass; `tsc` and `eslint` clean |
+| Repository | v1.0.0 | v1.1.0 | Suite total | Result |
+|------------|--------|--------|-------------|--------|
+| `DSDM-Agency` | 33 | +15 | 63 | All pass |
+| `dsdm-agents` | 31 | +7 | 184 | All pass |
+| `lhs-agents` | 33 | +12 | 45 in this module | All pass; `tsc` and `eslint` clean |
 
 Each suite asserts the same invariants from spec §9 against its own port: every
 stage is gated, every requirement traces forward into a component and on into a
@@ -139,17 +151,36 @@ the TypeScript port, and the outputs compared:
 |------------|--------|
 | `PRD.md` headings | identical |
 | `TRD.md` headings | identical |
+| `DEFINITION-OF-DONE.md` headings | identical |
 | `TASKS.md` headings | identical apart from agent names |
-| All identifiers (`REQ-`, `PRD-FR-`, `PRD-NFR-`, `TRD-C-`, `TRD-R-`, `TASK-`) in all three documents | identical |
-| `docs/WORKFLOW-PRD-TRD-TASKS.md` across three repos | identical by checksum (`f918a8f…`) |
+| All identifiers (`REQ-`, `PRD-FR-`, `PRD-NFR-`, `TRD-C-`, `TRD-R-`, `DOD-U-`, `DOD-F…-`, `TASK-`) in all four documents | identical |
+| `docs/WORKFLOW-PRD-TRD-TASKS.md` across three repos | identical by checksum |
 
 Which is the property the whole exercise was for: **run one requirement through
-all three repositories and the three `TASKS.md` files differ only in who is
-named as the owner.**
+all three repositories and the four documents differ only in who is named as
+the owner.**
 
-## 6. Problems found and fixed
+## 6. What "good" means here
 
-Ten findings, detailed in [`findings.md`](findings.md). The two that mattered:
+Set by explicit decision, recorded in spec §5 and enforced in all three ports:
+
+| Decision | Value |
+|----------|-------|
+| Granularity | One file per requirement, with a section per feature |
+| Coupling | Each agent's checklist closes with a Done check on the criteria it owns |
+| Accessibility | **WCAG 2.2 AAA** — settling a three-way disagreement ([F-12]) |
+| Mandatory bars | Business Ambassador sign-off · success metrics instrumented · unit coverage ≥ 80% · rehearsed rollback plan |
+
+Two structural rules do the real work. **Every criterion carries evidence** —
+how you would know it has been met — because a criterion without evidence is an
+opinion and cannot be checked; that is exactly what made the repos' existing
+hand-written DoD blocks unfalsifiable ([F-13]). And **every criterion has
+exactly one accountable lane, or none at all** ([F-14]).
+
+## 7. Problems found and fixed
+
+Fourteen findings, detailed in [`findings.md`](findings.md). The ones that
+mattered most:
 
 - **[F-01] Lane routing matched keywords mid-word.** `ui` is a substring of
   *build* and *requirement*, so nearly every requirement would have been routed
@@ -159,9 +190,15 @@ Ten findings, detailed in [`findings.md`](findings.md). The two that mattered:
   than one lane, and a dictionary keyed on the agent name overwrote rather than
   accumulated, so a multi-lane agent reported only its last lane's tasks. Fixed
   by moving the merge onto `TaskPlan.assignments()` so every caller inherits it
-  — it had already recurred in three separate places.
+  — it had already recurred in three separate places, and then a **fourth**
+  ([F-11]). When a bug is a *shape*, the fix is to remove the shape, not to
+  visit its instances.
+- **[F-14] A criterion reassigned to an available lane produces a meaningless
+  tick.** The first DoD implementation put "user-facing surfaces meet WCAG 2.2
+  AAA" on the Project Manager's checklist for a backend-only requirement.
+  Ownership and applicability are now separate questions.
 
-## 7. Not done
+## 8. Not done
 
 Deliberately out of scope, or blocked on a decision that is not mine:
 
@@ -172,8 +209,9 @@ Deliberately out of scope, or blocked on a decision that is not mine:
 | **`pi` runtime support for the phase** — [O-02] | `PRD_TRD` was already excluded from the pi path before this change; the new step inherits that and does not widen it. |
 | **Wiring the workflow into `lhs-agents/workflow-orchestrator.ts`** — [O-03] | That orchestrator enforces a requirements-to-Jira-and-Confluence gate before any test code. Inserting a document stage changes that contract — a decision for whoever owns the gate. |
 | **Effort estimation from prose** — [O-04] | Intake cannot estimate, so effort defaults to 1. Guessing would be worse than an obvious placeholder; read the column as "not yet estimated". |
+| **Per-requirement DoD overrides** — [O-05] | The criteria are generated, not negotiated. Deliberate: the first version of a Definition of Done should be hard to weaken. If teams need additions, they should append, never remove. |
 
-## 8. How to use it
+## 9. How to use it
 
 ```bash
 # DSDM-Agency
@@ -192,8 +230,9 @@ result = run_workflow(requirement_text)
 from src.workflow import run_workflow
 result = run_workflow(requirement_text, project="Merchant Portal")
 
-result.plan.assignments()    # agent -> the lanes and task IDs they own
-result.written["TASKS.md"]   # path to the per-agent checklist
+result.plan.assignments()         # agent -> the lanes and task IDs they own
+result.dod.for_lane("frontend")   # the criteria the frontend agent must meet
+result.written["TASKS.md"]        # path to the per-agent checklist
 ```
 
 ```ts
@@ -201,17 +240,24 @@ result.written["TASKS.md"]   # path to the per-agent checklist
 import { runWorkflow } from './src/requirement-workflow';
 const result = runWorkflow(requirementText, { outputRoot: 'workflow-output' });
 result.assignments;
+result.dod.forLane('qa');
 ```
 
 In `dsdm-agents` it also runs automatically: the `PRD_TRD` phase ends by
-producing all three documents and reporting each agent's task count.
+producing all four documents and reporting each agent's criteria and task
+counts.
 
 [F-01]: findings.md#f-01
 [F-02]: findings.md#f-02
 [F-05]: findings.md#f-05
 [F-08]: findings.md#f-08
 [F-10]: findings.md#f-10
+[F-11]: findings.md#f-11
+[F-12]: findings.md#f-12
+[F-13]: findings.md#f-13
+[F-14]: findings.md#f-14
 [O-01]: findings.md#o-01
 [O-02]: findings.md#o-02
 [O-03]: findings.md#o-03
 [O-04]: findings.md#o-04
+[O-05]: findings.md#o-05

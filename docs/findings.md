@@ -1,6 +1,6 @@
 # Findings — Requirement → PRD → TRD → TASKS rollout
 
-**Change:** `WF-PRTT-001` implemented across three repositories
+**Change:** `WF-PRTT-001` implemented across three repositories (v1.0.0, then v1.1.0)
 **Branch:** `claude/repo-workflow-prd-trd-tasks-wb47uu`
 **Date:** 2026-08-31
 
@@ -28,10 +28,15 @@ Findings are numbered `F-nn` (resolved) and `O-nn` (open).
 | [F-08](#f-08) | 53 `lhs-agents` test suites and 2 type errors fail in this environment | Low | Pre-existing, not ours |
 | [F-09](#f-09) | `lhs-agents` has no DevOps or delivery agent for two lanes | Low | Mapped, not invented |
 | [F-10](#f-10) | `dsdm-agents` already had PRD and TRD; TASKS was the actual gap | — | Informational |
+| [F-11](#f-11) | The multi-lane overwrite recurred a **fourth** time | Medium | Fixed |
+| [F-12](#f-12) | The accessibility bar disagreed with itself across the repos | Medium | Settled |
+| [F-13](#f-13) | Existing "Definition of Done" blocks restated scope, not quality | Medium | Superseded |
+| [F-14](#f-14) | A criterion reassigned to an available lane produces a meaningless tick | High | Fixed |
 | [O-01](#o-01) | Nothing keeps the three spec copies in step | **High** | **Open** |
 | [O-02](#o-02) | The `pi` agent runtime does not run the PRD/TRD/TASKS phase | Medium | Open (pre-existing) |
 | [O-03](#o-03) | `lhs-agents` workflow is not wired into `workflow-orchestrator.ts` | Medium | Open (deliberate) |
 | [O-04](#o-04) | Effort estimates default to 1 unless supplied | Low | Open (by design) |
+| [O-05](#o-05) | The Definition of Done is generated, not negotiated | Medium | Open (by design) |
 
 ---
 
@@ -309,6 +314,128 @@ but its comment now records that the phase emits three documents.
 
 ---
 
+<a id="f-11"></a>
+
+### F-11 — The multi-lane overwrite recurred a fourth time
+**Severity:** Medium · **Where:** `TaskBreakdownTool`, DSDM-Agency
+
+**What was found.** Adding the Definition of Done surfaced that
+`TaskBreakdownTool` was *still* building its per-agent assignment map with the
+overwriting comprehension from [F-02](#f-02). The Technical Coordinator owns
+architecture, security and devops; the tool reported one of them.
+
+Three earlier sites were fixed when F-02 was first found. This was the fourth,
+and it survived because it was written before `TaskPlan.assignments()` existed
+and nothing pointed at it.
+
+**Why it mattered.** Same failure as F-02 — a wrong number that nothing else
+contradicts — but the recurrence is the more useful finding: fixing the three
+known sites did not stop the pattern, because the shape was still copy-able.
+
+**Resolution.** The tool now calls `TaskPlan.assignments()` like every other
+caller, and a test asserts the tool's own output merges lanes rather than
+re-deriving the map. The lesson generalises: when a bug is a *shape*, the fix is
+to remove the shape, not to visit its instances.
+
+**Pinned by.** `test_tool_assignments_merge_the_lanes_one_agent_owns`.
+
+---
+
+<a id="f-12"></a>
+
+### F-12 — The accessibility bar disagreed with itself across the repos
+**Severity:** Medium · **Where:** all three repos
+
+**What was found.** Three different accessibility standards were in force at
+once:
+
+| Source | Bar |
+|--------|-----|
+| The workflow's baseline NFR | WCAG 2.1 AA |
+| Most `lhs-agents` requirement docs | WCAG 2.2 AA |
+| `role-agents.ts`, which generates the actual frontend tasks | WCAG 2.2 **AAA**, 7:1 contrast |
+| `ux-design-review-all-features.md` | 2.2 AA baseline, AAA for voice |
+
+So the PRD asked for one standard while the agent generating the work asked for
+a stricter one, and neither knew about the other.
+
+**Resolution.** Settled by decision at **WCAG 2.2 AAA** — the bar
+`role-agents.ts` was already generating tasks for. The workflow's baseline NFR
+was raised from 2.1 AA in all three implementations, and §5.1 of the spec now
+records the level so the next disagreement has somewhere to be resolved.
+
+Worth flagging: AAA is rarely achievable across a whole product, so expect
+documented exceptions. The criterion's evidence line asks for them explicitly
+rather than pretending they will not occur.
+
+---
+
+<a id="f-13"></a>
+
+### F-13 — Existing "Definition of Done" blocks restated scope, not quality
+**Severity:** Medium · **Where:** `lhs-agents/agents/dsdm-dev/requirements/`
+
+**What was found.** Several requirement documents already carried a
+`## Definition of Done` section. They read like this:
+
+```
+- [ ] Saved addresses management working
+- [ ] Dynamic shipping calculation implemented
+- [ ] Order summary component enhanced
+```
+
+That is the scope list again with checkboxes. It says *what was built*, not what
+*good* means, and it cannot be failed: if the feature exists at all, every line
+is arguably ticked. There was no canonical DoD in any of the three repositories
+— only these per-document, hand-written, scope-shaped lists.
+
+**Resolution.** The generated `DEFINITION-OF-DONE.md` states a bar rather than a
+scope, and every criterion carries **evidence** — how you would know it has been
+met. A criterion with no evidence is an opinion and cannot be checked, which is
+precisely what made the old lists unfalsifiable.
+
+The existing hand-written blocks are left alone; they are inputs to the
+workflow, not outputs of it.
+
+---
+
+<a id="f-14"></a>
+
+### F-14 — A criterion reassigned to an available lane produces a meaningless tick
+**Severity:** High · **Where:** `build_definition_of_done`, all three repos
+
+**What was found.** The first implementation gave every universal criterion an
+owning lane, and fell back to `delivery` when that lane had no work in the
+requirement. Running a backend-only requirement then put **"user-facing surfaces
+meet WCAG 2.2 AAA"** on the Project Manager's Done check — for a feature with no
+interface.
+
+**Why it mattered.** This is worse than omitting the criterion. It asks somebody
+to sign off a check that cannot mean anything, and a checklist that contains
+even one unfalsifiable line trains people to tick the rest without reading. It
+would have undermined the whole document.
+
+The root cause was conflating two different questions:
+
+- **Who answers for this?** — ownership.
+- **Does this apply at all?** — applicability.
+
+**Resolution.** They are now separate. Ownership falls back to the lane that
+signs off the criterion's *perspective* (`user` → product, `business` →
+delivery, `technical` → architecture) rather than to whoever is free — so "CI is
+green" still has an owner when there is no devops component, because CI still
+has to be green. Applicability is a distinct flag: only the two frontend user
+criteria are conditional, and when their lane is absent they are marked **not
+applicable** with the reason, shown in the document so a reader can see they
+were considered, and attached to **no** Done check.
+
+**Pinned by.** `test_an_inapplicable_criterion_is_kept_but_owned_by_nobody`,
+`test_a_criterion_whose_lane_is_absent_falls_to_its_perspective_owner`,
+`test_inapplicable_criteria_never_reach_a_done_check`, and their TypeScript
+equivalents.
+
+---
+
 ## Open items
 
 <a id="o-01"></a>
@@ -332,6 +459,12 @@ the other two copies and fails on a checksum mismatch; or a golden-file test
 per repo that runs one fixed requirement and compares the rendered documents
 against a committed expected output, so a routing or ordering change has to be
 made deliberately in all three.
+
+The v1.1.0 change made this more pressing, not less: the Definition of Done adds
+eleven universal criteria, six lane-derived ones and a perspective sign-off
+table, all duplicated in three languages. Parity was again verified by hand —
+same headings, same IDs, across all four documents — which is exactly the check
+that should not be manual.
 
 Not done here — it needs a decision about cross-repo CI access that is outside
 the scope of this change.
@@ -361,6 +494,22 @@ stage into it changes that contract. Wiring it in is a decision for whoever
 owns that gate, not a mechanical follow-up.
 
 <a id="o-04"></a>
+
+<a id="o-05"></a>
+
+### O-05 — The Definition of Done is generated, not negotiated
+**Severity:** Medium · **Status:** Open (by design, for now)
+
+The criteria are derived from lane routing and a fixed universal set. That makes
+them consistent and impossible to forget, but it also means a team cannot add a
+criterion for one requirement without editing `UNIVERSAL_CRITERIA` or
+`_LANE_CRITERIA` — which changes it for every requirement in all three repos.
+
+There is deliberately no per-requirement override yet: the first version of a
+Definition of Done should be hard to weaken. If teams need one, the natural
+shape is an `extra_criteria` field on the requirement, appended after the
+generated set and clearly marked as local — never a way to remove a generated
+criterion.
 
 ### O-04 — Effort estimates default to 1 unless supplied
 **Severity:** Low · **Status:** Open (by design)
