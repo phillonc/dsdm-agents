@@ -74,22 +74,32 @@
                                               │
                                               ▼
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃                                    PHASE 3: PRD / TRD                                          ┃
+┃                              PHASE 3: PRD / TRD / TASKS                                        ┃
 ┃━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┃
 ┃                                                                                                ┃
-┃  ┌────────────────────────────────────┐    ┌────────────────────────────────────┐              ┃
-┃  │      ProductManagerAgent           │    │         DevLeadAgent               │              ┃
-┃  │      (Creates PRD)                 │───▶│         (Creates TRD)              │              ┃
-┃  └────────────────────────────────────┘    └────────────────────────────────────┘              ┃
+┃  ┌───────────────────────────┐  ┌───────────────────────────┐  ┌──────────────────────────┐   ┃
+┃  │    ProductManagerAgent    │  │        DevLeadAgent       │  │     Task Breakdown       │   ┃
+┃  │      (Creates PRD)        │─▶│       (Creates TRD)       │─▶│  (Assigns TASKS.md)      │   ┃
+┃  └───────────────────────────┘  └───────────────────────────┘  └──────────────────────────┘   ┃
 ┃                                                                                                ┃
 ┃  ┌──────────────────────────────────────────────────────────────────────────────────────────┐  ┃
 ┃  │                                    TOOLS                                                 │  ┃
 ┃  │  ┌───────────────────────────────────────┐  ┌────────────────────────────────────────┐   │  ┃
 ┃  │  │ generate_product_requirements_document│  │generate_technical_requirements_document│   │  ┃
 ┃  │  └───────────────────────────────────────┘  └────────────────────────────────────────┘   │  ┃
+┃  │  ┌───────────────────────────────────────┐  ┌────────────────────────────────────────┐   │  ┃
+┃  │  │      run_requirement_workflow         │  │        generate_task_breakdown         │   │  ┃
+┃  │  └───────────────────────────────────────┘  └────────────────────────────────────────┘   │  ┃
 ┃  └──────────────────────────────────────────────────────────────────────────────────────────┘  ┃
 ┃                                                                                                ┃
 ┃  Output: PRODUCT_REQUIREMENTS.md, TECHNICAL_REQUIREMENTS.md → generated/<project>/docs/        ┃
+┃          PRD.md, TRD.md, TASKS.md (WF-PRTT-001) → generated/<project>/docs/<requirement>/      ┃
+┃                                                                                                ┃
+┃  ┌──────────────────────────────────────────────────────────────────────────────────────────┐  ┃
+┃  │  TASKS.md carries one section per agent — Product Manager, Dev Lead, Backend, Frontend,   │  ┃
+┃  │  Pen Tester, Automation Tester, DevOps, Implementation — each with its own checklist,     │  ┃
+┃  │  traced back through the TRD components to the requirements they came from.               │  ┃
+┃  └──────────────────────────────────────────────────────────────────────────────────────────┘  ┃
 ┃                                                                                                ┃
 ┃  ┌──────────────────────────────────────────────────────────────────────────────────────────┐  ┃
 ┃  │                           APPROVAL GATE                                                  │  ┃
@@ -375,8 +385,12 @@ generated/
     ├── docs/
     │   ├── FEASIBILITY_REPORT.md          ◀── Phase 1
     │   ├── BUSINESS_STUDY.md              ◀── Phase 2
-    │   ├── PRODUCT_REQUIREMENTS.md        ◀── Phase 3 (PRD)
-    │   ├── TECHNICAL_REQUIREMENTS.md      ◀── Phase 3 (TRD)
+    │   ├── PRODUCT_REQUIREMENTS.md        ◀── Phase 3 (PRD, authored)
+    │   ├── TECHNICAL_REQUIREMENTS.md      ◀── Phase 3 (TRD, authored)
+    │   ├── <requirement-slug>/            ◀── Phase 3 (WF-PRTT-001, generated)
+    │   │   ├── PRD.md
+    │   │   ├── TRD.md
+    │   │   └── TASKS.md                   ◀── one section per agent
     │   ├── FUNCTIONAL_MODEL_REPORT.md     ◀── Phase 4
     │   ├── DEPLOYMENT_PLAN.md             ◀── Phase 6
     │   ├── TRAINING_MATERIALS.md          ◀── Phase 6

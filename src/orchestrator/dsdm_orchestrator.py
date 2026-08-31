@@ -42,6 +42,8 @@ from ..agents.git_pin_throughput_optimizer import (
 
 from ..tools.tool_registry import ToolRegistry
 from ..tools.dsdm_tools import create_dsdm_tool_registry
+from ..workflow import LANE_ROLE_IDS
+from ..workflow.pipeline import run_workflow as run_requirement_workflow
 from ..tools.feasibility_optimizer import (
     quick_feasibility_check,
     generate_quick_feasibility_report,
@@ -68,7 +70,9 @@ def _moscow_to_jira_priority(moscow: str) -> str:
 class DSDMPhase(Enum):
     """DSDM project phases."""
     FEASIBILITY = "feasibility"
-    PRD_TRD = "prd_trd"  # PRD (Product Manager) and TRD (Dev Lead) creation after feasibility
+    # PRD (Product Manager), TRD (Dev Lead), then the per-agent TASKS breakdown
+    # (WF-PRTT-001). Named prd_trd for backwards compatibility with saved configs.
+    PRD_TRD = "prd_trd"
     BUSINESS_STUDY = "business_study"
     FUNCTIONAL_MODEL = "functional_model"
     DESIGN_BUILD = "design_build"
@@ -753,7 +757,27 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
             full_context["trd_output"] = trd_result.output
             full_context["trd_artifacts"] = trd_result.artifacts
 
-        # Step 3: Get approval from Dev Lead and Test Lead before syncing to Jira/Confluence
+        # Step 3: Break the requirement down into one task list per agent.
+        # This is the deterministic half of the phase (WF-PRTT-001): it runs off
+        # the inputted requirement rather than the model's prose, so PRD.md,
+        # TRD.md and TASKS.md exist and agree with each other whatever the two
+        # agents above produced alongside them.
+        breakdown = self._run_requirement_task_breakdown(user_input, full_context)
+        if breakdown.get("success"):
+            combined_output.append("\n## Task Breakdown")
+            combined_output.append(
+                f"✓ {breakdown['tasks']} tasks across {len(breakdown['assignments'])} agents "
+                f"→ {breakdown['output_directory']}"
+            )
+            for agent_name, assignment in breakdown["assignments"].items():
+                combined_output.append(f"  - {agent_name}: {assignment['task_count']} task(s)")
+        else:
+            combined_output.append("\n## Task Breakdown")
+            combined_output.append(f"⚠ Task breakdown skipped: {breakdown.get('error', 'unknown error')}")
+        combined_artifacts["task_breakdown"] = breakdown
+        full_context["task_breakdown"] = breakdown
+
+        # Step 4: Get approval from Dev Lead and Test Lead before syncing to Jira/Confluence
         approval_granted = False
         if self.config.interactive:
             self.console.print("\n[bold cyan]═══ PRD/TRD Approval Required ═══[/bold cyan]")
@@ -788,7 +812,7 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
             # In non-interactive mode, auto-approve
             approval_granted = True
 
-        # Step 4: Sync to Jira and Confluence if approved and integrations are enabled
+        # Step 5: Sync to Jira and Confluence if approved and integrations are enabled
         sync_results = {}
         if approval_granted:
             combined_output.append("\n## Document Approval")
@@ -855,11 +879,60 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
                 "trd_artifacts": full_context.get("trd_artifacts", {}),
                 "approval_granted": approval_granted,
                 "sync_results": sync_results,
+                "task_breakdown": full_context.get("task_breakdown", {}),
             },
         )
 
         self.results[DSDMPhase.PRD_TRD] = final_result
         return final_result
+
+    def _run_requirement_task_breakdown(
+        self,
+        user_input: str,
+        full_context: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Produce PRD.md, TRD.md and TASKS.md for the inputted requirement.
+
+        Implements spec WF-PRTT-001 — the same pipeline the DSDM-Agency and
+        lhs-agents repositories run. It is deliberately deterministic and takes
+        no LLM call: the documents are a pure function of the requirement, so
+        re-running the phase produces the same files, and a gate failure writes
+        nothing rather than leaving a half-finished folder behind.
+
+        Returns a JSON-friendly dict; a failure here is reported, never raised,
+        because the narrative PRD/TRD the agents authored are still valid work.
+        """
+        requirement = full_context.get("original_requirement") or user_input
+        project_name = (full_context.get("prd_artifacts") or {}).get("project_name")
+
+        self.formatter.format_agent_start(
+            agent_name="Task Breakdown",
+            phase_or_role="TASKS Creation",
+            mode="automated",
+            description="Assigning tasks to each agent from the PRD and TRD",
+        )
+
+        try:
+            result = run_requirement_workflow(requirement, project=project_name)
+        except Exception as exc:  # noqa: BLE001 - reported to the caller, not fatal
+            return {"success": False, "error": str(exc)}
+
+        # assignments() merges the lanes one agent owns — the Backend Developer
+        # covers both the data and backend lanes, for instance.
+        assignments = {
+            agent: dict(entry, role_ids=list(dict.fromkeys(LANE_ROLE_IDS[lane] for lane in entry["lanes"])))
+            for agent, entry in result.plan.assignments().items()
+        }
+        return {
+            "success": True,
+            "requirement": result.requirement.title,
+            "output_directory": result.output_dir,
+            "documents": result.written,
+            "functional_requirements": len(result.prd.functional),
+            "components": len(result.trd.components),
+            "tasks": len(result.plan.tasks),
+            "assignments": assignments,
+        }
 
     def _sync_prd_to_confluence(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Sync PRD to Confluence."""

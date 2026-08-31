@@ -11,6 +11,7 @@ This file is the project-level instruction file read by **GitHub Copilot CLI**, 
 | `src/agents/` | Python agent classes (one per role); `role_definitions.py` is the single source of truth for tools/system-prompt/mode per role |
 | `src/orchestrator/` | DSDM workflow orchestrator that chains phases together; `pi_session_runner.py` runs a role through the pi.dev runtime when `AGENT_RUNTIME=pi` |
 | `src/tools/` | Tool registry consumed by every agent (DSDM tools, file tools, integrations); `tool_service.py` bridges the registry to pi.dev |
+| `src/workflow/` | The deterministic Requirement → PRD → TRD → TASKS pipeline (`WF-PRTT-001`); no LLM call, pure functions of the requirement |
 | `src/rooms/` | Multi-agent "delivery room" runtime |
 | `src/gui/` | DSDM Agents Console — the browser GUI (`python main.py --gui`); stdlib-only server plus static assets in `src/gui/static/` |
 | `pi/` | pi.dev TypeScript workspace (`dsdm-tools-bridge`, `dsdm-approval-gate` extensions) — the `pi` agent execution runtime |
@@ -32,6 +33,24 @@ This file is the project-level instruction file read by **GitHub Copilot CLI**, 
 | Design & Build | `.github/agents/design-build.agent.md` | Production code, tests, TRD |
 | Implementation | `.github/agents/implementation.agent.md` | Deployment plan, smoke tests, handover |
 | DevOps | `.github/agents/devops.agent.md` | Quality gates, CI/CD, IaC, security scans |
+
+## Requirement → PRD → TRD → TASKS (`WF-PRTT-001`)
+
+The `PRD_TRD` phase ends by running the requirement through
+[`src/workflow/`](src/workflow/), which writes `PRD.md`, `TRD.md` and `TASKS.md`
+under `generated/`. `TASKS.md` carries one section per agent, each task traced
+back through a TRD component to the product requirement it came from.
+
+That step is deterministic — no LLM call, no clock, no random IDs — so the three
+deliverables exist and agree with each other whatever the Product Manager and
+Dev Lead produced alongside them, and re-running a requirement yields
+byte-identical files. Every stage is a hard gate; a gate failure writes nothing.
+
+Agents reach it via `run_requirement_workflow` (writes the documents) and
+`generate_task_breakdown` (returns the per-agent split without writing). The
+spec is [docs/WORKFLOW-PRD-TRD-TASKS.md](docs/WORKFLOW-PRD-TRD-TASKS.md), shared
+verbatim with the `DSDM-Agency` and `lhs-agents` repositories — change it in one
+place and you change it in all three.
 
 ## Design & Build specialised agents
 

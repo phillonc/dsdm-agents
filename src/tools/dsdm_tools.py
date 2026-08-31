@@ -286,6 +286,12 @@ def create_dsdm_tool_registry(
         category="prd_trd"
     ))
 
+    # The deterministic Requirement -> PRD -> TRD -> TASKS pipeline (WF-PRTT-001).
+    # The two tools above help an agent structure a document; these produce the
+    # three deliverables the workflow guarantees, TASKS.md included.
+    from .workflow_tools import register_requirement_workflow_tools
+    register_requirement_workflow_tools(registry)
+
     # ==================== BUSINESS STUDY PHASE TOOLS ====================
 
     registry.register(Tool(

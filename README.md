@@ -22,6 +22,7 @@ AI-powered agents implementing the Dynamic Systems Development Method (DSDM) fra
 - **Code Generation** - Write production-ready code for frontend, backend, and APIs
 - **Test Generation** - Unit, integration, and E2E tests with coverage analysis
 - **Documentation Generation** - PRD, TRD, API docs, architecture diagrams, user guides
+- **Requirement → PRD → TRD → TASKS** - One gated pipeline that turns an inputted requirement into `PRD.md`, `TRD.md` and a `TASKS.md` giving every agent its own checklist
 - **Prototype Creation** - Build functional prototypes for user validation
 - **MoSCoW Prioritization** - Automated requirement prioritization (Must/Should/Could/Won't)
 - **Jira-Confluence Sync** - Auto-sync work items and status to documentation
@@ -50,6 +51,53 @@ AI-powered agents implementing the Dynamic Systems Development Method (DSDM) fra
 - **Prototyping** - Early validation with working models
 
 ---
+
+
+## Requirement → PRD → TRD → TASKS
+
+When a requirement is inputted, the framework runs it through four gated stages
+and writes three markdown deliverables — the last of which gives **every agent
+its own set of tasks**:
+
+```
+requirement ─▶ [0 intake] ─▶ [1 PRD] ─▶ [2 TRD] ─▶ [3 TASKS]
+                              PRD.md     TRD.md     TASKS.md
+```
+
+This runs inside the `PRD_TRD` phase, after the Product Manager and Dev Lead
+have authored their narrative documents. It is deterministic and takes no LLM
+call, so the three deliverables exist and agree with each other whatever the
+model produced alongside them.
+
+```python
+from src.workflow import run_workflow
+
+result = run_workflow("""# Merchant self-serve onboarding
+- Merchants can register an account and log in with email
+- The onboarding UI shows progress across four steps
+- Store merchant profile data and make it searchable
+""", project="Merchant Portal")
+
+result.written["TASKS.md"]   # generated/merchant-portal/docs/.../TASKS.md
+result.plan.assignments()    # agent -> the lanes and task IDs they own
+```
+
+Agents reach it through two tools: `run_requirement_workflow` (writes the
+documents) and `generate_task_breakdown` (returns the per-agent split without
+writing).
+
+Every stage is a hard gate, every requirement traces forward into a component
+and on into a task, and the renderers are pure — so re-running a requirement
+produces byte-identical documents, and a gate failure writes nothing.
+
+The pipeline is specified in
+[docs/WORKFLOW-PRD-TRD-TASKS.md](docs/WORKFLOW-PRD-TRD-TASKS.md)
+(`WF-PRTT-001`). The **`DSDM-Agency`** and **`lhs-agents`** repositories carry
+the same specification and implement the same pipeline, so a requirement
+behaves identically wherever it is inputted. A change to the stages, gates, ID
+schemes or document headings is a change to that spec, applied to all three
+repositories together.
+
 
 ## Overview
 
