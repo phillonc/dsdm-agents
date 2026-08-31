@@ -1180,6 +1180,14 @@ dsdm-agents/
 └── README.md
 ```
 
+## Framework overview
+
+[`docs/FRAMEWORK-OVERVIEW.md`](docs/FRAMEWORK-OVERVIEW.md) is the operating
+manual for this framework: what it does, what it is best suited for, what it is
+*not*, the full agent roster with modes and phases, and worked scenarios from a
+single phase run to delivery rooms, the Git Pin pipeline, runtime/provider
+switching and the Copilot slash-prompts.
+
 ## DSDM Methodology
 
 DSDM (Dynamic Systems Development Method) is an agile framework based on 8 principles:
