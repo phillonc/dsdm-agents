@@ -242,21 +242,28 @@ The workflow is defined over **lanes**, not over any repository's agent names.
 Each repository maps its own agents onto the lanes, so the pipeline is the same
 everywhere while the roster stays repo-specific.
 
-| Lane | `DSDM-Agency` | `dsdm-agents` | `lhs-agents` |
-|------|---------------|---------------|--------------|
-| `product` | Business Analyst | Product Manager Agent | `product-manager` |
-| `architecture` | Technical Coordinator | Dev Lead Agent | `dev-lead` |
-| `data` | Technical Coordinator | Backend Developer Agent | `backend-developer` |
-| `backend` | Solution Developer | Backend Developer Agent | `backend-developer` |
-| `frontend` | Solution Developer | Frontend Developer Agent | `frontend-developer` |
-| `security` | Technical Coordinator | Pen Tester Agent | `security-engineer` |
-| `qa` | Solution Tester | Automation Tester Agent | `qa-engineer` |
-| `devops` | Technical Coordinator | DevOps Agent | `devops-engineer` |
-| `delivery` | Project Manager | Implementation Agent | `delivery-manager` |
+| Lane | `DSDM-Agency` | `dsdm-agents` | `lhs-agents` (`agents/dsdm-dev`) |
+|------|---------------|---------------|----------------------------------|
+| `product` | Business Analyst | Product Manager Agent | Decomposition Agent |
+| `architecture` | Technical Coordinator | Dev Lead Agent | Primary DSDM Agent |
+| `data` | Technical Coordinator | Backend Developer Agent | Backend Developer Agent |
+| `backend` | Solution Developer | Backend Developer Agent | Backend Developer Agent |
+| `frontend` | Solution Developer | Frontend Developer Agent | Frontend Developer Agent |
+| `security` | Technical Coordinator | Pen Tester Agent | Security Tester Agent |
+| `qa` | Solution Tester | Automation Tester Agent | QA Tester Agent |
+| `devops` | Technical Coordinator | DevOps Agent | Primary DSDM Agent |
+| `delivery` | Project Manager | Implementation Agent | Primary DSDM Agent |
 
-A repository that has no distinct agent for a lane maps it to the nearest
-role it does have. It never drops the lane — the tasks still appear, assigned
-to whoever owns them there.
+A repository that has no distinct agent for a lane maps it to the nearest role
+it does have — `lhs-agents` has no DevOps or delivery-manager agent in this
+package, so those lanes fall to the Primary DSDM Agent that already
+orchestrates the workflow. A lane is never dropped: the tasks still appear,
+assigned to whoever answers for them there.
+
+The consequence is worth stating plainly, because it is the point of the
+shared spec: run the same requirement through all three repositories and the
+three `TASKS.md` files are identical apart from the agent names — same task
+IDs, same traceability, same ordering.
 
 ---
 
