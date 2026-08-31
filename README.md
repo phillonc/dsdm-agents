@@ -22,7 +22,7 @@ AI-powered agents implementing the Dynamic Systems Development Method (DSDM) fra
 - **Code Generation** - Write production-ready code for frontend, backend, and APIs
 - **Test Generation** - Unit, integration, and E2E tests with coverage analysis
 - **Documentation Generation** - PRD, TRD, API docs, architecture diagrams, user guides
-- **Requirement → PRD → TRD → TASKS** - One gated pipeline that turns an inputted requirement into `PRD.md`, `TRD.md` and a `TASKS.md` giving every agent its own checklist
+- **Requirement → PRD → TRD → DONE → TASKS** - One gated pipeline that turns an inputted requirement into `PRD.md`, `TRD.md`, a `DEFINITION-OF-DONE.md` saying what good looks like, and a `TASKS.md` giving every agent its own checklist measured against it
 - **Prototype Creation** - Build functional prototypes for user validation
 - **MoSCoW Prioritization** - Automated requirement prioritization (Must/Should/Could/Won't)
 - **Jira-Confluence Sync** - Auto-sync work items and status to documentation
@@ -53,15 +53,16 @@ AI-powered agents implementing the Dynamic Systems Development Method (DSDM) fra
 ---
 
 
-## Requirement → PRD → TRD → TASKS
+## Requirement → PRD → TRD → DONE → TASKS
 
-When a requirement is inputted, the framework runs it through four gated stages
-and writes three markdown deliverables — the last of which gives **every agent
-its own set of tasks**:
+When a requirement is inputted, the framework runs it through five gated stages
+and writes four markdown deliverables — saying what **good** looks like, and
+giving **every agent its own set of tasks** measured against it:
 
 ```
-requirement ─▶ [0 intake] ─▶ [1 PRD] ─▶ [2 TRD] ─▶ [3 TASKS]
-                              PRD.md     TRD.md     TASKS.md
+requirement ─▶ [0 intake] ─▶ [1 PRD] ─▶ [2 TRD] ─▶ [3 DONE] ─▶ [4 TASKS]
+                              PRD.md     TRD.md    DEFINITION-   TASKS.md
+                                                    OF-DONE.md
 ```
 
 This runs inside the `PRD_TRD` phase, after the Product Manager and Dev Lead
@@ -78,17 +79,26 @@ result = run_workflow("""# Merchant self-serve onboarding
 - Store merchant profile data and make it searchable
 """, project="Merchant Portal")
 
-result.written["TASKS.md"]   # generated/merchant-portal/docs/.../TASKS.md
-result.plan.assignments()    # agent -> the lanes and task IDs they own
+result.written["TASKS.md"]        # generated/merchant-portal/docs/.../TASKS.md
+result.plan.assignments()         # agent -> the lanes and task IDs they own
+result.dod.for_lane("frontend")   # the criteria the frontend agent must meet
 ```
 
-Agents reach it through two tools: `run_requirement_workflow` (writes the
-documents) and `generate_task_breakdown` (returns the per-agent split without
-writing).
+`DEFINITION-OF-DONE.md` states what good looks like for each feature through
+three lenses — can someone actually do the thing, did the business get what it
+asked for, will this still work on Monday — and every criterion carries the
+evidence that would show it has been met, plus the single agent accountable for
+it. Each lane's task list closes with a Done check against the criteria that
+lane owns.
+
+Agents reach it through three tools: `run_requirement_workflow` (writes the
+documents), `define_what_done_means` (the criteria and their owners), and
+`generate_task_breakdown` (the per-agent split without writing).
 
 Every stage is a hard gate, every requirement traces forward into a component
-and on into a task, and the renderers are pure — so re-running a requirement
-produces byte-identical documents, and a gate failure writes nothing.
+and on into a task, every feature is held to all three perspectives, and the
+renderers are pure — so re-running a requirement produces byte-identical
+documents, and a gate failure writes nothing.
 
 The pipeline is specified in
 [docs/WORKFLOW-PRD-TRD-TASKS.md](docs/WORKFLOW-PRD-TRD-TASKS.md)

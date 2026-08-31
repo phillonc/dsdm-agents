@@ -57,6 +57,8 @@ When testing, focus on catching bugs early and maintaining confidence in the cod
 """
 
 AUTOMATION_TESTER_TOOLS = [
+    # Requirement workflow (WF-PRTT-001): the bar this agent tests against
+    "define_what_done_means",
     # Test Execution
     "run_tests",
     "run_functional_tests",

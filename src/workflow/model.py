@@ -12,7 +12,7 @@ implementations mirror this one.
 Unlike the LLM-driven ``generate_product_requirements_document`` /
 ``generate_technical_requirements_document`` tools, everything here is
 deterministic: the same requirement always produces the same documents, which
-is what lets the orchestrator guarantee the three deliverables exist whatever
+is what lets the orchestrator guarantee the four deliverables exist whatever
 the model did.
 """
 
@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 SPEC_ID = "WF-PRTT-001"
-SPEC_VERSION = "1.0.0"
+SPEC_VERSION = "1.1.0"
 
 # -- lanes ------------------------------------------------------------------
 # A *lane* is a unit of delivery responsibility. The workflow is defined over
@@ -110,6 +110,22 @@ LANE_ROLE_IDS: Dict[str, str] = {
 #: ``architecture`` and ``delivery`` own documents and governance instead, and
 #: reach TASKS.md through the cross-cutting tasks in spec §5.
 IMPLEMENTATION_LANES: Tuple[str, ...] = (DATA, BACKEND, FRONTEND, SECURITY, QA, DEVOPS)
+
+#: The three lenses every Definition of Done is written through (spec §5).
+PERSPECTIVES: Tuple[str, ...] = ("user", "business", "technical")
+
+PERSPECTIVE_TITLES: Dict[str, str] = {
+    "user": "User",
+    "business": "Business",
+    "technical": "Technical",
+}
+
+#: Which lane answers for each perspective when the DoD is signed off.
+PERSPECTIVE_SIGN_OFF: Dict[str, str] = {
+    "user": PRODUCT,
+    "business": DELIVERY,
+    "technical": ARCHITECTURE,
+}
 
 MOSCOW_LABELS = {"M": "Must Have", "S": "Should Have", "C": "Could Have", "W": "Won't Have"}
 _PRIORITY_ALIASES = {
@@ -243,6 +259,54 @@ class TRD:
 
 
 @dataclass(frozen=True)
+class DoneCriterion:
+    """One statement of what *good* looks like, and how you would know.
+
+    Every criterion names the lane accountable for it, so nothing in the
+    Definition of Done is everybody's job and therefore nobody's.
+    """
+
+    id: str
+    perspective: str      # one of PERSPECTIVES
+    text: str             # what must be true
+    evidence: str         # how you would know it is true
+    owner_lane: str       # the lane that answers for it
+    applies_to: Tuple[str, ...] = ()  # PRD-FR ids; empty means the whole requirement
+    applies: bool = True  # False when the requirement cannot satisfy it
+    not_applicable_reason: str = ""
+
+
+@dataclass
+class DefinitionOfDone:
+    """The product of stage 3 — what good looks like for this requirement."""
+
+    requirement: Requirement
+    universal: List[DoneCriterion]
+    by_feature: Dict[str, List[DoneCriterion]]  # PRD-FR id -> its criteria
+
+    def all_criteria(self) -> List[DoneCriterion]:
+        criteria = list(self.universal)
+        for fr_id in sorted(self.by_feature):
+            criteria.extend(self.by_feature[fr_id])
+        return criteria
+
+    def for_feature(self, fr_id: str) -> List[DoneCriterion]:
+        return list(self.by_feature.get(fr_id, ()))
+
+    def for_lane(self, lane: str) -> List[DoneCriterion]:
+        """Every *applicable* criterion this lane answers for.
+
+        Criteria marked not-applicable stay in the document — a reader can see
+        they were considered — but they are never attached to a Done check.
+        Ticking a box that cannot mean anything teaches people to tick boxes.
+        """
+        return [c for c in self.all_criteria() if c.applies and c.owner_lane == lane]
+
+    def by_perspective(self, perspective: str) -> List[DoneCriterion]:
+        return [c for c in self.universal if c.perspective == perspective]
+
+
+@dataclass(frozen=True)
 class AgentTask:
     """A ``TASK-<LANE>-00N`` entry — one agent's unit of work."""
 
@@ -255,6 +319,7 @@ class AgentTask:
     effort: float
     traces_prd: Tuple[str, ...] = ()
     traces_trd: Tuple[str, ...] = ()
+    traces_dod: Tuple[str, ...] = ()
     depends_on: Tuple[str, ...] = ()
 
 

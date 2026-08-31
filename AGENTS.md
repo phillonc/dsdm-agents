@@ -34,20 +34,29 @@ This file is the project-level instruction file read by **GitHub Copilot CLI**, 
 | Implementation | `.github/agents/implementation.agent.md` | Deployment plan, smoke tests, handover |
 | DevOps | `.github/agents/devops.agent.md` | Quality gates, CI/CD, IaC, security scans |
 
-## Requirement → PRD → TRD → TASKS (`WF-PRTT-001`)
+## Requirement → PRD → TRD → DONE → TASKS (`WF-PRTT-001`)
 
 The `PRD_TRD` phase ends by running the requirement through
-[`src/workflow/`](src/workflow/), which writes `PRD.md`, `TRD.md` and `TASKS.md`
-under `generated/`. `TASKS.md` carries one section per agent, each task traced
-back through a TRD component to the product requirement it came from.
+[`src/workflow/`](src/workflow/), which writes `PRD.md`, `TRD.md`,
+`DEFINITION-OF-DONE.md` and `TASKS.md` under `generated/`. `TASKS.md` carries one
+section per agent, each task traced back through a TRD component to the product
+requirement it came from, and each lane closes with a Done check against the
+Definition of Done criteria it owns.
+
+`DEFINITION-OF-DONE.md` says what good looks like per feature — user, business
+and technical — with the evidence each criterion needs and exactly one
+accountable lane. A criterion the requirement cannot meet (an accessibility bar
+with no interface) is marked not applicable and attached to nobody, rather than
+reassigned to whoever is free.
 
 That step is deterministic — no LLM call, no clock, no random IDs — so the three
 deliverables exist and agree with each other whatever the Product Manager and
 Dev Lead produced alongside them, and re-running a requirement yields
 byte-identical files. Every stage is a hard gate; a gate failure writes nothing.
 
-Agents reach it via `run_requirement_workflow` (writes the documents) and
-`generate_task_breakdown` (returns the per-agent split without writing). The
+Agents reach it via `run_requirement_workflow` (writes the documents),
+`define_what_done_means` (the criteria and their owners) and
+`generate_task_breakdown` (the per-agent split without writing). The
 spec is [docs/WORKFLOW-PRD-TRD-TASKS.md](docs/WORKFLOW-PRD-TRD-TASKS.md), shared
 verbatim with the `DSDM-Agency` and `lhs-agents` repositories — change it in one
 place and you change it in all three.

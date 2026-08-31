@@ -76,8 +76,10 @@ DEV_LEAD_TOOLS = [
     "track_decision",
     # TRD Generation
     "generate_technical_requirements_document",
-    # Requirement workflow (WF-PRTT-001): who owns which task, and why
+    # Requirement workflow (WF-PRTT-001): who owns which task, and the bar it
+    # has to clear
     "generate_task_breakdown",
+    "define_what_done_means",
     # File Operations (actual file writing)
     "project_init",
     "file_write",

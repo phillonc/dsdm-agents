@@ -757,16 +757,18 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
             full_context["trd_output"] = trd_result.output
             full_context["trd_artifacts"] = trd_result.artifacts
 
-        # Step 3: Break the requirement down into one task list per agent.
-        # This is the deterministic half of the phase (WF-PRTT-001): it runs off
-        # the inputted requirement rather than the model's prose, so PRD.md,
-        # TRD.md and TASKS.md exist and agree with each other whatever the two
-        # agents above produced alongside them.
+        # Step 3: State what good looks like, then break the requirement down
+        # into one task list per agent. This is the deterministic half of the
+        # phase (WF-PRTT-001): it runs off the inputted requirement rather than
+        # the model's prose, so PRD.md, TRD.md, DEFINITION-OF-DONE.md and
+        # TASKS.md exist and agree with each other whatever the two agents above
+        # produced alongside them.
         breakdown = self._run_requirement_task_breakdown(user_input, full_context)
         if breakdown.get("success"):
             combined_output.append("\n## Task Breakdown")
             combined_output.append(
-                f"✓ {breakdown['tasks']} tasks across {len(breakdown['assignments'])} agents "
+                f"✓ {breakdown['done_criteria']} Definition of Done criteria, "
+                f"{breakdown['tasks']} tasks across {len(breakdown['assignments'])} agents "
                 f"→ {breakdown['output_directory']}"
             )
             for agent_name, assignment in breakdown["assignments"].items():
@@ -891,7 +893,7 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
         user_input: str,
         full_context: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Produce PRD.md, TRD.md and TASKS.md for the inputted requirement.
+        """Produce PRD.md, TRD.md, DEFINITION-OF-DONE.md and TASKS.md.
 
         Implements spec WF-PRTT-001 — the same pipeline the DSDM-Agency and
         lhs-agents repositories run. It is deliberately deterministic and takes
@@ -906,10 +908,10 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
         project_name = (full_context.get("prd_artifacts") or {}).get("project_name")
 
         self.formatter.format_agent_start(
-            agent_name="Task Breakdown",
-            phase_or_role="TASKS Creation",
+            agent_name="Definition of Done + Task Breakdown",
+            phase_or_role="DONE + TASKS Creation",
             mode="automated",
-            description="Assigning tasks to each agent from the PRD and TRD",
+            description="Defining what good looks like, then assigning tasks to each agent",
         )
 
         try:
@@ -930,6 +932,10 @@ Use the generate_technical_requirements_document tool to create the formal TRD."
             "documents": result.written,
             "functional_requirements": len(result.prd.functional),
             "components": len(result.trd.components),
+            "done_criteria": len(result.dod.all_criteria()),
+            "not_applicable_criteria": [
+                c.id for c in result.dod.all_criteria() if not c.applies
+            ],
             "tasks": len(result.plan.tasks),
             "assignments": assignments,
         }

@@ -74,7 +74,7 @@
                                               │
                                               ▼
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃                              PHASE 3: PRD / TRD / TASKS                                        ┃
+┃                          PHASE 3: PRD / TRD / DONE / TASKS                                     ┃
 ┃━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┃
 ┃                                                                                                ┃
 ┃  ┌───────────────────────────┐  ┌───────────────────────────┐  ┌──────────────────────────┐   ┃
@@ -93,12 +93,17 @@
 ┃  └──────────────────────────────────────────────────────────────────────────────────────────┘  ┃
 ┃                                                                                                ┃
 ┃  Output: PRODUCT_REQUIREMENTS.md, TECHNICAL_REQUIREMENTS.md → generated/<project>/docs/        ┃
-┃          PRD.md, TRD.md, TASKS.md (WF-PRTT-001) → generated/<project>/docs/<requirement>/      ┃
+┃          PRD.md, TRD.md, DEFINITION-OF-DONE.md, TASKS.md (WF-PRTT-001)                         ┃
+┃            → generated/<project>/docs/<requirement>/                                           ┃
 ┃                                                                                                ┃
 ┃  ┌──────────────────────────────────────────────────────────────────────────────────────────┐  ┃
+┃  │  DEFINITION-OF-DONE.md says what good looks like per feature — user, business and         │  ┃
+┃  │  technical — with the evidence each criterion needs and one accountable agent.            │  ┃
+┃  │                                                                                           │  ┃
 ┃  │  TASKS.md carries one section per agent — Product Manager, Dev Lead, Backend, Frontend,   │  ┃
 ┃  │  Pen Tester, Automation Tester, DevOps, Implementation — each with its own checklist,     │  ┃
-┃  │  traced back through the TRD components to the requirements they came from.               │  ┃
+┃  │  traced back through the TRD components to the requirements they came from, and each      │  ┃
+┃  │  closing with a Done check against the criteria that agent owns.                          │  ┃
 ┃  └──────────────────────────────────────────────────────────────────────────────────────────┘  ┃
 ┃                                                                                                ┃
 ┃  ┌──────────────────────────────────────────────────────────────────────────────────────────┐  ┃
@@ -390,6 +395,7 @@ generated/
     │   ├── <requirement-slug>/            ◀── Phase 3 (WF-PRTT-001, generated)
     │   │   ├── PRD.md
     │   │   ├── TRD.md
+    │   │   ├── DEFINITION-OF-DONE.md      ◀── what good looks like, per feature
     │   │   └── TASKS.md                   ◀── one section per agent
     │   ├── FUNCTIONAL_MODEL_REPORT.md     ◀── Phase 4
     │   ├── DEPLOYMENT_PLAN.md             ◀── Phase 6

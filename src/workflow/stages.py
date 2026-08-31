@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .model import (
     ARCHITECTURE,
+    LANE_TITLES,
     BACKEND,
     DATA,
     DELIVERY,
@@ -22,7 +23,10 @@ from .model import (
     QA,
     SECURITY,
     DEFAULT_LANE_AGENTS,
+    PERSPECTIVE_SIGN_OFF,
     AgentTask,
+    DefinitionOfDone,
+    DoneCriterion,
     Component,
     FunctionalRequirement,
     NonFunctionalRequirement,
@@ -46,7 +50,7 @@ class GateError(RuntimeError):
 BASELINE_NFRS: Tuple[Tuple[str, str], ...] = (
     ("Performance", "User-facing operations respond within 2 seconds at the expected load."),
     ("Security", "Access is authenticated and authorised; no secret or personal data is logged."),
-    ("Accessibility", "User-facing surfaces meet WCAG 2.1 AA."),
+    ("Accessibility", "User-facing surfaces meet WCAG 2.2 AAA."),
     ("Observability", "Every failure path emits a structured, traceable log record."),
     ("Maintainability", "Delivered work carries automated tests and is documented in this repository."),
 )
@@ -200,7 +204,238 @@ def build_trd(prd: PRD) -> TRD:
     )
 
 
-# -- stage 3: TASKS ---------------------------------------------------------
+# -- stage 3: DEFINITION OF DONE --------------------------------------------
+
+#: Criteria that hold for every requirement, whatever it contains (spec §5).
+#: Each is (perspective, owning lane, statement, evidence, requires_lane).
+#:
+#: The owning lane is what makes a criterion someone's job rather than a
+#: slogan. ``requires_lane`` is a different question — whether the criterion
+#: *applies at all*: a requirement with no interface cannot meaningfully meet
+#: an accessibility bar, and reassigning that check to whoever is available
+#: would produce a tick that means nothing. Where it is empty, the criterion
+#: always applies and only its owner may fall back.
+UNIVERSAL_CRITERIA: Tuple[Tuple[str, str, str, str, Optional[str]], ...] = (
+    (
+        "user", FRONTEND,
+        "User-facing surfaces meet WCAG 2.2 AAA: 7:1 contrast, enhanced focus indicators, "
+        "full keyboard navigation, 44x44px minimum target size, and screen-reader verified.",
+        "An automated axe-core run plus a recorded manual screen-reader pass. "
+        "Any exception is listed here with its justification.",
+        FRONTEND,
+    ),
+    (
+        "user", FRONTEND,
+        "The journey can be completed unaided: the happy path, error states, empty states "
+        "and loading states are all specified and handled.",
+        "One end-to-end test per state, named in the QA plan.",
+        FRONTEND,
+    ),
+    (
+        "user", QA,
+        "Existing users are not regressed: prior behaviour still works, or was migrated "
+        "deliberately and announced.",
+        "The regression suite is green on the release candidate.",
+        None,
+    ),
+    (
+        "business", PRODUCT,
+        "A named Business Ambassador has seen the feature working and accepted it.",
+        "Their name and the date, recorded against the PRD's acceptance criteria.",
+        None,
+    ),
+    (
+        "business", PRODUCT,
+        "Every success metric in section 3 of the PRD is instrumented and readable in production.",
+        "A link to the dashboard or query that returns the metric.",
+        None,
+    ),
+    (
+        "business", DELIVERY,
+        "Must Have scope is complete, or the shortfall has been re-negotiated and recorded.",
+        "MoSCoW re-confirmed by the delivery lane before release.",
+        None,
+    ),
+    (
+        "technical", QA,
+        "Unit test coverage on changed code is at least 80%, and every acceptance criterion "
+        "has a test.",
+        "The coverage report from the pipeline.",
+        None,
+    ),
+    (
+        "technical", DEVOPS,
+        "CI is green on the merge commit: build, lint, type-check and the full test suite.",
+        "The pipeline run for that commit.",
+        None,
+    ),
+    (
+        "technical", DEVOPS,
+        "A rollback plan is documented and has been rehearsed.",
+        "The plan itself, plus a note of when it was rehearsed.",
+        None,
+    ),
+    (
+        "technical", ARCHITECTURE,
+        "Reviewed and merged: at least one reviewer, and no unresolved review threads.",
+        "The approval record on the pull request.",
+        None,
+    ),
+    (
+        "technical", BACKEND,
+        "Every failure path emits a structured, traceable log record.",
+        "A log sample, or a test asserting the record is written.",
+        None,
+    ),
+)
+
+#: Extra criteria a feature earns from the lanes it routes to.
+#: lane -> (perspective, owning lane, statement template, evidence)
+_LANE_CRITERIA: Dict[str, Tuple[Tuple[str, str, str, str], ...]] = {
+    FRONTEND: ((
+        "user", FRONTEND,
+        "The interface for {fr} is responsive across every supported breakpoint and has been "
+        "through design review.",
+        "Screenshots at each breakpoint, and the reviewer's name.",
+    ),),
+    BACKEND: ((
+        "technical", BACKEND,
+        "The interface serving {fr} has a documented contract, validates its inputs, and "
+        "defines its error responses.",
+        "The published contract, plus tests for the rejection paths.",
+    ),),
+    DATA: ((
+        "technical", DATA,
+        "Schema changes behind {fr} ship forward-only with a tested rollback path, and no "
+        "personal data reaches the logs.",
+        "The migration, its rollback rehearsal, and a log inspection.",
+    ),),
+    SECURITY: (
+        (
+            "technical", SECURITY,
+            "Access to {fr} is authorised as well as authenticated, and every attempt leaves "
+            "an audit record.",
+            "Tests covering an authorised call, an unauthorised call, and the audit record.",
+        ),
+        (
+            "business", SECURITY,
+            "Where {fr} handles personal data, the lawful basis and the consent path are recorded.",
+            "The record of the lawful basis, reviewed by whoever owns data protection.",
+        ),
+    ),
+    DEVOPS: ((
+        "technical", DEVOPS,
+        "{fr} is deployed through the pipeline, is monitored, and has an alert that fires on "
+        "its actual failure mode.",
+        "The alert definition, and evidence it fired in a test.",
+    ),),
+}
+
+
+def build_definition_of_done(
+    prd: PRD,
+    trd: TRD,
+) -> DefinitionOfDone:
+    """Stage 3 — state what good looks like, per feature and overall.
+
+    Universal criteria hold for everything. Per-feature criteria are derived
+    from the same lane routing that built the TRD, so a data feature is held to
+    data standards and a user-facing one to user-facing standards, without
+    anybody hand-maintaining the mapping.
+
+    Every feature gets at least one criterion from each of the three
+    perspectives, so no feature can be called done on technical grounds alone.
+    """
+    if not prd.functional:
+        raise GateError("DONE stage requires a PRD with at least one functional requirement")
+    if not trd.components:
+        raise GateError("DONE stage requires a TRD with at least one component")
+
+    present_lanes = {c.lane for c in trd.components}
+
+    # Lanes that always have an owner, because they always have tasks.
+    governance_lanes = (PRODUCT, ARCHITECTURE, DELIVERY, QA)
+
+    universal: List[DoneCriterion] = []
+    for index, (perspective, owner, text, evidence, requires) in enumerate(UNIVERSAL_CRITERIA, start=1):
+        applies = requires is None or requires in present_lanes
+        reason = (
+            ""
+            if applies
+            else f"No {LANE_TITLES[requires].lower()} work in this requirement, "
+                 "so there is nothing here to hold to this bar."
+        )
+        # A criterion owned by a lane this requirement does not use still needs
+        # somebody to answer for it: it falls to the lane that signs off its
+        # perspective, not to whoever happens to be free.
+        lane = owner if owner in present_lanes or owner in governance_lanes else PERSPECTIVE_SIGN_OFF[perspective]
+        universal.append(
+            DoneCriterion(
+                id=f"DOD-U-{index:03d}",
+                perspective=perspective,
+                text=text,
+                evidence=evidence,
+                owner_lane=lane,
+                applies=applies,
+                not_applicable_reason=reason,
+            )
+        )
+
+    by_feature: Dict[str, List[DoneCriterion]] = {}
+    for position, fr in enumerate(prd.functional, start=1):
+        prefix = f"DOD-F{position:03d}"
+        drafted: List[Tuple[str, str, str, str]] = [
+            (
+                "user", QA,
+                f"{fr.id} is demonstrable end to end — someone can watch it happen, not just "
+                "read that it was built.",
+                "A demonstration to the Business Ambassador, or a recording of one.",
+            ),
+            (
+                "technical", QA,
+                f"Automated tests cover {fr.id} at the right level and fail when it regresses.",
+                "The tests named against this requirement in the QA plan.",
+            ),
+        ]
+        if fr.priority == "M":
+            drafted.append((
+                "business", DELIVERY,
+                f"{fr.id} is a Must Have: it carries no known open defects at Done.",
+                "An empty open-defect list for this requirement.",
+            ))
+        else:
+            drafted.append((
+                "business", DELIVERY,
+                f"Any known defect in {fr.id} is logged, triaged, and accepted by the "
+                "Business Ambassador.",
+                "The triage record and their acceptance.",
+            ))
+
+        for lane in LANE_ORDER:
+            if lane not in present_lanes:
+                continue
+            component = next((c for c in trd.components if c.lane == lane), None)
+            if component is None or fr.id not in component.satisfies:
+                continue
+            for perspective, owner, template, evidence in _LANE_CRITERIA.get(lane, ()):
+                drafted.append((perspective, owner, template.format(fr=fr.id), evidence))
+
+        by_feature[fr.id] = [
+            DoneCriterion(
+                id=f"{prefix}-{offset:03d}",
+                perspective=perspective,
+                text=text,
+                evidence=evidence,
+                owner_lane=owner,
+                applies_to=(fr.id,),
+            )
+            for offset, (perspective, owner, text, evidence) in enumerate(drafted, start=1)
+        ]
+
+    return DefinitionOfDone(requirement=prd.requirement, universal=universal, by_feature=by_feature)
+
+
+# -- stage 4: TASKS ---------------------------------------------------------
 
 #: Governance work that happens on every requirement, whatever it contains (spec §5).
 _CROSS_CUTTING: Dict[str, Tuple[str, str]] = {
@@ -253,15 +488,21 @@ def _acceptance_for(lane: str, fr: FunctionalRequirement) -> str:
 def build_task_plan(
     prd: PRD,
     trd: TRD,
+    dod: DefinitionOfDone,
     lane_agents: Optional[Dict[str, str]] = None,
 ) -> TaskPlan:
-    """Stage 3 — give every agent its own set of tasks.
+    """Stage 4 — give every agent its own set of tasks.
 
     Each component yields one implementation task per functional requirement it
-    satisfies, on top of the cross-cutting tasks every run carries.
+    satisfies, on top of the cross-cutting tasks every run carries. Each lane
+    then closes with a Done check against the criteria it owns in the
+    Definition of Done, so "done" is measured against a written bar rather than
+    against whoever is asked.
     """
     if not trd.components:
         raise GateError("TASKS stage requires a TRD with at least one component")
+    if not dod.all_criteria():
+        raise GateError("TASKS stage requires a Definition of Done with at least one criterion")
 
     agents = dict(DEFAULT_LANE_AGENTS)
     agents.update(lane_agents or {})
@@ -307,6 +548,29 @@ def build_task_plan(
                     "traces_trd": (component.id,),
                 })
 
+        # Every lane closes with a Done check against the criteria it owns.
+        owned = dod.for_lane(lane)
+        if owned:
+            counter += 1
+            drafts.append({
+                "id": f"TASK-{LANE_CODES[lane]}-{counter:03d}",
+                "lane": lane,
+                "title": "Verify this lane's work against the Definition of Done",
+                "acceptance": (
+                    "Every criterion this lane owns is met and its evidence recorded: "
+                    + ", ".join(c.id for c in owned)
+                    + "."
+                ),
+                "priority": "M",
+                "effort": 1.0,
+                "traces_prd": tuple(
+                    dict.fromkeys(ref for c in owned for ref in c.applies_to)
+                ),
+                "traces_trd": (component.id,) if component else (),
+                "traces_dod": tuple(c.id for c in owned),
+                "is_done_check": True,
+            })
+
     # Pass 2 — wire dependencies now that every ID exists.
     architecture_gate = next(
         (d["id"] for d in drafts if d["lane"] == ARCHITECTURE), None
@@ -319,7 +583,13 @@ def build_task_plan(
         depends: List[str] = []
         if architecture_gate and draft["id"] != architecture_gate:
             depends.append(architecture_gate)
-        if lane == QA and draft["traces_trd"]:
+        if draft.get("is_done_check"):
+            # You cannot check work against the bar before the work exists.
+            depends.extend(
+                other["id"] for other in drafts
+                if other["lane"] == lane and other["id"] != draft["id"]
+            )
+        if lane == QA and draft["traces_trd"] and not draft.get("is_done_check"):
             # A verification task waits on whoever builds the thing it verifies.
             covered = set(draft["traces_prd"])
             depends.extend(
@@ -338,6 +608,7 @@ def build_task_plan(
                 effort=draft["effort"],
                 traces_prd=draft["traces_prd"],
                 traces_trd=draft["traces_trd"],
+                traces_dod=draft.get("traces_dod", ()),
                 depends_on=tuple(dict.fromkeys(depends)),
             )
         )

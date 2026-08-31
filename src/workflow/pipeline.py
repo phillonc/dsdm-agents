@@ -1,9 +1,9 @@
-"""The end-to-end Requirement → PRD → TRD → TASKS run.
+"""The end-to-end Requirement → PRD → TRD → DONE → TASKS run.
 
 ``run_workflow`` is the entry point the orchestrator and the DSDM tool registry
-call. It builds all three documents *before* writing any of them, so a gate
+call. It builds all four documents *before* writing any of them, so a gate
 failure leaves the output directory untouched rather than half-written
-(spec §8).
+(spec §9).
 
 All output lands under ``generated/`` — the project output folder every agent
 in this repository writes to.
@@ -16,16 +16,32 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 from .documents import (
+    DOD_FILENAME,
     PRD_FILENAME,
     TASKS_FILENAME,
     TRD_FILENAME,
+    render_definition_of_done,
     render_prd,
     render_tasks,
     render_trd,
 )
 from .intake import normalise_requirement, requirement_from_file
-from .model import PRD, RawRequirement, Requirement, TRD, TaskPlan, slugify
-from .stages import GateError, build_prd, build_task_plan, build_trd
+from .model import (
+    PRD,
+    DefinitionOfDone,
+    RawRequirement,
+    Requirement,
+    TRD,
+    TaskPlan,
+    slugify,
+)
+from .stages import (
+    GateError,
+    build_definition_of_done,
+    build_prd,
+    build_task_plan,
+    build_trd,
+)
 
 #: Every agent in this repository writes under ``generated/`` (spec §8).
 GENERATED_ROOT = "generated"
@@ -60,6 +76,7 @@ class WorkflowResult:
     requirement: Requirement
     prd: PRD
     trd: TRD
+    dod: DefinitionOfDone
     plan: TaskPlan
     documents: Dict[str, str] = field(default_factory=dict)
     output_dir: Optional[str] = None
@@ -79,6 +96,7 @@ class WorkflowResult:
             "slug": self.requirement.slug,
             "functional_requirements": len(self.prd.functional),
             "components": len(self.trd.components),
+            "done_criteria": len(self.dod.all_criteria()),
             "tasks": len(self.plan.tasks),
             "agents": {agent: entry["task_count"] for agent, entry in assignments.items()},
             "documents": self.written or list(self.documents),
@@ -102,11 +120,13 @@ def run_workflow(
     normalised = normalise_requirement(requirement)
     prd = build_prd(normalised)
     trd = build_trd(prd)
-    plan = build_task_plan(prd, trd, lane_agents=lane_agents)
+    dod = build_definition_of_done(prd, trd)
+    plan = build_task_plan(prd, trd, dod, lane_agents=lane_agents)
 
     documents = {
         PRD_FILENAME: render_prd(prd),
         TRD_FILENAME: render_trd(trd, prd),
+        DOD_FILENAME: render_definition_of_done(dod, prd, trd),
         TASKS_FILENAME: render_tasks(plan, trd),
     }
 
@@ -122,6 +142,7 @@ def run_workflow(
         requirement=normalised,
         prd=prd,
         trd=trd,
+        dod=dod,
         plan=plan,
         documents=documents,
         output_dir=output_dir,

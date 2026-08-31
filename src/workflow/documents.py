@@ -1,4 +1,4 @@
-"""Markdown renderers for the three workflow deliverables.
+"""Markdown renderers for the four workflow deliverables.
 
 Renderers are **pure functions** of their inputs (spec §8/§9.4): no clocks, no
 random identifiers, no environment lookups. The same requirement therefore
@@ -14,8 +14,13 @@ from __future__ import annotations
 from typing import Iterable, List, Sequence
 
 from .model import (
+    LANE_ORDER,
     LANE_TITLES,
     MOSCOW_LABELS,
+    PERSPECTIVES,
+    PERSPECTIVE_SIGN_OFF,
+    PERSPECTIVE_TITLES,
+    DefinitionOfDone,
     SPEC_ID,
     SPEC_VERSION,
     PRD,
@@ -26,6 +31,7 @@ from .model import (
 
 PRD_FILENAME = "PRD.md"
 TRD_FILENAME = "TRD.md"
+DOD_FILENAME = "DEFINITION-OF-DONE.md"
 TASKS_FILENAME = "TASKS.md"
 
 
@@ -244,6 +250,126 @@ def render_trd(trd: TRD, prd: PRD) -> str:
     return "\n".join(parts)
 
 
+# -- Definition of Done -----------------------------------------------------
+
+def render_definition_of_done(dod: DefinitionOfDone, prd: PRD, trd: TRD) -> str:
+    """Render ``DEFINITION-OF-DONE.md`` (spec §5)."""
+    requirement = dod.requirement
+    parts: List[str] = [
+        f"# Definition of Done — {requirement.title}",
+        "",
+        _metadata(
+            requirement,
+            "3 — DONE",
+            derives_from=f"[{PRD_FILENAME}](./{PRD_FILENAME}) and [{TRD_FILENAME}](./{TRD_FILENAME})",
+        ),
+        "",
+        "## 1. What Good Looks Like",
+        "",
+        "A feature is not done because the code merged. It is done when it is right for the "
+        "people who use it, right for the business that asked for it, and right for the "
+        "people who have to keep it running. This document states each of those three bars "
+        "for this requirement, and — for every criterion — what evidence would show it has "
+        "been met.",
+        "",
+        "Every criterion names one accountable lane. A criterion owned by everybody is owned "
+        "by nobody, so each one appears in exactly one agent's Done check in "
+        f"[{TASKS_FILENAME}](./{TASKS_FILENAME}).",
+        "",
+        "| Perspective | The question it answers |",
+        "|---|---|",
+        "| User | Can someone actually do the thing, without help and without barriers? |",
+        "| Business | Did we get the outcome we asked for, and can we prove it? |",
+        "| Technical | Will this still work on Monday, and can we change it safely? |",
+        "",
+        "## 2. Universal Criteria",
+        "",
+        "These hold for every feature in this requirement.",
+        "",
+    ]
+
+    for index, perspective in enumerate(PERSPECTIVES, start=1):
+        criteria = dod.by_perspective(perspective)
+        parts.extend([
+            f"### 2.{index} {PERSPECTIVE_TITLES[perspective]}",
+            "",
+            _table(
+                ["ID", "Criterion", "Evidence", "Owner"],
+                [
+                    (
+                        c.id,
+                        c.text,
+                        c.evidence if c.applies else f"**Not applicable.** {c.not_applicable_reason}",
+                        LANE_TITLES[c.owner_lane] if c.applies else "—",
+                    )
+                    for c in criteria
+                ],
+            ),
+            "",
+        ])
+
+    parts.extend(["## 3. Criteria by Feature", ""])
+    for index, fr in enumerate(prd.functional, start=1):
+        lanes = [LANE_TITLES[c.lane] for c in trd.components_for(fr.id)]
+        parts.extend([
+            f"### 3.{index} {fr.id} — {fr.text}",
+            "",
+            f"**Priority:** {fr.priority} ({MOSCOW_LABELS[fr.priority]}) · "
+            f"**Lanes:** {', '.join(lanes) or 'None'}",
+            "",
+            _table(
+                ["ID", "Perspective", "Criterion", "Evidence", "Owner"],
+                [
+                    (
+                        c.id,
+                        PERSPECTIVE_TITLES[c.perspective],
+                        c.text,
+                        c.evidence,
+                        LANE_TITLES[c.owner_lane],
+                    )
+                    for c in dod.for_feature(fr.id)
+                ],
+            ),
+            "",
+        ])
+
+    parts.extend([
+        "## 4. Sign-off",
+        "",
+        "This requirement is done when all three lines below are signed, not before.",
+        "",
+        _table(
+            ["Perspective", "Signed off by", "Covering"],
+            [
+                (
+                    PERSPECTIVE_TITLES[perspective],
+                    LANE_TITLES[PERSPECTIVE_SIGN_OFF[perspective]],
+                    ", ".join(
+                        c.id for c in dod.all_criteria() if c.perspective == perspective
+                    ),
+                )
+                for perspective in PERSPECTIVES
+            ],
+        ),
+        "",
+        "## 5. Ownership",
+        "",
+        "Which lane answers for which criteria — this is what each lane's Done check in "
+        f"[{TASKS_FILENAME}](./{TASKS_FILENAME}) verifies.",
+        "",
+        _table(
+            ["Lane", "Criteria"],
+            [
+                (LANE_TITLES[lane], ", ".join(c.id for c in dod.for_lane(lane)))
+                for lane in LANE_ORDER
+                if dod.for_lane(lane)
+            ],
+        ),
+        "",
+    ])
+    return "\n".join(parts)
+
+
 # -- TASKS ------------------------------------------------------------------
 
 def render_tasks(plan: TaskPlan, trd: TRD) -> str:
@@ -254,10 +380,13 @@ def render_tasks(plan: TaskPlan, trd: TRD) -> str:
     parts: List[str] = [
         f"# Task Breakdown — {requirement.title}",
         "",
-        _metadata(requirement, "3 — TASKS", derives_from=f"[{TRD_FILENAME}](./{TRD_FILENAME})"),
+        _metadata(requirement, "4 — TASKS", derives_from=f"[{DOD_FILENAME}](./{DOD_FILENAME})"),
         "",
         "Each section below belongs to one agent. An agent completes its own checklist and "
         "nothing else; the dependencies name what has to land first.",
+        "",
+        f"Each lane closes with a Done check against [{DOD_FILENAME}](./{DOD_FILENAME}) — "
+        "the criteria that lane owns, and the evidence each one needs.",
         "",
         "## 1. Assignment Summary",
         "",
@@ -288,7 +417,9 @@ def render_tasks(plan: TaskPlan, trd: TRD) -> str:
             "",
         ])
         for task in plan.for_lane(lane):
-            traces = ", ".join(f"`{ref}`" for ref in task.traces_prd + task.traces_trd)
+            traces = ", ".join(
+                f"`{ref}`" for ref in task.traces_prd + task.traces_trd + task.traces_dod
+            )
             depends = ", ".join(f"`{ref}`" for ref in task.depends_on) or "None"
             parts.extend([
                 f"- [ ] **{task.id}** — {task.title}",

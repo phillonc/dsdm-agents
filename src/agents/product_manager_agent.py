@@ -75,8 +75,10 @@ Always ensure the PRD is actionable for the Dev Lead to create a Technical Requi
 PRODUCT_MANAGER_TOOLS = [
     # PRD Creation
     "generate_product_requirements_document",
-    # Requirement workflow (WF-PRTT-001): PRD.md, TRD.md and the per-agent TASKS.md
+    # Requirement workflow (WF-PRTT-001): PRD.md, TRD.md, DEFINITION-OF-DONE.md
+    # and the per-agent TASKS.md
     "run_requirement_workflow",
+    "define_what_done_means",
     # Requirements Analysis
     "analyze_requirements",
     "prioritize_requirements",
