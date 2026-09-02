@@ -93,6 +93,7 @@ By default every phase runs on the legacy Python agent loop (`src/agents/base_ag
 ## Further reading
 
 - `README.md` — full project overview
+- `docs/FRAMEWORK-OVERVIEW.md` — what the framework is for, what it is *not*, the agent roster, and worked basic → complex scenarios
 - `GETTING_STARTED.md` — step-by-step walkthrough
 - `docs/GUI.md` — the browser console (GUI) guide
 - `docs/TECHNICAL_REQUIREMENTS.md` — system TRD
