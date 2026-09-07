@@ -29,6 +29,36 @@ def main():
     prompt_cmd = read_line()
     assert prompt_cmd is not None and prompt_cmd.get("type") == "prompt"
 
+    if scenario.startswith("model_") or scenario.startswith("retry_"):
+        assistant = {
+            "role": "assistant", "content": [], "provider": "dsdm-vllm",
+            "stopReason": "error", "errorMessage": "Connection error.",
+        }
+        if scenario == "model_aborted":
+            assistant.update(stopReason="aborted", errorMessage="Request aborted")
+        if scenario == "model_error_no_message":
+            assistant.pop("errorMessage")
+        retry = scenario.startswith("retry_")
+        emit({"type": "agent_end", "messages": [assistant], "willRetry": retry})
+        if not retry or scenario == "retry_eof":
+            return
+        emit({"type": "auto_retry_start", "attempt": 1, "errorMessage": "Connection error."})
+        if scenario == "retry_cancelled":
+            emit({"type": "auto_retry_end", "success": False, "finalError": "Retry cancelled"})
+        elif scenario == "retry_exhausted":
+            emit({"type": "agent_end", "messages": [assistant], "willRetry": False})
+        elif scenario == "retry_timeout":
+            import time
+
+            time.sleep(30)
+        else:
+            emit({"type": "auto_retry_end", "success": True, "attempt": 1})
+            emit({"type": "agent_end", "messages": [{
+                "role": "assistant", "stopReason": "stop",
+                "content": [{"type": "text", "text": "Recovered."}],
+            }], "willRetry": False})
+        return
+
     if scenario == "extension_load_error":
         emit({"type": "response", "command": "prompt", "success": False, "error": "extension failed to load"})
         return

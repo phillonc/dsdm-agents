@@ -60,6 +60,37 @@ def test_happy_path_maps_to_successful_result(role):
     assert "requirements" in result.tool_calls[0]["result"]
 
 
+@pytest.mark.parametrize("scenario, expected_error", [
+    ("model_error", "Connection error."),
+    ("model_error_no_message", "pi.dev assistant ended with stopReason=error"),
+    ("model_aborted", "Request aborted"),
+    ("retry_exhausted", "Connection error."),
+    ("retry_cancelled", "Retry cancelled"),
+])
+def test_model_failure_is_not_reported_as_success(role, scenario, expected_error):
+    events = []
+    result = _run(role, scenario, progress_callback=events.append)
+    assert result.success is False
+    assert result.error == expected_error
+    assert result.to_agent_result().artifacts["error"] == expected_error
+    assert events[-1].event == ProgressEvent.ERROR
+    assert ProgressEvent.COMPLETED not in [event.event for event in events]
+
+
+def test_retry_waits_for_successful_final_attempt(role):
+    result = _run(role, "retry_success")
+    assert result.success is True
+    assert result.output == "Recovered."
+    assert result.error is None
+
+
+@pytest.mark.parametrize("scenario", ["retry_eof", "retry_timeout"])
+def test_unfinished_retry_is_not_success(role, scenario):
+    result = _run(role, scenario, timeout=1)
+    assert result.success is False
+    assert "without an agent_end event" in result.error
+
+
 def test_happy_path_maps_to_agent_result(role):
     result = _run(role, "happy_path")
     agent_result = result.to_agent_result()
