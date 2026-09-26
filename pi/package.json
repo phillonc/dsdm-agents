@@ -7,11 +7,16 @@
     "extensions/*"
   ],
   "scripts": {
+    "postinstall": "node scripts/patch-brace-expansion.mjs",
     "test": "for d in extensions/*/; do f=\"$d/index.test.ts\"; if [ -f \"$f\" ]; then echo \"--- $f ---\"; node --experimental-strip-types \"$f\" || exit 1; fi; done",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "0.82.1",
+    "brace-expansion": "^5.0.9",
     "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "brace-expansion": "^5.0.9"
   }
 }
