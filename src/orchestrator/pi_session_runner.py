@@ -389,8 +389,22 @@ def run_role(
             elif etype == "extension_error":
                 error = event.get("error") or event.get("message") or "pi.dev extension error"
 
+            elif etype == "auto_retry_end" and event.get("success") is False:
+                error = error or event.get("finalError") or "pi.dev retry failed"
+                break
+
             elif etype == "agent_end":
-                final_text = _extract_last_assistant_text(event.get("messages", []))
+                # Pi emits agent_end for each attempt, including retryable failures.
+                # Keep stdin open until a terminal attempt so Pi can finish retrying.
+                if event.get("willRetry"):
+                    continue
+                messages = event.get("messages", [])
+                final_text = _extract_last_assistant_text(messages)
+                assistant = next((m for m in reversed(messages or []) if m.get("role") == "assistant"), {})
+                if assistant.get("stopReason") in ("error", "aborted"):
+                    error = error or assistant.get("errorMessage") or (
+                        f"pi.dev assistant ended with stopReason={assistant['stopReason']}"
+                    )
                 saw_agent_end = True
                 break
 
