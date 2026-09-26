@@ -147,6 +147,10 @@ CONFLUENCE_DEFAULT_SPACE=your-space-key
 
 ## Your First Run
 
+> **Prefer a graphical interface?** Run `python main.py --gui` to open the DSDM Agents
+> Console in your browser — the same agents and documents, without the command line.
+> Full guide: [docs/GUI.md](docs/GUI.md).
+
 ### Option 1: Interactive Mode (Recommended for Beginners)
 
 Launch the interactive menu:

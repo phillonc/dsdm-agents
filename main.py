@@ -87,6 +87,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Check role_definitions.py for drift against ToolRegistry and .github/agents/*.agent.md, and exit",
     )
 
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="Open the browser console instead of the CLI (for users who prefer a GUI)",
+    )
+    parser.add_argument("--gui-host", type=str, default="127.0.0.1", help="Address the console binds to")
+    parser.add_argument("--gui-port", type=int, default=8770, help="Port the console listens on")
+    parser.add_argument(
+        "--gui-token",
+        type=str,
+        default=None,
+        help="Access token required by the console. Generated automatically for non-loopback hosts.",
+    )
+    parser.add_argument("--no-browser", action="store_true", help="Do not open a browser window for --gui")
+
     parser.add_argument("--room-create", action="store_true", help="Create an Autonomous Delivery Room")
     parser.add_argument("--room-run", action="store_true", help="Create and run an Autonomous Delivery Room")
     parser.add_argument("--room-status", action="store_true", help="Show Autonomous Delivery Room status")
@@ -110,7 +125,8 @@ def _build_parser() -> argparse.ArgumentParser:
 def _requires_llm(args: argparse.Namespace) -> bool:
     """Return True when the selected command needs an LLM provider."""
     return not (
-        args.pi_doctor
+        args.gui
+        or args.pi_doctor
         or args.generate_agents
         or args.room_create
         or args.room_status
@@ -389,6 +405,22 @@ def main():
         os.environ["LLM_PROVIDER"] = args.llm_provider
 
     agent_runtime = _resolve_agent_runtime(args)
+    os.environ["AGENT_RUNTIME"] = agent_runtime
+
+    if args.gui:
+        # The console runs its own readiness checks and renders the fix for each
+        # problem, so it deliberately starts even when the provider is not set up
+        # yet - that is the page a first-time user needs to reach.
+        from src.gui import serve
+
+        serve(
+            host=args.gui_host,
+            port=args.gui_port,
+            token=args.gui_token,
+            open_browser=not args.no_browser,
+            printer=lambda message: console.print(f"[cyan]{message}[/cyan]"),
+        )
+        return
 
     if args.pi_doctor:
         _run_pi_doctor(console, agent_runtime)

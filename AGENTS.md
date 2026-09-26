@@ -12,6 +12,7 @@ This file is the project-level instruction file read by **GitHub Copilot CLI**, 
 | `src/orchestrator/` | DSDM workflow orchestrator that chains phases together; `pi_session_runner.py` runs a role through the pi.dev runtime when `AGENT_RUNTIME=pi` |
 | `src/tools/` | Tool registry consumed by every agent (DSDM tools, file tools, integrations); `tool_service.py` bridges the registry to pi.dev |
 | `src/rooms/` | Multi-agent "delivery room" runtime |
+| `src/gui/` | DSDM Agents Console — the browser GUI (`python main.py --gui`); stdlib-only server plus static assets in `src/gui/static/` |
 | `pi/` | pi.dev TypeScript workspace (`dsdm-tools-bridge`, `dsdm-approval-gate` extensions) — the `pi` agent execution runtime |
 | `docs/` | Source-of-truth requirements, workflow diagram, technical reqs |
 | `generated/` | **All agent output goes here** — one folder per project |
@@ -53,11 +54,15 @@ Run with `copilot --prompt-file .github/prompts/<file>.prompt.md` (or via the in
 | Feasibility only | `.github/prompts/run-feasibility.prompt.md` |
 | PRD generation | `.github/prompts/run-product-management.prompt.md` |
 | Business study only | `.github/prompts/run-business-study.prompt.md` |
+| Functional model iteration | `.github/prompts/run-functional-model.prompt.md` |
 | Design & Build only | `.github/prompts/run-design-build.prompt.md` |
 | Implementation / deploy | `.github/prompts/run-implementation.prompt.md` |
 | Code review | `.github/prompts/code-review.prompt.md` |
 | Security review | `.github/prompts/security-review.prompt.md` |
+| DevOps quality gate | `.github/prompts/devops-quality-gate.prompt.md` |
+| Scope change request | `.github/prompts/run-change-request.prompt.md` |
 | MCP sync (Jira/Confluence/GitHub) | `.github/prompts/mcp-sync.prompt.md` |
+| Open Engine (Linear queue) setup | `.github/prompts/open-engine-linear-setup.prompt.md` |
 
 ## Conventions every agent must follow
 
@@ -75,6 +80,7 @@ Run with `copilot --prompt-file .github/prompts/<file>.prompt.md` (or via the in
 - Install: `pip install -r requirements.txt`.
 - Configure secrets in `.env` (see `.env.example`) — `ANTHROPIC_API_KEY` is required; `JIRA_*` / `CONFLUENCE_*` are optional.
 - Entry point: `python main.py --workflow --input "..."` or `python main.py --phase <phase> --input "..."`.
+- Browser console (for non-CLI users): `python main.py --gui` — see `docs/GUI.md`.
 
 ## Agent execution runtime
 
@@ -87,7 +93,9 @@ By default every phase runs on the legacy Python agent loop (`src/agents/base_ag
 ## Further reading
 
 - `README.md` — full project overview
+- `docs/FRAMEWORK-OVERVIEW.md` — what the framework is for, what it is *not*, the agent roster, and worked basic → complex scenarios
 - `GETTING_STARTED.md` — step-by-step walkthrough
+- `docs/GUI.md` — the browser console (GUI) guide
 - `docs/TECHNICAL_REQUIREMENTS.md` — system TRD
 - `docs/WORKFLOW_DIAGRAM.md` — end-to-end flow
 - `docs/DEVOPS_TOOLS.md` — installed tooling and versions

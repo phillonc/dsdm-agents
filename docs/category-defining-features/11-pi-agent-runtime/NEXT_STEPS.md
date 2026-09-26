@@ -14,6 +14,7 @@ This is the actionable, priority-ordered follow-up to `PRD.md`/`TRD.md` (section
 | Private vLLM provider | Built, config-generation tested (11 tests); no real vLLM server to verify against | `pi_session_runner.py` section 22 |
 | CLI wiring (`--agent-runtime`, `--llm-provider`, `--pi-doctor`, `--generate-agents`) | Built, smoke-tested manually against the real CLI | `main.py`, `src/agents/role_definitions_check.py` |
 | Lazy LLM client construction | Built, regression-tested (5 tests) | `src/agents/base_agent.py` |
+| CI for the `pi/` TypeScript workspace | Built (`npm install`, extension tests, `tsc --noEmit`) | `.github/workflows/pi-workspace-ci.yml` |
 | Git Pin replacement | Not started | — |
 | Native MCP client | Not started | — |
 | Session-tree/audit trail | Not started | — |
@@ -36,9 +37,9 @@ Everything built so far has been verified as thoroughly as possible without live
 
 Fix whatever this surfaces before moving on — any real-protocol mismatch found here is higher priority than any item below.
 
-### 2. Wire CI for the `pi/` TypeScript workspace
+### 2. Wire CI for the `pi/` TypeScript workspace — Done
 
-There is currently no CI coverage at all for `pi/extensions/*/index.test.ts` (10 passing tests, never run automatically) or for the Python side's interaction with a real `npm install`. Add a CI job that runs `npm install` in `pi/`, runs both extensions' `node --experimental-strip-types index.test.ts`, and ideally adds a `tsc --noEmit` step — no `tsconfig.json` exists yet, so extension code has only ever been verified by jiti's runtime type-stripping (which discards type errors), never statically checked.
+`.github/workflows/pi-workspace-ci.yml` runs on any push/PR touching `pi/**`: `npm install` in `pi/`, `npm test` (runs `node --experimental-strip-types` over every `extensions/*/index.test.ts` it finds — currently just `dsdm-approval-gate`'s 10 tests; `dsdm-tools-bridge` has none yet), and `npm run typecheck` (`tsc --noEmit` against a new `pi/tsconfig.json`, added along with a `typescript` devDependency since none existed before — passes clean with no errors today).
 
 ### 3. Resolve the `brace-expansion` supply-chain advisory
 

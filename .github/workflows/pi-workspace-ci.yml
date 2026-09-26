@@ -1,0 +1,36 @@
+name: pi workspace CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pi/**"
+      - ".github/workflows/pi-workspace-ci.yml"
+  pull_request:
+    paths:
+      - "pi/**"
+      - ".github/workflows/pi-workspace-ci.yml"
+
+jobs:
+  test-and-typecheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pi
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: pi/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run extension tests
+        run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
