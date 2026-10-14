@@ -44,6 +44,18 @@ def _new_orchestrator(kwargs, **overrides):
 
 
 # -- agent_runtime resolution -----------------------------------------------------
+def test_pi_model_error_reaches_phase_result(orchestrator_kwargs, monkeypatch):
+    monkeypatch.setenv("FAKE_PI_SCENARIO", "retry_exhausted")
+    orch = _new_orchestrator(orchestrator_kwargs, agent_runtime="pi")
+    orch.config.interactive = False
+    try:
+        result = orch.run_phase(DSDMPhase.FEASIBILITY, "Reply OK only.")
+        assert result.success is False
+        assert result.artifacts["error"] == "Connection error."
+    finally:
+        orch.shutdown_pi_bridge()
+
+
 def test_default_agent_runtime_is_legacy(orchestrator_kwargs):
     orch = _new_orchestrator(orchestrator_kwargs)
     assert orch.agent_runtime == "legacy"
