@@ -132,6 +132,8 @@ def _requires_llm(args: argparse.Namespace) -> bool:
         or args.room_status
         or args.room_export
         or args.room_dashboard
+        or args.list_phases
+        or args.list_tools
     )
 
 

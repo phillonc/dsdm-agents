@@ -3,6 +3,31 @@
   "name": "Please review all the functionality of",
   "createdAt": "2026-10-19T03:56:37.260Z",
   "filename": "31310031-472e-4ac9-bc0d-f99af59747ee.json",
-  "geminiStarted": false,
-  "messages": []
+  "geminiStarted": true,
+  "messages": [
+    {
+      "id": "947f19ef-3754-47cc-9ee2-252f83bc523f",
+      "role": "user",
+      "content": "Please review all the functionality of the DSDM agents. How would you enhance them",
+      "status": "cancelled",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": null,
+      "created_at": "2026-10-19T03:56:38.778Z",
+      "sender": "ios",
+      "is_cancelled": true
+    },
+    {
+      "id": "398347a2-deb8-4e64-9721-946569c709d3",
+      "role": "user",
+      "content": "Please review all the functionality of the DSDM agents. How would you enhance them",
+      "status": "pending",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": null,
+      "created_at": "2026-10-19T04:01:14.230Z",
+      "sender": "ios",
+      "is_cancelled": false
+    }
+  ]
 }
