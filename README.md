@@ -2,6 +2,53 @@
 
 AI-powered agents implementing the Dynamic Systems Development Method (DSDM) framework using the Claude Agent SDK.
 
+## Start here
+
+DSDM Agents is a Python-based DSDM workflow orchestrator with a browser console, specialist development and QA agents, an optional pi.dev execution runtime, and persistent multi-agent delivery rooms. Agent output is organised under `generated/<project>/`. Integrations and LLM-backed operations require their own configuration.
+
+| Goal | Command or guide |
+|---|---|
+| Install and configure | [Getting started](GETTING_STARTED.md) |
+| Open the browser console | `python main.py --gui` · [GUI guide](docs/GUI.md) |
+| Run an end-to-end workflow | `python main.py --workflow --input "Build a task management app"` |
+| Run one phase | `python main.py --phase feasibility --input "Assess a task management app"` |
+| Start a multi-agent delivery room | `python main.py --room-create --input "Build a task management app" --room-project "Task Platform"` |
+| Inspect a delivery room | `python main.py --room-status --room-project task-platform` |
+| Check pi runtime prerequisites | `python main.py --pi-doctor --agent-runtime pi` |
+| Check agent-role definitions for drift | `python main.py --generate-agents` |
+| Inspect documented roles and prompts | [Agent definitions](.github/agents/README.md) · [Reusable prompts](.github/prompts/) |
+
+### Repository map
+
+| Location | Responsibility |
+|---|---|
+| `main.py` | CLI entry point, console, runtime and delivery-room commands |
+| `src/agents/` | DSDM phase agents, development/QA specialists and role definitions |
+| `src/orchestrator/` | Phase sequencing and pi runtime integration |
+| `src/rooms/` | Delivery rooms, persisted state, progress and dashboard |
+| `src/tools/` | Agent tools and integration bridge |
+| `src/gui/` | Browser console |
+| `pi/` | Optional TypeScript pi.dev runtime/extensions |
+| `.github/agents/` | GitHub Copilot agent definitions |
+| `.github/prompts/` | Task-specific prompts |
+| `docs/` | Framework, GUI, technical and workflow guides |
+| `tests/` | Automated test suite |
+| `generated/` | Project-specific generated artifacts and included demos |
+
+### Verify the local installation
+
+After installing dependencies, run these commands without starting an LLM-backed delivery workflow:
+
+```bash
+python main.py --list-phases
+python main.py --list-tools
+python main.py --generate-agents
+```
+
+The role definition command checks consistency; it does not regenerate agent files. The optional pi runtime needs its own installed dependencies and configuration. A documented feature or command is not evidence that the current environment, external integrations or CI checks are healthy.
+
+---
+
 ## Key Features
 
 ### ✨ Core Capabilities
@@ -32,7 +79,7 @@ AI-powered agents implementing the Dynamic Systems Development Method (DSDM) fra
 - **Step Back / Rollback** - Undo completed stages from the console and put the generated documents back as they were, with a preview of every file affected and one level of undo
 - **Cross-Run History** - One timeline of every restore point across every run, so you can step back past a run boundary and the later runs built on it are undone with it
 - **Interactive Menu System** - Browse phases, configure agents, run workflows
-- **CLI Commands** - Full command-line interface with 11 flags and options
+- **CLI Commands** - Command-line interface for phases, workflows, delivery rooms, diagnostics, and GUI startup
 - **Programmatic API** - Python library for custom automation
 - **Agent Mode Configuration** - Per-phase or per-role execution settings
 - **Workflow Mode Configuration** - Customize interaction styles (code writing, tips, manual)
@@ -342,6 +389,7 @@ See `docs/category-defining-features/01-autonomous-delivery-room/` for the full 
 
 1. Clone the repository:
 ```bash
+git clone https://github.com/phillonc/dsdm-agents.git
 cd dsdm-agents
 ```
 
