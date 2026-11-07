@@ -317,8 +317,10 @@ treated as a local, single-user tool:
 ## Troubleshooting
 
 **"Setup is incomplete" when starting a run** — open the Setup page. Each
-failing check has the exact fix underneath it. The usual cause is a missing
-`ANTHROPIC_API_KEY` in `.env`. Restart the console after editing `.env`.
+failing check has the exact fix underneath it. Configure `LLM_PROVIDER` and
+only the selected provider's credentials in `.env` (no key for local Ollama).
+If using Anthropic with the built-in Python runtime, install its optional SDK
+with `pip install anthropic`. Restart the console after editing `.env`.
 
 **The port is already in use** — `python main.py --gui --gui-port 9000`.
 
