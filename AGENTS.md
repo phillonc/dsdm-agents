@@ -78,7 +78,7 @@ Run with `copilot --prompt-file .github/prompts/<file>.prompt.md` (or via the in
 
 - Python 3.10+; create venv via `python3 -m venv env && source env/bin/activate`.
 - Install: `pip install -r requirements.txt`.
-- Configure secrets in `.env` (see `.env.example`) — `ANTHROPIC_API_KEY` is required; `JIRA_*` / `CONFLUENCE_*` are optional.
+- Configure secrets in `.env` (see `.env.example`) — configure the API key for the selected provider (none for local Ollama); `ANTHROPIC_API_KEY` is only needed for Anthropic; `JIRA_*` / `CONFLUENCE_*` are optional.
 - Entry point: `python main.py --workflow --input "..."` or `python main.py --phase <phase> --input "..."`.
 - Browser console (for non-CLI users): `python main.py --gui` — see `docs/GUI.md`.
 
