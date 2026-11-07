@@ -90,7 +90,7 @@ naming, and the other frameworks' agents adopt those codes.
 2. A working checkout of whichever framework(s) I named above:
    - `dsdm-agents`: Python 3.10+, `python3 -m venv env && source env/bin/activate`,
      `pip install -r requirements.txt`, secrets in `.env` (see `.env.example`;
-     `ANTHROPIC_API_KEY` required).
+     only the selected hosted LLM provider's API key is required; local Ollama needs no API key).
    - `DSDM-Agency`: `pip install -e ".[dev]"`, `pytest -q` green.
    - `dsdm-dev`: `npm install` and a clean TypeScript compile.
 3. One or more AI runtimes on my machine (for example Codex, Claude Code, Claude Desktop,
