@@ -32,9 +32,12 @@ def _check(check_id: str, label: str, status: str, detail: str, fix: str = "") -
     return {"id": check_id, "label": label, "status": status, "detail": detail, "fix": fix}
 
 
-def _dependency_check() -> Dict[str, Any]:
+def _dependency_check(provider: Optional[Dict[str, Any]] = None, runtime: str = "legacy") -> Dict[str, Any]:
     missing: List[str] = []
-    for module, package in (("anthropic", "anthropic"), ("rich", "rich"), ("dotenv", "python-dotenv")):
+    required = [("rich", "rich"), ("dotenv", "python-dotenv")]
+    if runtime != "pi" and provider and provider["id"] == "anthropic":
+        required.append(("anthropic", "anthropic"))
+    for module, package in required:
         try:
             importlib.import_module(module)
         except ImportError:
@@ -45,7 +48,7 @@ def _dependency_check() -> Dict[str, Any]:
             "Python packages",
             "error",
             f"Missing: {', '.join(missing)}.",
-            "Run: pip install -r requirements.txt",
+            "Run: pip install -r requirements.txt; install the selected provider's SDK if listed as missing.",
         )
     return _check("dependencies", "Python packages", "ok", "All required packages are installed.")
 
@@ -190,7 +193,7 @@ def readiness() -> Dict[str, Any]:
             f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}.",
             "" if sys.version_info >= (3, 10) else "DSDM Agents needs Python 3.10 or newer.",
         ),
-        _dependency_check(),
+        _dependency_check(provider, runtime),
         _provider_check(provider),
     ]
     checks.extend(_runtime_checks(provider, runtime))
