@@ -1,6 +1,65 @@
 # DSDM Agents
 
-AI-powered agents implementing the Dynamic Systems Development Method (DSDM) framework using the Claude Agent SDK.
+AI-powered agents implementing the Dynamic Systems Development Method (DSDM) through GitHub Copilot custom agents and an optional Python-based orchestration framework.
+
+## GitHub Copilot setup (no Python or Anthropic extension required)
+
+For a **Copilot-only** setup, use the `.github/` configuration. The repository's Python framework and `pi/` runtime are separate, optional execution paths.
+
+| Component | Path | Purpose |
+|---|---|---|
+| Shared Copilot instructions | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | Direct Copilot to repository governance and available skills |
+| DSDM custom agents | [`.github/agents/`](.github/agents/) | Specialized phase, development, testing, security and review roles |
+| Jira skill | [`.github/skills/jira-management/SKILL.md`](.github/skills/jira-management/SKILL.md) | Jira setup, backlog management, issue updates and acceptance evidence |
+| Confluence skill | [`.github/skills/confluence-management/SKILL.md`](.github/skills/confluence-management/SKILL.md) | Confluence spaces, PRDs/TRDs, documentation and updates |
+| Governance | [`constitute.md`](constitute.md), [`consultation.md`](consultation.md) and [`AGENTS.md`](AGENTS.md) | Constitution, approval gates, scope, security, handoffs and definition of done |
+
+### VS Code configuration illustrations
+
+The following images show the configuration layout and steps. They are **illustrative diagrams**, not screenshots of an authenticated VS Code or Atlassian session.
+
+**1. Repository files and Copilot skills**
+
+![VS Code Copilot configuration files](docs/images/vscode-copilot-files.svg)
+
+**2. Copilot agent configuration and governance**
+
+![VS Code Copilot agent configuration](docs/images/vscode-agent-configuration.svg)
+
+**3. Jira and Confluence MCP configuration**
+
+![VS Code Atlassian MCP configuration](docs/images/vscode-atlassian-mcp.svg)
+
+### Configure VS Code step by step
+
+The following steps describe the **intended configuration**, not a verified connection in your local VS Code installation.
+
+1. Install **Visual Studio Code** and the official **GitHub Copilot** and **GitHub Copilot Chat** extensions, then sign in to GitHub. You do **not** need the Anthropic/Claude extension.
+2. Clone or open the target repository in VS Code. Make sure `.github/copilot-instructions.md`, `.github/agents/*.agent.md`, and `.github/skills/*/SKILL.md` exist in that workspace.
+3. Open **Copilot Chat**, select **Agent** mode, and choose a DSDM custom agent from the agent picker. If a role does not appear, confirm the file uses valid `.agent.md` frontmatter and that the installed Copilot version supports custom agents.
+4. Confirm `.github/copilot-instructions.md` references `AGENTS.md` and `consultation.md`. When copying only `.github/` to another repository, also copy the two root governance files or move their rules into the copied instructions.
+5. To enable Jira/Confluence, open the VS Code Command Palette and use the MCP server configuration command available in your Copilot version (for example, **MCP: Add Server**). Configure the official Atlassian MCP endpoint using Atlassian's current instructions, then complete the browser-based sign-in. Do not put tokens in tracked files.
+6. Verify that Copilot discovers the Atlassian MCP tools and has access to the intended Jira project and Confluence space. Access depends on your Atlassian account permissions.
+7. In Copilot Chat, request a **read-only** Jira issue lookup and a **read-only** Confluence page lookup using the two skills. Check returned issue keys and page URLs before allowing writes.
+8. For any create, update, transition, publication, or configuration change, follow the approval gates in `consultation.md`. Confirm the result by reading it back.
+
+**Illustrative VS Code screens:** the previously generated VS Code images are design mockups, not screenshots of a live authenticated setup. UI labels and menus may differ by VS Code and Copilot version. A green `Connected` indicator in a mockup is not evidence that your Atlassian connection is active.
+
+**Minimal files:** `.github/` contains the Copilot configuration, agent definitions, and skills. The repository-root `AGENTS.md` and `consultation.md` must remain accessible if they are referenced. No separate Python/Pi installation is needed for the Copilot-only workflow.
+
+### Use the Copilot agents
+
+1. Add this repository's `.github/` folder to the repository where Copilot will work, or open this repository in a supported Copilot environment.
+2. Enable GitHub Copilot agent functionality and choose an available custom agent from `.github/agents/`. Agent availability, handoffs and tools vary by Copilot surface.
+3. Assign a scoped task with acceptance criteria. Copilot follows the shared instructions and the selected agent's role definition.
+4. For Jira or Confluence tasks, connect an **authorized Atlassian MCP server** in the Copilot environment, then ask Copilot to use the relevant skill. The skill files do not establish a connection or grant permissions.
+5. Require human approval for the operations identified in `consultation.md`, and verify the resulting issue/page after any write.
+
+The skills use MCP tools **discovered at runtime**, not fixed Python tool names. Without an accessible Atlassian MCP connection, they can prepare a plan but cannot create or update Jira issues or Confluence pages. No Anthropic extension, Anthropic API key, Python dependency installation, or Pi runtime is needed for this Copilot-only path. Optional Anthropic support remains available in the separate Python workflow.
+
+> **Repository state:** Copilot agent definitions are already present. The Jira/Confluence skills and `.github/copilot-instructions.md` are introduced in the same proposed change as this README update. `consultation.md` is a separate governance document; ensure it is present in the target branch and accessible to Copilot before treating its rules as active.
+
+---
 
 ## Start here
 
@@ -30,6 +89,9 @@ DSDM Agents is a Python-based DSDM workflow orchestrator with a browser console,
 | `src/gui/` | Browser console |
 | `pi/` | Optional TypeScript pi.dev runtime/extensions |
 | `.github/agents/` | GitHub Copilot agent definitions |
+| `.github/skills/` | Jira and Confluence Copilot skills (MCP-based) |
+| `.github/copilot-instructions.md` | Shared Copilot configuration and governance links |
+| `consultation.md` | Agent consultation, approval and quality rules |
 | `.github/prompts/` | Task-specific prompts |
 | `docs/` | Framework, GUI, technical and workflow guides |
 | `tests/` | Automated test suite |
