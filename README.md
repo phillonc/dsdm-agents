@@ -1,6 +1,32 @@
 # DSDM Agents
 
-AI-powered agents implementing the Dynamic Systems Development Method (DSDM) framework using the Claude Agent SDK.
+AI-powered agents implementing the Dynamic Systems Development Method (DSDM) through GitHub Copilot custom agents and an optional Python-based orchestration framework.
+
+## GitHub Copilot setup (no Python or Anthropic extension required)
+
+For a **Copilot-only** setup, use the `.github/` configuration. The repository's Python framework and `pi/` runtime are separate, optional execution paths.
+
+| Component | Path | Purpose |
+|---|---|---|
+| Shared Copilot instructions | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | Direct Copilot to repository governance and available skills |
+| DSDM custom agents | [`.github/agents/`](.github/agents/) | Specialized phase, development, testing, security and review roles |
+| Jira skill | [`.github/skills/jira-management/SKILL.md`](.github/skills/jira-management/SKILL.md) | Jira setup, backlog management, issue updates and acceptance evidence |
+| Confluence skill | [`.github/skills/confluence-management/SKILL.md`](.github/skills/confluence-management/SKILL.md) | Confluence spaces, PRDs/TRDs, documentation and updates |
+| Governance | [`consultation.md`](consultation.md) and [`AGENTS.md`](AGENTS.md) | Approval gates, scope, security, handoffs and definition of done |
+
+### Use the Copilot agents
+
+1. Add this repository's `.github/` folder to the repository where Copilot will work, or open this repository in a supported Copilot environment.
+2. Enable GitHub Copilot agent functionality and choose an available custom agent from `.github/agents/`. Agent availability, handoffs and tools vary by Copilot surface.
+3. Assign a scoped task with acceptance criteria. Copilot follows the shared instructions and the selected agent's role definition.
+4. For Jira or Confluence tasks, connect an **authorized Atlassian MCP server** in the Copilot environment, then ask Copilot to use the relevant skill. The skill files do not establish a connection or grant permissions.
+5. Require human approval for the operations identified in `consultation.md`, and verify the resulting issue/page after any write.
+
+The skills use MCP tools **discovered at runtime**, not fixed Python tool names. Without an accessible Atlassian MCP connection, they can prepare a plan but cannot create or update Jira issues or Confluence pages. No Anthropic extension, Anthropic API key, Python dependency installation, or Pi runtime is needed for this Copilot-only path. Optional Anthropic support remains available in the separate Python workflow.
+
+> **Repository state:** Copilot agent definitions are already present. The Jira/Confluence skills and `.github/copilot-instructions.md` are introduced in the same proposed change as this README update. `consultation.md` is a separate governance document; ensure it is present in the target branch and accessible to Copilot before treating its rules as active.
+
+---
 
 ## Start here
 
@@ -30,6 +56,9 @@ DSDM Agents is a Python-based DSDM workflow orchestrator with a browser console,
 | `src/gui/` | Browser console |
 | `pi/` | Optional TypeScript pi.dev runtime/extensions |
 | `.github/agents/` | GitHub Copilot agent definitions |
+| `.github/skills/` | Jira and Confluence Copilot skills (MCP-based) |
+| `.github/copilot-instructions.md` | Shared Copilot configuration and governance links |
+| `consultation.md` | Agent consultation, approval and quality rules |
 | `.github/prompts/` | Task-specific prompts |
 | `docs/` | Framework, GUI, technical and workflow guides |
 | `tests/` | Automated test suite |
