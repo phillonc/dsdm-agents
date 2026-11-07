@@ -14,6 +14,22 @@ For a **Copilot-only** setup, use the `.github/` configuration. The repository's
 | Confluence skill | [`.github/skills/confluence-management/SKILL.md`](.github/skills/confluence-management/SKILL.md) | Confluence spaces, PRDs/TRDs, documentation and updates |
 | Governance | [`consultation.md`](consultation.md) and [`AGENTS.md`](AGENTS.md) | Approval gates, scope, security, handoffs and definition of done |
 
+### VS Code configuration illustrations
+
+The following images show the configuration layout and steps. They are **illustrative diagrams**, not screenshots of an authenticated VS Code or Atlassian session.
+
+**1. Repository files and Copilot skills**
+
+![VS Code Copilot configuration files](docs/images/vscode-copilot-files.svg)
+
+**2. Copilot agent configuration and governance**
+
+![VS Code Copilot agent configuration](docs/images/vscode-agent-configuration.svg)
+
+**3. Jira and Confluence MCP configuration**
+
+![VS Code Atlassian MCP configuration](docs/images/vscode-atlassian-mcp.svg)
+
 ### Configure VS Code step by step
 
 The following steps describe the **intended configuration**, not a verified connection in your local VS Code installation.
