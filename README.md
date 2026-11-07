@@ -14,6 +14,23 @@ For a **Copilot-only** setup, use the `.github/` configuration. The repository's
 | Confluence skill | [`.github/skills/confluence-management/SKILL.md`](.github/skills/confluence-management/SKILL.md) | Confluence spaces, PRDs/TRDs, documentation and updates |
 | Governance | [`consultation.md`](consultation.md) and [`AGENTS.md`](AGENTS.md) | Approval gates, scope, security, handoffs and definition of done |
 
+### Configure VS Code step by step
+
+The following steps describe the **intended configuration**, not a verified connection in your local VS Code installation.
+
+1. Install **Visual Studio Code** and the official **GitHub Copilot** and **GitHub Copilot Chat** extensions, then sign in to GitHub. You do **not** need the Anthropic/Claude extension.
+2. Clone or open the target repository in VS Code. Make sure `.github/copilot-instructions.md`, `.github/agents/*.agent.md`, and `.github/skills/*/SKILL.md` exist in that workspace.
+3. Open **Copilot Chat**, select **Agent** mode, and choose a DSDM custom agent from the agent picker. If a role does not appear, confirm the file uses valid `.agent.md` frontmatter and that the installed Copilot version supports custom agents.
+4. Confirm `.github/copilot-instructions.md` references `AGENTS.md` and `consultation.md`. When copying only `.github/` to another repository, also copy the two root governance files or move their rules into the copied instructions.
+5. To enable Jira/Confluence, open the VS Code Command Palette and use the MCP server configuration command available in your Copilot version (for example, **MCP: Add Server**). Configure the official Atlassian MCP endpoint using Atlassian's current instructions, then complete the browser-based sign-in. Do not put tokens in tracked files.
+6. Verify that Copilot discovers the Atlassian MCP tools and has access to the intended Jira project and Confluence space. Access depends on your Atlassian account permissions.
+7. In Copilot Chat, request a **read-only** Jira issue lookup and a **read-only** Confluence page lookup using the two skills. Check returned issue keys and page URLs before allowing writes.
+8. For any create, update, transition, publication, or configuration change, follow the approval gates in `consultation.md`. Confirm the result by reading it back.
+
+**Illustrative VS Code screens:** the previously generated VS Code images are design mockups, not screenshots of a live authenticated setup. UI labels and menus may differ by VS Code and Copilot version. A green `Connected` indicator in a mockup is not evidence that your Atlassian connection is active.
+
+**Minimal files:** `.github/` contains the Copilot configuration, agent definitions, and skills. The repository-root `AGENTS.md` and `consultation.md` must remain accessible if they are referenced. No separate Python/Pi installation is needed for the Copilot-only workflow.
+
 ### Use the Copilot agents
 
 1. Add this repository's `.github/` folder to the repository where Copilot will work, or open this repository in a supported Copilot environment.
