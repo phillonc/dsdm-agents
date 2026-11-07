@@ -12,7 +12,7 @@ For a **Copilot-only** setup, use the `.github/` configuration. The repository's
 | DSDM custom agents | [`.github/agents/`](.github/agents/) | Specialized phase, development, testing, security and review roles |
 | Jira skill | [`.github/skills/jira-management/SKILL.md`](.github/skills/jira-management/SKILL.md) | Jira setup, backlog management, issue updates and acceptance evidence |
 | Confluence skill | [`.github/skills/confluence-management/SKILL.md`](.github/skills/confluence-management/SKILL.md) | Confluence spaces, PRDs/TRDs, documentation and updates |
-| Governance | [`consultation.md`](consultation.md) and [`AGENTS.md`](AGENTS.md) | Approval gates, scope, security, handoffs and definition of done |
+| Governance | [`constitute.md`](constitute.md), [`consultation.md`](consultation.md) and [`AGENTS.md`](AGENTS.md) | Constitution, approval gates, scope, security, handoffs and definition of done |
 
 ### VS Code configuration illustrations
 
