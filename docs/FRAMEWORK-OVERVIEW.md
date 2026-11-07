@@ -122,7 +122,7 @@ who writes the code: `agent_writes_code`, `agent_provides_tips`, or
 ```bash
 python3 -m venv env && source env/bin/activate
 pip install -r requirements.txt
-cp .env.example .env          # ANTHROPIC_API_KEY required; JIRA_* / CONFLUENCE_* optional
+cp .env.example .env          # Configure your selected LLM provider; Jira/Confluence optional
 ```
 
 ### 2. Run one phase
