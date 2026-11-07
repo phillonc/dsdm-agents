@@ -383,7 +383,7 @@ See `docs/category-defining-features/01-autonomous-delivery-room/` for the full 
 ### Prerequisites
 
 - Python 3.10+
-- Anthropic API key (or Ollama for local LLM)
+- An API key for your selected hosted LLM provider, or a local Ollama installation. No Anthropic extension or API key is required when using another provider.
 
 ### Installation
 
@@ -409,10 +409,12 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` and add your Anthropic API key:
+Edit `.env` and select your provider. For example, to use OpenAI:
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your-api-key-here
 ```
-ANTHROPIC_API_KEY=your-api-key-here
-```
+Install the chosen provider SDK when using the built-in runtime (`pip install openai` for OpenAI, `pip install google-generativeai` for Gemini, or `pip install anthropic` for Anthropic). Anthropic and its SDK are optional; local Ollama needs no API key. See [LLM Provider Configuration](#llm-provider-configuration).
 
 ### Prefer a GUI? Start the console
 
@@ -1067,7 +1069,10 @@ DSDM Agents supports multiple LLM providers. Configure your preferred provider i
 | **Gemini** | Google AI models | gemini-2.5-pro, gemini-2.5-flash |
 | **Ollama** | Local/Cloud LLM | kimi-k2-thinking:cloud, llama3.2, codellama |
 
-#### Anthropic (Default)
+#### Anthropic (Default, Optional SDK)
+
+For the built-in Python runtime only, run `pip install anthropic` if you select Anthropic. You do not need an Anthropic IDE extension.
+
 ```env
 LLM_PROVIDER=anthropic
 ANTHROPIC_API_KEY=your-api-key-here

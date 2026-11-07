@@ -21,7 +21,7 @@ This guide walks you through setting up and using DSDM Agents to manage your sof
 Before you begin, ensure you have:
 
 - **Python 3.10 or higher** installed
-- **An API key for your chosen LLM provider**:
+- **An API key for your chosen hosted LLM provider** (no Anthropic IDE extension is required):
   - Anthropic (default): [console.anthropic.com](https://console.anthropic.com)
   - OpenAI: [platform.openai.com](https://platform.openai.com/api-keys)
   - Google Gemini: [aistudio.google.com](https://aistudio.google.com/app/apikey)
@@ -70,6 +70,9 @@ pip install -r requirements.txt
 For optional LLM providers, install additional packages:
 
 ```bash
+# For Anthropic (only if selected with the built-in Python runtime)
+pip install anthropic
+
 # For OpenAI
 pip install openai
 
@@ -671,8 +674,9 @@ result = orchestrator.run_phase(
 **"Module not found"**
 - Activate the virtual environment: `source env/bin/activate`
 - Reinstall dependencies: `pip install -r requirements.txt`
-- For OpenAI/Gemini, install optional packages:
+- Install the SDK only for your selected hosted provider when using the built-in Python runtime:
   ```bash
+  pip install anthropic  # For Anthropic
   pip install openai  # For OpenAI
   pip install google-generativeai  # For Gemini
   ```

@@ -61,7 +61,7 @@ Same as the rest of the repo — see [`GETTING_STARTED.md`](GETTING_STARTED.md)
 for the full walkthrough. Minimum to run slash commands:
 
 - Python 3.10+, venv created, `pip install -r requirements.txt`
-- `.env` configured with at least `ANTHROPIC_API_KEY` (or another provider)
+- `.env` configured for the selected LLM provider (hosted providers need their own key; local Ollama needs none). No Anthropic extension is required.
 - [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli)
   installed and authenticated (`npm install -g @githubnext/github-copilot-cli`
   or the current official package — check GitHub's docs for the latest
