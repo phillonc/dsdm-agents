@@ -160,6 +160,48 @@ The role definition command checks consistency; it does not regenerate agent fil
 
 ---
 
+## Structured development plans
+
+Business Study, Dev Lead, Design & Build, and Automation Tester can use three
+provider-independent tools through the Python runtime or pi bridge:
+
+- `generate_development_plan`: creates GOAL → FEATURE → EPIC → STORY → TASK items,
+  draft UNIT/INTEGRATION/E2E specifications, and requirement traceability.
+- `review_development_plan`: checks hierarchy, MoSCoW priority, story size (default
+  maximum 8 points), acceptance criteria and explicit test mappings.
+- `build_traceability`: rebuilds requirement-to-item/criterion/test mappings.
+
+Supply one structured requirement per story. IDs are deterministic for the same
+ordered input. Feature and epic labels group stories. Example:
+
+```python
+from src.tools.planning_tools import generate_development_plan
+
+plan = generate_development_plan([{
+    "id": "REQ-1", "title": "Export a report", "feature": "Reporting",
+    "epic": "Exports", "priority": "must_have", "story_points": 3,
+    "acceptance_criteria": [
+        "Given a report, when exported, then a CSV downloads"
+    ],
+}], goal="Make reports portable")
+```
+
+Save plans using `file_write` under `generated/<project>/docs/`. Empty acceptance
+criteria and oversized stories remain visible as review failures. Draft test
+specifications require implementation and execution. `review.passed` measures
+specification completeness and always reports `execution_verified=False`.
+
+Application integrators can call
+`src.orchestrator.execution_evidence.verify_execution_evidence(record, task_id, verifier)`.
+Records require `execution_id`, `task_id`, `agent_id`, `authorization_decision_id`,
+timezone-aware `started_at`/`finished_at`, non-empty `artifacts` (`uri`, `sha256`)
+and passing `tests` (`suite`, `status="PASSED"`, `report_uri`). The application must
+bind an independent verifier that checks authorization, artifact hashes and test
+reports against trusted executor stores. Missing, rejecting or unavailable
+verifiers fail closed. Model-supplied verification flags are ignored. This API is
+not an agent tool and does not install an executor, enforce phase transitions or
+authorize deployments.
+
 ## Overview
 
 DSDM Agents provides a set of specialized AI agents for each phase of the DSDM methodology, plus a DevOps agent based on the Development Principles.
