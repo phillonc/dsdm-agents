@@ -62,9 +62,20 @@ When work items are created or their status changes, sync to Jira and Confluence
 5. Use `confluence_create_dsdm_doc` to create business study documentation in Confluence
 
 This ensures all stakeholders have visibility into requirements and priorities across both platforms.
+
+## Structured planning
+Use generate_development_plan with explicit requirement IDs, feature/epic labels,
+MoSCoW priorities and stakeholder acceptance criteria. Save its JSON with file_write
+under generated/<project>/docs/. Run review_development_plan before handoff and
+resolve its issues. build_traceability links requirements to work items and tests.
+Generated test specifications are drafts, not executed tests. A passing plan review
+is not proof of execution or authorization to deploy.
 """
 
 BUSINESS_STUDY_TOOLS = [
+    "generate_development_plan",
+    "review_development_plan",
+    "build_traceability",
     "analyze_business_process",
     "identify_stakeholders",
     "prioritize_requirements",
