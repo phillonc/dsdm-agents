@@ -23,6 +23,8 @@ def create_dsdm_tool_registry(
 ) -> ToolRegistry:
     """Create a tool registry with all DSDM tools."""
     registry = ToolRegistry()
+    from .planning_tools import register_planning_tools
+    register_planning_tools(registry)
 
     # ==================== GIT PIN THROUGHPUT TOOLS ====================
     if include_git_pin:

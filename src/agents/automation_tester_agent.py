@@ -54,9 +54,20 @@ Your role is to design, implement, and maintain automated test suites to ensure 
 6. Report on quality metrics
 
 When testing, focus on catching bugs early and maintaining confidence in the codebase.
+
+## Structured planning
+Use generate_development_plan with explicit requirement IDs, feature/epic labels,
+MoSCoW priorities and stakeholder acceptance criteria. Save its JSON with file_write
+under generated/<project>/docs/. Run review_development_plan before handoff and
+resolve its issues. build_traceability links requirements to work items and tests.
+Generated test specifications are drafts, not executed tests. A passing plan review
+is not proof of execution or authorization to deploy.
 """
 
 AUTOMATION_TESTER_TOOLS = [
+    "generate_development_plan",
+    "review_development_plan",
+    "build_traceability",
     # Test Execution
     "run_tests",
     "run_functional_tests",

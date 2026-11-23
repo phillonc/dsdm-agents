@@ -66,9 +66,20 @@ file_write(file_path="my-project/docs/TECHNICAL_REQUIREMENTS.md", content="...")
 File will be saved to: `generated/my-project/docs/TECHNICAL_REQUIREMENTS.md`
 
 When leading development, coordinate with specialized developers and testers to deliver quality systems.
+
+## Structured planning
+Use generate_development_plan with explicit requirement IDs, feature/epic labels,
+MoSCoW priorities and stakeholder acceptance criteria. Save its JSON with file_write
+under generated/<project>/docs/. Run review_development_plan before handoff and
+resolve its issues. build_traceability links requirements to work items and tests.
+Generated test specifications are drafts, not executed tests. A passing plan review
+is not proof of execution or authorization to deploy.
 """
 
 DEV_LEAD_TOOLS = [
+    "generate_development_plan",
+    "review_development_plan",
+    "build_traceability",
     # Architecture & Design
     "create_technical_design",
     "define_architecture",
